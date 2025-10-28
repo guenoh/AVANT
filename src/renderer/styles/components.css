@@ -8,26 +8,30 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-4);
-  font-size: var(--font-size-sm);
+  padding: var(--btn-padding-md);
+  font-size: var(--btn-font-md);
   font-weight: var(--font-weight-medium);
   line-height: 1;
+  min-height: var(--btn-height-md);
   color: var(--color-text);
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-base);
   white-space: nowrap;
   user-select: none;
 }
 
 .btn:hover:not(:disabled) {
   background-color: var(--color-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn:disabled {
@@ -91,21 +95,40 @@
 }
 
 /* Button sizes */
-.btn-sm {
-  padding: var(--spacing-1) var(--spacing-2);
-  font-size: var(--font-size-xs);
+.btn-xs {
+  padding: var(--btn-padding-xs);
+  font-size: var(--btn-font-xs);
+  min-height: var(--btn-height-xs);
+  min-width: var(--btn-min-width-xs);
 }
 
-.btn-action {
-  padding: var(--spacing-2) var(--spacing-4);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  min-width: 70px;
+.btn-sm {
+  padding: var(--btn-padding-sm);
+  font-size: var(--btn-font-sm);
+  min-height: var(--btn-height-sm);
+  min-width: var(--btn-min-width-sm);
+}
+
+.btn-md {
+  padding: var(--btn-padding-md);
+  font-size: var(--btn-font-md);
+  min-height: var(--btn-height-md);
+  min-width: var(--btn-min-width-md);
 }
 
 .btn-lg {
-  padding: var(--spacing-3) var(--spacing-6);
-  font-size: var(--font-size-base);
+  padding: var(--btn-padding-lg);
+  font-size: var(--btn-font-lg);
+  min-height: var(--btn-height-lg);
+  min-width: var(--btn-min-width-lg);
+}
+
+/* 특수 버튼 - 액션 버튼 (초기화/저장/실행) */
+.btn-action {
+  padding: var(--btn-padding-md);
+  font-size: var(--btn-font-md);
+  font-weight: var(--font-weight-semibold);
+  min-width: var(--btn-min-width-md);
 }
 
 /* Button groups */
@@ -491,15 +514,21 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 9999999;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: auto;
+  animation: fadeIn var(--transition-base);
 }
 
 .modal.hidden {
   display: none !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-backdrop {
@@ -508,25 +537,38 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
   z-index: 1;
 }
 
 .modal-content {
   position: relative;
-  background: #ffffff;
-  color: #000000;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--color-background);
+  color: var(--color-text);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow: auto;
   z-index: 2;
+  animation: slideUp var(--transition-base);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-header {
-  padding: var(--spacing-4);
+  padding: var(--spacing-5) var(--spacing-6);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
@@ -535,39 +577,43 @@
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
 }
 
 .modal-close {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   cursor: pointer;
-  color: var(--color-text-light);
+  color: var(--color-text-secondary);
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
+  transition: all var(--transition-base);
 }
 
 .modal-close:hover {
-  background: var(--color-background);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transform: rotate(90deg);
 }
 
 .modal-body {
-  padding: var(--spacing-4);
+  padding: var(--spacing-6);
 }
 
 .modal-footer {
-  padding: var(--spacing-4);
+  padding: var(--spacing-5) var(--spacing-6);
   border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-2);
+  gap: var(--spacing-3);
 }
 
 .info-box {

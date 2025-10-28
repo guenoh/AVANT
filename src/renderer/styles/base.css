@@ -38,13 +38,14 @@
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-mono: 'SF Mono', 'Monaco', 'Consolas', 'Liberation Mono', monospace;
 
-  --font-size-xs: 0.75rem;   /* 12px */
-  --font-size-sm: 0.875rem;  /* 14px */
-  --font-size-base: 1rem;    /* 16px */
-  --font-size-lg: 1.125rem;  /* 18px */
-  --font-size-xl: 1.25rem;   /* 20px */
-  --font-size-2xl: 1.5rem;   /* 24px */
-  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-md: 0.8125rem;  /* 13px - 추가 */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -95,6 +96,27 @@
   --z-popover: 500;
   --z-tooltip: 600;
   --z-notification: 700;
+
+  /* Button Sizes - 버튼 크기 표준 */
+  --btn-padding-xs: var(--spacing-1) var(--spacing-2);    /* 4px 8px */
+  --btn-padding-sm: 6px 12px;                             /* 6px 12px */
+  --btn-padding-md: var(--spacing-2) var(--spacing-4);    /* 8px 16px */
+  --btn-padding-lg: 10px 20px;                            /* 10px 20px */
+
+  --btn-font-xs: var(--font-size-xs);     /* 12px */
+  --btn-font-sm: var(--font-size-md);     /* 13px */
+  --btn-font-md: var(--font-size-sm);     /* 14px */
+  --btn-font-lg: var(--font-size-base);   /* 16px */
+
+  --btn-height-xs: 24px;
+  --btn-height-sm: 32px;
+  --btn-height-md: 36px;
+  --btn-height-lg: 44px;
+
+  --btn-min-width-xs: 50px;
+  --btn-min-width-sm: 60px;
+  --btn-min-width-md: 80px;
+  --btn-min-width-lg: 100px;
 }
 
 /* Dark theme */
