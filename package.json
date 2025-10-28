@@ -1,0 +1,27 @@
+{
+  "name": "vision-auto",
+  "version": "1.0.0",
+  "description": "Android automation tool with image matching and ADB integration",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "NODE_ENV=development electron . --dev",
+    "dev": "NODE_ENV=development electron . --dev",
+    "prod": "NODE_ENV=production electron ."
+  },
+  "keywords": [
+    "electron",
+    "android",
+    "automation",
+    "adb",
+    "image-matching",
+    "macro"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "jimp": "^0.22.10"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}
