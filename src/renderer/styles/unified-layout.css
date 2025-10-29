@@ -153,6 +153,163 @@
   height: 100%;
 }
 
+/* 한 줄 디바이스 레이아웃 */
+.device-single-line {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.device-section-title {
+  flex-shrink: 0;
+}
+
+.device-section-title h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.device-tabs-inline {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.device-tab-inline {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.device-tab-inline:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.device-tab-inline.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.connection-area-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-shrink: 0;
+}
+
+.device-list-inline {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.input-xs {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.input-xs:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.btn-xs {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.divider-vertical {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.device-status-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: var(--radius-sm);
+  color: white;
+  flex-shrink: 0;
+}
+
+.device-status-inline.hidden {
+  display: none;
+}
+
+.status-dot-inline {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+  flex-shrink: 0;
+}
+
+.status-info-inline {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-close-inline {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  font-size: 0.875rem;
+  line-height: 1;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-close-inline:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.device-empty-inline {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.empty-text {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
 /* 디바이스 탭 */
 .device-tabs {
   display: flex;
@@ -230,7 +387,7 @@
 .device-status-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: var(--radius-md);
-  padding: var(--spacing-3);
+  padding: var(--spacing-2);
   color: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -243,29 +400,29 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--spacing-1);
 }
 
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
 }
 
 .status-dot.connected {
   background: #4ade80;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
 }
 
 .status-text {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -276,14 +433,14 @@
   background: rgba(255, 255, 255, 0.2);
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: white;
-  font-size: 1.2rem;
+  font-size: 1rem;
   line-height: 1;
   transition: background 0.2s;
 }
@@ -295,35 +452,35 @@
 .status-body {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .status-info {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
+  gap: 2px;
 }
 
 .device-name-text {
-  font-size: 1.125rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .device-version-text {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   opacity: 0.8;
 }
 
 .status-details {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
-  padding-top: var(--spacing-2);
+  gap: 2px;
+  padding-top: var(--spacing-1);
   border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .detail-text {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   opacity: 0.8;
 }
 

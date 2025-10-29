@@ -238,7 +238,7 @@ function setupIpcHandlers() {
           throw new Error('ccNC stream already active');
         }
 
-        const fps = options?.maxFps || 10;
+        const fps = options?.maxFps || 5;
         const interval = 1000 / fps;
 
         ccncStreamInterval = setInterval(async () => {

@@ -399,6 +399,19 @@ class UnifiedApp {
   }
 
   showDeviceStatusCard(info) {
+    // Try inline style first
+    const statusInline = document.getElementById('device-status-inline');
+    const statusInfo = document.getElementById('status-info-inline');
+    const emptyInline = document.getElementById('device-empty-inline');
+
+    if (statusInline && statusInfo) {
+      statusInfo.textContent = `${info.name || 'Device'} ${info.version || ''}`;
+      statusInline.classList.remove('hidden');
+      if (emptyInline) emptyInline.classList.add('hidden');
+      return;
+    }
+
+    // Fallback to old card style
     const statusCard = document.getElementById('device-status-card');
     if (!statusCard) return;
 
@@ -427,6 +440,17 @@ class UnifiedApp {
   }
 
   disconnectDevice() {
+    // Hide inline style
+    const statusInline = document.getElementById('device-status-inline');
+    const emptyInline = document.getElementById('device-empty-inline');
+    if (statusInline) {
+      statusInline.classList.add('hidden');
+    }
+    if (emptyInline) {
+      emptyInline.classList.remove('hidden');
+    }
+
+    // Hide old card style
     const statusCard = document.getElementById('device-status-card');
     if (statusCard) {
       statusCard.classList.add('hidden');
@@ -476,11 +500,9 @@ class UnifiedApp {
   onConnectionTypeChange(type) {
     const adbArea = document.getElementById('adb-connection-area');
     const ccncArea = document.getElementById('ccnc-connection-area');
-    const scanBtn = document.querySelector('.panel-actions button:nth-child(1)');
-    const wirelessBtn = document.querySelector('.panel-actions button:nth-child(2)');
 
-    // Update tab active state
-    document.querySelectorAll('.device-tab').forEach(tab => {
+    // Update tab active state (both old and new styles)
+    document.querySelectorAll('.device-tab, .device-tab-inline').forEach(tab => {
       if (tab.dataset.type === type) {
         tab.classList.add('active');
       } else {
@@ -489,16 +511,12 @@ class UnifiedApp {
     });
 
     if (type === 'adb') {
-      adbArea.style.display = 'block';
+      adbArea.style.display = 'flex';
       ccncArea.style.display = 'none';
-      if (scanBtn) scanBtn.disabled = false;
-      if (wirelessBtn) wirelessBtn.disabled = false;
       this.state.connectionType = 'adb';
     } else if (type === 'ccnc') {
       adbArea.style.display = 'none';
-      ccncArea.style.display = 'block';
-      if (scanBtn) scanBtn.disabled = true;
-      if (wirelessBtn) wirelessBtn.disabled = true;
+      ccncArea.style.display = 'flex';
       this.state.connectionType = 'ccnc';
     }
   }
