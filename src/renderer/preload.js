@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('api', {
     select: (deviceId) => ipcRenderer.invoke('device:select', deviceId),
     getInfo: () => ipcRenderer.invoke('device:info'),
     connectWireless: (ip) => ipcRenderer.invoke('device:connect-wireless', ip),
+    connectCCNC: (host, port) => ipcRenderer.invoke('device:connect-ccnc', { host, port }),
+    disconnectCCNC: () => ipcRenderer.invoke('device:disconnect-ccnc'),
     onStatus: (callback) => {
       ipcRenderer.on('device:status', (event, status) => callback(status));
     }

@@ -12,6 +12,10 @@ const actionService = require('./services/action.service');
 const macroService = require('./services/macro.service');
 const settingsService = require('./services/settings.service');
 const loggerService = require('./services/logger.service');
+const { CCNCConnectionService } = require('./services/ccnc-connection.service');
+
+// ccNC connection instance
+let ccncService = null;
 
 let mainWindow = null;
 
@@ -145,21 +149,114 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('device:connect-ccnc', async (event, { host, port }) => {
+    try {
+      console.log('[IPC] device:connect-ccnc called with:', host, port);
+
+      // Create new ccNC service if not exists
+      if (!ccncService) {
+        ccncService = new CCNCConnectionService();
+      }
+
+      // Connect to ccNC server
+      await ccncService.connect(host, port);
+
+      // Get version
+      const version = await ccncService.getVersion();
+
+      loggerService.info(`ccNC connected: ${host}:${port} (${version})`);
+
+      return {
+        success: true,
+        version,
+        host,
+        port
+      };
+    } catch (error) {
+      console.error('[IPC] device:connect-ccnc error:', error);
+      loggerService.error('Failed to connect ccNC', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  });
+
+  ipcMain.handle('device:disconnect-ccnc', async () => {
+    try {
+      console.log('[IPC] device:disconnect-ccnc called');
+
+      if (ccncService) {
+        ccncService.disconnect();
+        ccncService = null;
+      }
+
+      loggerService.info('ccNC disconnected');
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] device:disconnect-ccnc error:', error);
+      loggerService.error('Failed to disconnect ccNC', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  });
+
   // Screen handlers
   ipcMain.handle('screen:capture', async () => {
     try {
-      const screenshot = await screenService.takeScreenshot();
-      return { success: true, screenshot };
+      // Use ccNC if connected, otherwise use ADB
+      if (ccncService && ccncService.isConnected()) {
+        const imageData = await ccncService.capture(0, 0, 1920, 1080, { format: 'jpeg' });
+        const base64 = imageData.toString('base64');
+        return { success: true, screenshot: `data:image/jpeg;base64,${base64}` };
+      } else {
+        const screenshot = await screenService.takeScreenshot();
+        return { success: true, screenshot };
+      }
     } catch (error) {
       loggerService.error('Failed to capture screen', error);
       return { success: false, error: error.message };
     }
   });
 
+  // ccNC streaming interval
+  let ccncStreamInterval = null;
+
   ipcMain.handle('screen:start-stream', async (event, options) => {
     try {
-      await screenService.startStream(options);
-      return { success: true };
+      // Use ccNC if connected
+      if (ccncService && ccncService.isConnected()) {
+        if (ccncStreamInterval) {
+          throw new Error('ccNC stream already active');
+        }
+
+        const fps = options?.maxFps || 10;
+        const interval = 1000 / fps;
+
+        ccncStreamInterval = setInterval(async () => {
+          try {
+            const imageData = await ccncService.capture(0, 0, 1920, 1080, { format: 'jpeg' });
+            const base64 = imageData.toString('base64');
+
+            if (mainWindow && mainWindow.webContents) {
+              mainWindow.webContents.send('screen:stream:data', {
+                frame: `data:image/jpeg;base64,${base64}`,
+                timestamp: Date.now()
+              });
+            }
+          } catch (error) {
+            console.error('[ccNC Stream] Capture error:', error.message);
+          }
+        }, interval);
+
+        loggerService.info(`ccNC stream started at ${fps} FPS`);
+        return { success: true };
+      } else {
+        await screenService.startStream(options);
+        return { success: true };
+      }
     } catch (error) {
       loggerService.error('Failed to start stream', error);
       return { success: false, error: error.message };
@@ -168,8 +265,16 @@ function setupIpcHandlers() {
 
   ipcMain.handle('screen:stop-stream', async () => {
     try {
-      await screenService.stopStream();
-      return { success: true };
+      // Stop ccNC stream if active
+      if (ccncStreamInterval) {
+        clearInterval(ccncStreamInterval);
+        ccncStreamInterval = null;
+        loggerService.info('ccNC stream stopped');
+        return { success: true };
+      } else {
+        await screenService.stopStream();
+        return { success: true };
+      }
     } catch (error) {
       loggerService.error('Failed to stop stream', error);
       return { success: false, error: error.message };
@@ -199,8 +304,34 @@ function setupIpcHandlers() {
   // Action handlers
   ipcMain.handle('action:execute', async (event, action) => {
     try {
-      const result = await actionService.execute(action);
-      return { success: true, ...result };
+      // Use ccNC if connected
+      if (ccncService && ccncService.isConnected()) {
+        switch (action.type) {
+          case 'tap':
+            await ccncService.tap(action.x, action.y);
+            return { success: true };
+
+          case 'swipe':
+            await ccncService.drag(
+              action.startX,
+              action.startY,
+              action.endX,
+              action.endY,
+              { duration: action.duration || 300 }
+            );
+            return { success: true };
+
+          case 'wait':
+            await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
+            return { success: true };
+
+          default:
+            throw new Error(`Unsupported action type for ccNC: ${action.type}`);
+        }
+      } else {
+        const result = await actionService.execute(action);
+        return { success: true, ...result };
+      }
     } catch (error) {
       loggerService.error('Failed to execute action', error);
       return { success: false, error: error.message };
@@ -209,8 +340,47 @@ function setupIpcHandlers() {
 
   ipcMain.handle('action:execute-batch', async (event, actions) => {
     try {
-      const results = await actionService.executeBatch(actions);
-      return { success: true, results };
+      // Use ccNC if connected
+      if (ccncService && ccncService.isConnected()) {
+        const results = [];
+        for (const action of actions) {
+          // Execute action using ccNC
+          switch (action.type) {
+            case 'tap':
+              await ccncService.tap(action.x, action.y);
+              results.push({ success: true });
+              break;
+
+            case 'swipe':
+              await ccncService.drag(
+                action.startX,
+                action.startY,
+                action.endX,
+                action.endY,
+                { duration: action.duration || 300 }
+              );
+              results.push({ success: true });
+              break;
+
+            case 'wait':
+              await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
+              results.push({ success: true });
+              break;
+
+            default:
+              results.push({ success: false, error: `Unsupported action type: ${action.type}` });
+          }
+
+          // Add delay between actions
+          if (action.delay) {
+            await new Promise(resolve => setTimeout(resolve, action.delay));
+          }
+        }
+        return { success: true, results };
+      } else {
+        const results = await actionService.executeBatch(actions);
+        return { success: true, results };
+      }
     } catch (error) {
       loggerService.error('Failed to execute batch actions', error);
       return { success: false, error: error.message };

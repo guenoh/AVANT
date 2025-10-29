@@ -72,6 +72,8 @@ class UnifiedApp {
       wirelessConnect: () => this.wirelessConnect(),
       connectDevice: (deviceId) => this.connectDevice(deviceId),
       connectSelectedDevice: () => this.connectSelectedDevice(),
+      onConnectionTypeChange: (type) => this.onConnectionTypeChange(type),
+      connectCCNC: () => this.connectCCNC(),
       toggleSettings: () => this.toggleSettings(),
       takeScreenshot: () => this.takeScreenshot(),
       toggleStream: () => this.toggleStream(),
@@ -421,6 +423,88 @@ class UnifiedApp {
         await this.scanDevices();
       } catch (error) {
         this.log(`무선 연결 실패: ${error.message}`, 'error');
+      }
+    }
+  }
+
+  onConnectionTypeChange(type) {
+    const adbArea = document.getElementById('adb-connection-area');
+    const ccncArea = document.getElementById('ccnc-connection-area');
+    const scanBtn = document.querySelector('.panel-actions button:nth-child(1)');
+    const wirelessBtn = document.querySelector('.panel-actions button:nth-child(2)');
+
+    if (type === 'adb') {
+      adbArea.style.display = 'block';
+      ccncArea.style.display = 'none';
+      if (scanBtn) scanBtn.disabled = false;
+      if (wirelessBtn) wirelessBtn.disabled = false;
+      this.state.connectionType = 'adb';
+    } else if (type === 'ccnc') {
+      adbArea.style.display = 'none';
+      ccncArea.style.display = 'block';
+      if (scanBtn) scanBtn.disabled = true;
+      if (wirelessBtn) wirelessBtn.disabled = true;
+      this.state.connectionType = 'ccnc';
+    }
+  }
+
+  async connectCCNC() {
+    try {
+      const host = document.getElementById('ccnc-host')?.value || 'localhost';
+      const port = parseInt(document.getElementById('ccnc-port')?.value) || 20000;
+      const statusDiv = document.getElementById('ccnc-status');
+
+      if (!window.api || !window.api.device.connectCCNC) {
+        throw new Error('ccNC API가 초기화되지 않았습니다');
+      }
+
+      this.log(`ccNC 연결 시도: ${host}:${port}`, 'info');
+
+      if (statusDiv) {
+        statusDiv.textContent = '연결 중...';
+        statusDiv.className = 'connection-status';
+      }
+
+      const result = await window.api.device.connectCCNC(host, port);
+
+      if (result.success) {
+        this.log(`ccNC 연결 성공: ${result.version || 'unknown'}`, 'success');
+
+        if (statusDiv) {
+          statusDiv.textContent = `연결됨 (버전: ${result.version || 'unknown'})`;
+          statusDiv.className = 'connection-status success';
+        }
+
+        // Store ccNC connection info
+        this.state.selectedDevice = {
+          id: 'ccnc',
+          model: 'ccNC',
+          device: 'ccNC',
+          connectionType: 'ccnc',
+          host,
+          port,
+          version: result.version
+        };
+
+        // Show device info
+        this.showDeviceInfo(this.state.selectedDevice);
+
+        // Enable streaming button
+        const streamBtn = document.getElementById('btn-stream');
+        if (streamBtn) {
+          streamBtn.disabled = false;
+        }
+      } else {
+        throw new Error(result.error || 'ccNC 연결 실패');
+      }
+    } catch (error) {
+      console.error('ccNC 연결 오류:', error);
+      this.log(`ccNC 연결 실패: ${error.message}`, 'error');
+
+      const statusDiv = document.getElementById('ccnc-status');
+      if (statusDiv) {
+        statusDiv.textContent = `연결 실패: ${error.message}`;
+        statusDiv.className = 'connection-status error';
       }
     }
   }

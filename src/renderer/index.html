@@ -40,8 +40,38 @@
                 <div class="panel-content device-split-layout">
                     <div class="device-connection-section">
                         <h4 class="section-title">장치 연결</h4>
-                        <div id="device-list-mini" class="device-list-mini">
-                            <!-- 디바이스 목록 -->
+
+                        <!-- 연결 타입 선택 -->
+                        <div class="connection-type-selector">
+                            <label class="radio-label">
+                                <input type="radio" name="connection-type" value="adb" checked onchange="ui.onConnectionTypeChange('adb')">
+                                <span>ADB</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="connection-type" value="ccnc" onchange="ui.onConnectionTypeChange('ccnc')">
+                                <span>ccNC</span>
+                            </label>
+                        </div>
+
+                        <!-- ADB 디바이스 목록 -->
+                        <div id="adb-connection-area" class="connection-area">
+                            <div id="device-list-mini" class="device-list-mini">
+                                <!-- 디바이스 목록 -->
+                            </div>
+                        </div>
+
+                        <!-- ccNC 연결 입력 -->
+                        <div id="ccnc-connection-area" class="connection-area" style="display: none;">
+                            <div class="input-group">
+                                <label>Host:</label>
+                                <input type="text" id="ccnc-host" value="localhost" class="input-sm">
+                            </div>
+                            <div class="input-group">
+                                <label>Port:</label>
+                                <input type="number" id="ccnc-port" value="20000" class="input-sm">
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="ui.connectCCNC()">연결</button>
+                            <div id="ccnc-status" class="connection-status"></div>
                         </div>
                     </div>
                     <div class="device-info-section">
