@@ -74,6 +74,7 @@ class UnifiedApp {
       connectSelectedDevice: () => this.connectSelectedDevice(),
       onConnectionTypeChange: (type) => this.onConnectionTypeChange(type),
       connectCCNC: () => this.connectCCNC(),
+      disconnectDevice: () => this.disconnectDevice(),
       toggleSettings: () => this.toggleSettings(),
       takeScreenshot: () => this.takeScreenshot(),
       toggleStream: () => this.toggleStream(),
@@ -397,6 +398,51 @@ class UnifiedApp {
     }
   }
 
+  showDeviceStatusCard(info) {
+    const statusCard = document.getElementById('device-status-card');
+    if (!statusCard) return;
+
+    const deviceName = document.getElementById('status-device-name');
+    const deviceVersion = document.getElementById('status-device-version');
+    const modelText = document.getElementById('info-model');
+    const androidText = document.getElementById('info-android');
+
+    if (deviceName) {
+      deviceName.textContent = info.name || 'Device';
+    }
+
+    if (deviceVersion) {
+      deviceVersion.textContent = `버전: ${info.version || 'unknown'}`;
+    }
+
+    if (modelText) {
+      modelText.textContent = `모델: ${info.model || '-'}`;
+    }
+
+    if (androidText) {
+      androidText.textContent = `안드로이드: ${info.android || '-'}`;
+    }
+
+    statusCard.classList.remove('hidden');
+  }
+
+  disconnectDevice() {
+    const statusCard = document.getElementById('device-status-card');
+    if (statusCard) {
+      statusCard.classList.add('hidden');
+    }
+
+    this.state.selectedDevice = null;
+
+    // Disable streaming button
+    const streamBtn = document.getElementById('btn-stream');
+    if (streamBtn) {
+      streamBtn.disabled = true;
+    }
+
+    this.log('디바이스 연결 해제', 'info');
+  }
+
   updateDeviceStatus(device, isConnected) {
     const indicator = document.getElementById('main-status-indicator');
     const deviceName = document.getElementById('main-device-name');
@@ -432,6 +478,15 @@ class UnifiedApp {
     const ccncArea = document.getElementById('ccnc-connection-area');
     const scanBtn = document.querySelector('.panel-actions button:nth-child(1)');
     const wirelessBtn = document.querySelector('.panel-actions button:nth-child(2)');
+
+    // Update tab active state
+    document.querySelectorAll('.device-tab').forEach(tab => {
+      if (tab.dataset.type === type) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
 
     if (type === 'adb') {
       adbArea.style.display = 'block';
@@ -470,11 +525,6 @@ class UnifiedApp {
       if (result.success) {
         this.log(`ccNC 연결 성공: ${result.version || 'unknown'}`, 'success');
 
-        if (statusDiv) {
-          statusDiv.textContent = `연결됨 (버전: ${result.version || 'unknown'})`;
-          statusDiv.className = 'connection-status success';
-        }
-
         // Store ccNC connection info
         this.state.selectedDevice = {
           id: 'ccnc',
@@ -486,8 +536,13 @@ class UnifiedApp {
           version: result.version
         };
 
-        // Show device info
-        this.showDeviceInfo(this.state.selectedDevice);
+        // Show status card
+        this.showDeviceStatusCard({
+          name: 'ccNC',
+          version: result.version || 'unknown',
+          model: 'ccNC',
+          android: result.version || '1.3'
+        });
 
         // Enable streaming button
         const streamBtn = document.getElementById('btn-stream');

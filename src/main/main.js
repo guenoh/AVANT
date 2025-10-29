@@ -249,7 +249,9 @@ function setupIpcHandlers() {
 
             if (mainWindow && mainWindow.webContents) {
               mainWindow.webContents.send('screen:stream:data', {
-                frame: `data:image/jpeg;base64,${base64}`,
+                dataUrl: `data:image/jpeg;base64,${base64}`,
+                width: 1920,
+                height: 720,
                 timestamp: Date.now()
               });
             }

@@ -37,61 +37,48 @@
                         <button class="btn btn-sm" onclick="ui.wirelessConnect()">무선 연결</button>
                     </div>
                 </div>
-                <div class="panel-content device-split-layout">
-                    <div class="device-connection-section">
-                        <h4 class="section-title">장치 연결</h4>
+                <div class="panel-content device-compact-layout">
+                    <!-- 연결 타입 탭 -->
+                    <div class="device-tabs">
+                        <button class="device-tab active" data-type="adb" onclick="ui.onConnectionTypeChange('adb')">ADB</button>
+                        <button class="device-tab" data-type="ccnc" onclick="ui.onConnectionTypeChange('ccnc')">ccNC</button>
+                    </div>
 
-                        <!-- 연결 타입 선택 -->
-                        <div class="connection-type-selector">
-                            <label class="radio-label">
-                                <input type="radio" name="connection-type" value="adb" checked onchange="ui.onConnectionTypeChange('adb')">
-                                <span>ADB</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="connection-type" value="ccnc" onchange="ui.onConnectionTypeChange('ccnc')">
-                                <span>ccNC</span>
-                            </label>
-                        </div>
-
-                        <!-- ADB 디바이스 목록 -->
-                        <div id="adb-connection-area" class="connection-area">
-                            <div id="device-list-mini" class="device-list-mini">
-                                <!-- 디바이스 목록 -->
-                            </div>
-                        </div>
-
-                        <!-- ccNC 연결 입력 -->
-                        <div id="ccnc-connection-area" class="connection-area" style="display: none;">
-                            <div class="input-group">
-                                <label>Host:</label>
-                                <input type="text" id="ccnc-host" value="localhost" class="input-sm">
-                            </div>
-                            <div class="input-group">
-                                <label>Port:</label>
-                                <input type="number" id="ccnc-port" value="20000" class="input-sm">
-                            </div>
-                            <button class="btn btn-sm btn-primary" onclick="ui.connectCCNC()">연결</button>
-                            <div id="ccnc-status" class="connection-status"></div>
+                    <!-- ADB 연결 영역 -->
+                    <div id="adb-connection-area" class="connection-area">
+                        <div id="device-list-mini" class="device-list-compact">
+                            <!-- 디바이스 목록 -->
                         </div>
                     </div>
-                    <div class="device-info-section">
-                        <h4 class="section-title">모델 버전</h4>
-                        <div id="device-info-mini" class="device-info-mini">
-                            <div class="info-row">
-                                <label>모델:</label>
-                                <span id="info-model">-</span>
+
+                    <!-- ccNC 연결 영역 -->
+                    <div id="ccnc-connection-area" class="connection-area" style="display: none;">
+                        <div class="connection-form">
+                            <div class="form-row">
+                                <input type="text" id="ccnc-host" value="localhost" placeholder="Host" class="input-compact">
+                                <input type="number" id="ccnc-port" value="20000" placeholder="Port" class="input-compact" style="width: 80px;">
+                                <button class="btn btn-compact btn-primary" onclick="ui.connectCCNC()">연결</button>
                             </div>
-                            <div class="info-row">
-                                <label>안드로이드:</label>
-                                <span id="info-android">-</span>
+                        </div>
+                    </div>
+
+                    <!-- 연결 상태 카드 -->
+                    <div id="device-status-card" class="device-status-card hidden">
+                        <div class="status-header">
+                            <div class="status-indicator">
+                                <span class="status-dot connected"></span>
+                                <span class="status-text">연결됨</span>
                             </div>
-                            <div class="info-row">
-                                <label>해상도:</label>
-                                <span id="info-resolution">-</span>
+                            <button class="btn-icon" onclick="ui.disconnectDevice()" title="연결 해제">×</button>
+                        </div>
+                        <div class="status-body">
+                            <div class="status-info">
+                                <span id="status-device-name" class="device-name-text">ccNC</span>
+                                <span id="status-device-version" class="device-version-text">버전: 1.3</span>
                             </div>
-                            <div class="info-row">
-                                <label>배터리:</label>
-                                <span id="info-battery">-</span>
+                            <div class="status-details" id="status-details">
+                                <span id="info-model" class="detail-text"></span>
+                                <span id="info-android" class="detail-text"></span>
                             </div>
                         </div>
                     </div>

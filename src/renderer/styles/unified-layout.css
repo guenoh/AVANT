@@ -145,6 +145,188 @@
   height: 100%;
 }
 
+/* 컴팩트 디바이스 레이아웃 */
+.device-compact-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  height: 100%;
+}
+
+/* 디바이스 탭 */
+.device-tabs {
+  display: flex;
+  gap: var(--spacing-1);
+  background: var(--color-background);
+  padding: var(--spacing-1);
+  border-radius: var(--radius-md);
+}
+
+.device-tab {
+  flex: 1;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.device-tab:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.device-tab.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 연결 폼 */
+.connection-form {
+  padding: var(--spacing-2) 0;
+}
+
+.form-row {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.input-compact {
+  flex: 1;
+  padding: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.input-compact:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.btn-compact {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+/* 디바이스 리스트 (컴팩트) */
+.device-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* 디바이스 상태 카드 */
+.device-status-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.device-status-card.hidden {
+  display: none;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-2);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.status-dot.connected {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+}
+
+.status-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+}
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.status-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.device-name-text {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.device-version-text {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.status-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding-top: var(--spacing-2);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.detail-text {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 .device-connection-section,
 .device-info-section {
   display: flex;
