@@ -268,6 +268,15 @@ DeviceService (base)
 
 ## Git Workflow
 
+### Commit Policy
+**IMPORTANT: Commit frequently and consistently**
+- Commit after every meaningful change or feature completion
+- Commit after completing each design phase
+- Commit after fixing bugs or refactoring
+- Commit before starting a new major feature
+- Use clear, descriptive commit messages
+- Never accumulate too many changes without committing
+
 ### Branch Naming
 - `feature/description` - New features
 - `fix/description` - Bug fixes
@@ -286,6 +295,13 @@ Fixes #123
 ```
 
 Types: feat, fix, docs, style, refactor, test, chore
+
+### Commit Frequency Examples
+- After adding a new action type → Commit
+- After completing UI redesign → Commit
+- After fixing a bug → Commit
+- After adding documentation → Commit
+- After refactoring code → Commit
 
 ## Resources
 
