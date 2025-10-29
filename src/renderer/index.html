@@ -135,6 +135,7 @@
                                 <button class="action-tab active" data-category="interaction">상호작용</button>
                                 <button class="action-tab" data-category="control">제어</button>
                                 <button class="action-tab" data-category="smart">스마트</button>
+                                <button class="action-tab" data-category="loop">반복</button>
                                 <button class="action-tab" data-category="adb">ADB</button>
                             </div>
 
@@ -159,6 +160,11 @@
                                     <button class="action-btn" data-action-type="elseif" onclick="ui.addAction('elseif')">조건 elseif</button>
                                     <button class="action-btn" data-action-type="else" onclick="ui.addAction('else')">조건 else</button>
                                     <button class="action-btn" data-action-type="endif" onclick="ui.addAction('endif')">조건 endif</button>
+                                </div>
+                                <!-- 반복 카테고리 -->
+                                <div class="action-category-content hidden" data-category="loop">
+                                    <button class="action-btn" data-action-type="loop_count" onclick="ui.addAction('loop_count')">횟수 반복</button>
+                                    <button class="action-btn" data-action-type="break" onclick="ui.addAction('break')">중단 (BREAK)</button>
                                 </div>
                                 <!-- ADB 카테고리 -->
                                 <div class="action-category-content hidden" data-category="adb">

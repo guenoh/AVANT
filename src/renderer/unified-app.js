@@ -967,6 +967,15 @@ class UnifiedApp {
       return;
     }
 
+    // BREAK: add directly without modal (must be inside LOOP)
+    if (type === 'break') {
+      const action = { type: type };
+      this.state.actions.push(action);
+      this.displayActions();
+      this.log('BREAK 액션 추가', 'info');
+      return;
+    }
+
     // Other actions: show modal
     const modal = document.getElementById('action-modal');
     const modalTitle = document.getElementById('action-modal-title');
@@ -979,6 +988,15 @@ class UnifiedApp {
     // 액션 타입별 폼 생성
     let formHtml = '';
     switch(type) {
+
+      case 'loop_count':
+        formHtml = `
+          <div class="form-group">
+            <label>반복 횟수 (1-1000)</label>
+            <input type="number" id="action-loop-count" class="form-control" value="5" min="1" max="1000">
+          </div>
+        `;
+        break;
 
       case 'input':
         formHtml = `
@@ -1038,6 +1056,28 @@ class UnifiedApp {
     const action = { type: this.currentActionType };
 
     switch(this.currentActionType) {
+      case 'loop_count':
+        const count = parseInt(document.getElementById('action-loop-count').value) || 5;
+        if (count < 1 || count > 1000) {
+          this.log('오류: 반복 횟수는 1-1000 사이여야 합니다', 'error');
+          return;
+        }
+
+        // Generate unique pair ID
+        const loopId = `loop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Add LOOP and ENDLOOP as a pair
+        const loopAction = { type: 'loop_count', count: count, loopId: loopId };
+        const endloopAction = { type: 'endloop', loopId: loopId };
+
+        this.state.actions.push(loopAction);
+        this.state.actions.push(endloopAction);
+
+        this.displayActions();
+        this.closeModal('action-modal');
+        this.log(`횟수 반복 블록 추가 (${count}회)`, 'info');
+        return;
+
       case 'input':
         action.text = document.getElementById('action-text').value || '';
         break;
@@ -1307,6 +1347,18 @@ class UnifiedApp {
           const endifDepth = pairDepths.get(action.pairId) || 0;
           const endifColor = depthColors[endifDepth % depthColors.length];
           description = `<strong style="color: ${endifColor};">endif</strong>`;
+          showButtons = false;
+          break;
+        case 'loop_count':
+          description = `<strong style="color: #ff9800;">LOOP</strong> ${action.count}회`;
+          showButtons = false;
+          break;
+        case 'endloop':
+          description = `<strong style="color: #9e9e9e;">ENDLOOP</strong>`;
+          showButtons = false;
+          break;
+        case 'break':
+          description = `<strong style="color: #f44336;">BREAK</strong> (반복 중단)`;
           showButtons = false;
           break;
       }
@@ -2145,6 +2197,9 @@ class UnifiedApp {
 
       this.log(`${this.state.actions.length}개 액션 실행 시작`, 'info');
 
+      // Loop stack to track nested loops
+      const loopStack = [];
+
       let i = 0;
       while (i < this.state.actions.length) {
         const action = this.state.actions[i];
@@ -2259,6 +2314,64 @@ class UnifiedApp {
           continue;
         }
 
+        // Handle loop actions
+        if (action.type === 'loop_count') {
+          // Start a new loop - push to stack
+          loopStack.push({
+            loopId: action.loopId,
+            startIndex: i,
+            currentIteration: 0,
+            maxIterations: action.count,
+            type: 'loop_count'
+          });
+          this.log(`LOOP ${action.count}회 시작`, 'info');
+          i++;
+          continue;
+        }
+
+        if (action.type === 'endloop') {
+          // Check if we should continue looping
+          const currentLoop = loopStack[loopStack.length - 1];
+
+          if (!currentLoop || currentLoop.loopId !== action.loopId) {
+            throw new Error('LOOP/ENDLOOP 쌍이 맞지 않습니다');
+          }
+
+          currentLoop.currentIteration++;
+
+          // Check if we should continue
+          if (currentLoop.currentIteration < currentLoop.maxIterations) {
+            // Continue looping - jump back to loop start
+            this.log(`ENDLOOP (${currentLoop.currentIteration}/${currentLoop.maxIterations}) - 반복 계속`, 'info');
+            i = currentLoop.startIndex + 1;
+          } else {
+            // Loop complete - pop from stack
+            this.log(`ENDLOOP - ${currentLoop.maxIterations}회 반복 완료`, 'info');
+            loopStack.pop();
+            i++;
+          }
+          continue;
+        }
+
+        if (action.type === 'break') {
+          // Break out of the nearest loop
+          if (loopStack.length === 0) {
+            throw new Error('BREAK는 LOOP 내부에서만 사용할 수 있습니다');
+          }
+
+          const breakLoop = loopStack.pop();
+          this.log(`BREAK - 반복 중단 (${breakLoop.currentIteration}/${breakLoop.maxIterations})`, 'info');
+
+          // Find matching ENDLOOP
+          const endloopIndex = this.findMatchingEndloop(i, breakLoop.loopId);
+          if (endloopIndex === -1) {
+            throw new Error('BREAK: 대응하는 ENDLOOP를 찾을 수 없습니다');
+          }
+
+          i = endloopIndex + 1;
+          continue;
+        }
+
         // Execute regular action
         this.log(`액션 ${i + 1}/${this.state.actions.length} 실행 중...`, 'info');
         await this.executeAction(action);
@@ -2332,6 +2445,17 @@ class UnifiedApp {
   findLastIfBeforeEnd() {
     for (let i = this.state.actions.length - 1; i >= 0; i--) {
       if (this.state.actions[i].type === 'if') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // Helper function to find matching ENDLOOP for given loop ID
+  findMatchingEndloop(startIndex, loopId) {
+    for (let i = startIndex + 1; i < this.state.actions.length; i++) {
+      const action = this.state.actions[i];
+      if (action.type === 'endloop' && action.loopId === loopId) {
         return i;
       }
     }
