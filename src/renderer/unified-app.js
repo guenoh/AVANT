@@ -1117,7 +1117,7 @@ class UnifiedApp {
       '#4caf50'  // depth 4: green
     ];
 
-    // Calculate depth for each pairId
+    // Calculate depth for each pairId (both IF and LOOP)
     const pairDepths = new Map();
     let currentDepth = 0;
     const depthStack = [];
@@ -1130,6 +1130,15 @@ class UnifiedApp {
         depthStack.push(action.pairId);
         currentDepth++;
       } else if (action.type === 'endif' && action.pairId) {
+        if (depthStack.length > 0) {
+          depthStack.pop();
+          currentDepth = Math.max(0, currentDepth - 1);
+        }
+      } else if (action.type === 'loop_count' && action.loopId) {
+        pairDepths.set(action.loopId, currentDepth);
+        depthStack.push(action.loopId);
+        currentDepth++;
+      } else if (action.type === 'endloop' && action.loopId) {
         if (depthStack.length > 0) {
           depthStack.pop();
           currentDepth = Math.max(0, currentDepth - 1);
@@ -1197,6 +1206,10 @@ class UnifiedApp {
       } else if (action.type === 'else') {
         // else stays at the same level as if
       } else if (action.type === 'endif') {
+        indentLevel = Math.max(0, indentLevel - 1);
+      } else if (action.type === 'loop_count') {
+        indentLevel++;
+      } else if (action.type === 'endloop') {
         indentLevel = Math.max(0, indentLevel - 1);
       }
 
@@ -1350,11 +1363,17 @@ class UnifiedApp {
           showButtons = false;
           break;
         case 'loop_count':
-          description = `<strong style="color: #ff9800;">LOOP</strong> ${action.count}회`;
+          // Get color based on depth
+          const loopDepth = pairDepths.get(action.loopId) || 0;
+          const loopColor = depthColors[loopDepth % depthColors.length];
+          description = `<strong style="color: ${loopColor};">LOOP</strong> ${action.count}회`;
           showButtons = false;
           break;
         case 'endloop':
-          description = `<strong style="color: #9e9e9e;">ENDLOOP</strong>`;
+          // Get color based on depth (same as matching LOOP)
+          const endloopDepth = pairDepths.get(action.loopId) || 0;
+          const endloopColor = depthColors[endloopDepth % depthColors.length];
+          description = `<strong style="color: ${endloopColor};">ENDLOOP</strong>`;
           showButtons = false;
           break;
         case 'break':
