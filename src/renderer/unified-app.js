@@ -1174,9 +1174,9 @@ class UnifiedApp {
         }
       }
 
-      // Handle indentation for conditional blocks
+      // Handle indentation for conditional blocks and loop blocks
       let currentIndent = indentLevel;
-      if (action.type === 'else' || action.type === 'endif' || action.type === 'elseif') {
+      if (action.type === 'else' || action.type === 'endif' || action.type === 'elseif' || action.type === 'endloop') {
         currentIndent = Math.max(0, indentLevel - 1);
       }
 
