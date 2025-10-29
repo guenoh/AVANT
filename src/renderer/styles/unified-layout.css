@@ -676,11 +676,90 @@
   transform: translateY(-1px);
 }
 
+/* Executing action animations */
+@keyframes executeGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.6),
+                0 0 40px rgba(37, 99, 235, 0.3),
+                inset 0 0 20px rgba(37, 99, 235, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(37, 99, 235, 0.8),
+                0 0 60px rgba(37, 99, 235, 0.4),
+                inset 0 0 30px rgba(37, 99, 235, 0.3);
+  }
+}
+
+@keyframes executePulse {
+  0%, 100% {
+    transform: translateX(4px) scale(1);
+  }
+  50% {
+    transform: translateX(4px) scale(1.02);
+  }
+}
+
+@keyframes progressBar {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
 .action-item-mini.executing {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: white;
   transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  animation: executeGlow 2s ease-in-out infinite,
+             executePulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  font-weight: 600;
+  border-left: 4px solid #60a5fa;
+}
+
+/* Shimmer effect overlay */
+.action-item-mini.executing::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+  pointer-events: none;
+}
+
+/* Progress bar at bottom */
+.action-item-mini.executing::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #60a5fa, #93c5fd, #60a5fa);
+  background-size: 200% 100%;
+  animation: progressBar 1.5s ease-out,
+             shimmer 1s linear infinite;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
 }
 
 .btn-settings {
@@ -733,21 +812,34 @@
   transform: translateY(-1px);
 }
 
+/* Ensure content stays above animations */
+.action-item-mini.executing .action-text,
+.action-item-mini.executing .action-buttons,
+.action-item-mini.executing .action-label {
+  position: relative;
+  z-index: 1;
+}
+
 .action-item-mini.executing .action-label {
   background: rgba(255, 255, 255, 0.3);
   color: white;
 }
 
 .action-item-mini.executing .btn-edit,
+.action-item-mini.executing .btn-settings,
 .action-item-mini.executing .btn-remove {
   color: white;
-  opacity: 0.8;
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .action-item-mini.executing .btn-edit:hover,
+.action-item-mini.executing .btn-settings:hover,
 .action-item-mini.executing .btn-remove:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
 }
 
 /* Loop action styles */
