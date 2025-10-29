@@ -227,42 +227,62 @@ function setupIpcHandlers() {
     }
   });
 
-  // ccNC streaming interval
-  let ccncStreamInterval = null;
+  // ccNC streaming state
+  let ccncStreamActive = false;
+
+  async function ccncStreamLoop(targetInterval) {
+    if (!ccncStreamActive || !ccncService || !ccncService.isConnected()) {
+      return;
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // Use actual ccNC resolution: 1920x720
+      const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
+      const base64 = imageData.toString('base64');
+
+      if (mainWindow && mainWindow.webContents && ccncStreamActive) {
+        mainWindow.webContents.send('screen:stream:data', {
+          dataUrl: `data:image/jpeg;base64,${base64}`,
+          width: 1920,
+          height: 720,
+          timestamp: Date.now()
+        });
+      }
+    } catch (error) {
+      console.error('[ccNC Stream] Capture error:', error.message);
+    }
+
+    // Calculate how long to wait before next capture
+    const elapsed = Date.now() - startTime;
+    const waitTime = Math.max(0, targetInterval - elapsed);
+
+    // Schedule next capture after waiting
+    if (ccncStreamActive) {
+      setTimeout(() => ccncStreamLoop(targetInterval), waitTime);
+    }
+  }
 
   ipcMain.handle('screen:start-stream', async (event, options) => {
     try {
       // Use ccNC if connected
       if (ccncService && ccncService.isConnected()) {
-        if (ccncStreamInterval) {
+        if (ccncStreamActive) {
           throw new Error('ccNC stream already active');
         }
 
-        const fps = options?.maxFps || 5;
+        // ccNC: 2 FPS with JPEG for stability
+        const fps = 2;
         const interval = 1000 / fps;
 
-        ccncStreamInterval = setInterval(async () => {
-          try {
-            // Use actual ccNC resolution: 1920x720
-            const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
-            const base64 = imageData.toString('base64');
+        ccncStreamActive = true;
+        ccncStreamLoop(interval);
 
-            if (mainWindow && mainWindow.webContents) {
-              mainWindow.webContents.send('screen:stream:data', {
-                dataUrl: `data:image/jpeg;base64,${base64}`,
-                width: 1920,
-                height: 720,
-                timestamp: Date.now()
-              });
-            }
-          } catch (error) {
-            console.error('[ccNC Stream] Capture error:', error.message);
-          }
-        }, interval);
-
-        loggerService.info(`ccNC stream started at ${fps} FPS`);
+        loggerService.info(`ccNC stream started at ${fps} FPS (JPEG format)`);
         return { success: true };
       } else {
+        // ADB: Use requested FPS (default 30)
         await screenService.startStream(options);
         return { success: true };
       }
@@ -275,9 +295,8 @@ function setupIpcHandlers() {
   ipcMain.handle('screen:stop-stream', async () => {
     try {
       // Stop ccNC stream if active
-      if (ccncStreamInterval) {
-        clearInterval(ccncStreamInterval);
-        ccncStreamInterval = null;
+      if (ccncStreamActive) {
+        ccncStreamActive = false;
         loggerService.info('ccNC stream stopped');
         return { success: true };
       } else {

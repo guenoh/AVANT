@@ -1,0 +1,57 @@
+🚀 ccNC Performance Benchmark
+
+Connecting to localhost:20000...
+[ccNC] Connected to localhost:20000
+[ccNC] Welcome banner received and verified
+✅ Connected!
+
+============================================================
+PHASE 1: Format Benchmark
+============================================================
+
+📊 Testing format: JPEG
+  ✅ Success: 50/50 frames
+  ⏱️  Average time: 300.72ms
+  ⚡ Min time: 262ms
+  🐌 Max time: 341ms
+  🎯 Theoretical max FPS: 3.33
+
+📊 Testing format: PNG
+  ✅ Success: 50/50 frames
+  ⏱️  Average time: 829.10ms
+  ⚡ Min time: 691ms
+  🐌 Max time: 1635ms
+  🎯 Theoretical max FPS: 1.21
+
+📊 Testing format: BITMAP
+  ✅ Success: 50/50 frames
+  ⏱️  Average time: 1205.24ms
+  ⚡ Min time: 1018ms
+  🐌 Max time: 1746ms
+  🎯 Theoretical max FPS: 0.83
+
+============================================================
+📊 BENCHMARK RESULTS (Fastest to Slowest)
+============================================================
+1. JPEG: 300.72ms avg (max 3.3 FPS)
+2. PNG: 829.10ms avg (max 1.2 FPS)
+3. BITMAP: 1205.24ms avg (max 0.8 FPS)
+
+============================================================
+PHASE 2: FPS Stress Test (JPEG)
+============================================================
+
+🎬 Testing jpeg @ 10 FPS...
+
+🎬 Testing jpeg @ 15 FPS...
+
+🎬 Testing jpeg @ 20 FPS...
+
+🎬 Testing jpeg @ 25 FPS...
+
+🎬 Testing jpeg @ 30 FPS...
+
+============================================================
+✅ Benchmark Complete!
+============================================================
+❌ Error: Cannot read properties of null (reading 'reject')
