@@ -468,17 +468,18 @@ class CCNCConnectionService extends EventEmitter {
     if (!parsed.crcOk) {
       console.error('[ccNC] CRC mismatch in response');
       if (this.pendingResponse) {
+        const { reject } = this.pendingResponse;
         this._clearPendingResponse();
-        this.pendingResponse.reject(new Error('CRC mismatch in response'));
+        reject(new Error('CRC mismatch in response'));
       }
       return;
     }
 
     // Resolve pending response
     if (this.pendingResponse) {
+      const { resolve } = this.pendingResponse;
       this._clearPendingResponse();
-      this.pendingResponse.resolve(parsed);
-      this.pendingResponse = null;
+      resolve(parsed);
     }
   }
 

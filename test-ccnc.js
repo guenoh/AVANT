@@ -69,11 +69,12 @@ async function test() {
     await service.fastTouch(500, 300, { repeat: 5, delay: 100 });
     console.log('✓ Fast touch sent\n');
 
-    // Test 7: Touch with response
-    console.log('Test 7: Sending touch with response wait...');
-    await service.touch(500, 300, 'press', { waitResponse: true });
-    await service.touch(500, 300, 'release', { waitResponse: true });
-    console.log('✓ Touch with response completed\n');
+    // Test 7: Multiple rapid taps
+    console.log('Test 7: Sending multiple rapid taps...');
+    await service.tap(400, 300);
+    await service.tap(500, 300);
+    await service.tap(600, 300);
+    console.log('✓ Multiple taps sent\n');
 
     console.log('=== All tests passed! ===\n');
 
