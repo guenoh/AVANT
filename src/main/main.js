@@ -161,10 +161,15 @@ function setupIpcHandlers() {
       // Connect to ccNC server
       await ccncService.connect(host, port);
 
-      // Get version
-      const version = await ccncService.getVersion();
+      // Try to get version (optional)
+      let version = 'unknown';
+      try {
+        version = await ccncService.getVersion();
+      } catch (versionError) {
+        console.log('[ccNC] Version query failed, continuing:', versionError.message);
+      }
 
-      loggerService.info(`ccNC connected: ${host}:${port} (${version})`);
+      loggerService.info(`ccNC connected: ${host}:${port} (version: ${version})`);
 
       return {
         success: true,
@@ -208,7 +213,8 @@ function setupIpcHandlers() {
     try {
       // Use ccNC if connected, otherwise use ADB
       if (ccncService && ccncService.isConnected()) {
-        const imageData = await ccncService.capture(0, 0, 1920, 1080, { format: 'jpeg' });
+        // Use actual ccNC resolution: 1920x720
+        const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
         const base64 = imageData.toString('base64');
         return { success: true, screenshot: `data:image/jpeg;base64,${base64}` };
       } else {
@@ -237,7 +243,8 @@ function setupIpcHandlers() {
 
         ccncStreamInterval = setInterval(async () => {
           try {
-            const imageData = await ccncService.capture(0, 0, 1920, 1080, { format: 'jpeg' });
+            // Use actual ccNC resolution: 1920x720
+            const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
             const base64 = imageData.toString('base64');
 
             if (mainWindow && mainWindow.webContents) {
