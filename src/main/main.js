@@ -17,6 +17,9 @@ const { CCNCConnectionService } = require('./services/ccnc-connection.service');
 // ccNC connection instance
 let ccncService = null;
 
+// ccNC streaming state
+let ccncStreamActive = false;
+
 let mainWindow = null;
 
 /**
@@ -245,9 +248,7 @@ function setupIpcHandlers() {
     }
   });
 
-  // ccNC streaming state
-  let ccncStreamActive = false;
-
+  // ccNC streaming loop function
   async function ccncStreamLoop(targetInterval) {
     if (!ccncStreamActive || !ccncService || !ccncService.isConnected()) {
       return;
@@ -720,10 +721,31 @@ app.whenReady().then(async () => {
   }
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+app.on('window-all-closed', async () => {
+  // Clean up services before quitting
+  try {
+    // Stop ccNC stream if active
+    if (ccncStreamActive) {
+      ccncStreamActive = false;
+    }
+
+    // Disconnect ccNC if connected
+    if (ccncService) {
+      ccncService.disconnect();
+      ccncService = null;
+    }
+
+    // Cleanup services
+    await screenService.cleanup();
+    await deviceService.cleanup();
+    await macroService.cleanup();
+    await actionService.cleanup();
+  } catch (error) {
+    console.error('Error during cleanup:', error);
   }
+
+  // Always quit on all platforms (including macOS)
+  app.quit();
 });
 
 app.on('activate', () => {
