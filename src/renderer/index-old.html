@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' data:">
+    <title>Vision Auto v2</title>
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/unified-layout.css">
+</head>
+<body>
+    <div id="app" class="unified-layout">
+        <!-- 헤더 -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">Vision Auto</h1>
+                <span class="app-version">v2.0.0</span>
+            </div>
+            <div class="header-center">
+            </div>
+            <div class="header-right">
+                <span class="status-item">FPS: <span id="fps-display">0</span></span>
+                <span class="status-item">지연: <span id="latency-display">0</span>ms</span>
+                <button class="btn btn-sm btn-ghost" onclick="ui.toggleSettings()">설정</button>
+            </div>
+        </header>
+
+        <!-- 메인 그리드 레이아웃 -->
+        <main class="main-grid">
+            <!-- 왼쪽 상단: 디바이스 연결/정보 -->
+            <section class="panel device-panel">
+                <div class="panel-header">
+                    <h3>장치 연결</h3>
+                </div>
+                <div class="panel-content device-connection-wrapper">
+                    <!-- 프로토콜 선택 -->
+                    <div class="protocol-selector">
+                        <label class="protocol-radio">
+                            <input type="radio" name="protocol" value="adb" checked onchange="ui.onProtocolChange('adb')">
+                            <span class="protocol-label">ADB</span>
+                        </label>
+                        <label class="protocol-radio">
+                            <input type="radio" name="protocol" value="ccnc" onchange="ui.onProtocolChange('ccnc')">
+                            <span class="protocol-label">ccNC</span>
+                        </label>
+                    </div>
+
+                    <!-- ADB 연결 영역 -->
+                    <div id="adb-connection-area" class="connection-area">
+                        <div class="connection-input-group">
+                            <label>연결할 ADB 장치를 선택하세요</label>
+                            <div class="device-select-wrapper">
+                                <select id="adb-device-list" class="device-select">
+                                    <option value="">장치를 선택하세요</option>
+                                </select>
+                                <button class="btn btn-sm btn-secondary" onclick="ui.scanDevices()">새로고침</button>
+                            </div>
+                        </div>
+                        <button id="adb-connect-btn" class="btn btn-primary connection-action-btn" onclick="ui.connectADB()">연결</button>
+                    </div>
+
+                    <!-- ccNC 연결 영역 -->
+                    <div id="ccnc-connection-area" class="connection-area" style="display: none;">
+                        <div class="connection-input-group">
+                            <label>연결할 장치 IP를 입력하세요</label>
+                            <input type="text" id="ccnc-host" value="localhost" placeholder="예: 192.168.0.10" class="input-text">
+                            <div class="input-row">
+                                <div class="input-field">
+                                    <label>포트</label>
+                                    <input type="number" id="ccnc-port" value="20000" class="input-text-sm">
+                                </div>
+                                <div class="input-field">
+                                    <label>FPS</label>
+                                    <input type="number" id="ccnc-fps" value="30" min="1" max="60" class="input-text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="ccnc-connect-btn" class="btn btn-primary connection-action-btn" onclick="ui.connectCCNC()">연결</button>
+                    </div>
+
+                    <!-- 연결 상태 카드 (연결 중/실패 시) -->
+                    <div id="connection-status-card" class="connection-status-card hidden">
+                        <div class="status-header">
+                            <span class="status-icon"></span>
+                            <span class="status-text">연결 안 됨</span>
+                        </div>
+                        <div class="status-details">
+                            <span id="status-device-info"></span>
+                        </div>
+                        <div class="status-actions">
+                            <button id="status-action-btn" class="btn btn-sm">연결</button>
+                        </div>
+                    </div>
+
+                    <!-- 연결 완료 시 작은 인라인 상태 -->
+                    <div id="connection-status-inline" class="connection-status-inline hidden">
+                        <div class="status-inline-info">
+                            <span class="status-inline-icon">🟢</span>
+                            <span class="status-inline-text" id="status-inline-text">연결됨</span>
+                        </div>
+                        <button id="status-inline-disconnect-btn" class="btn btn-sm btn-secondary" onclick="ui.disconnectDevice()">끊기</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 중앙: 미러링 화면 -->
+            <section class="panel screen-panel">
+                <div class="panel-header">
+                    <h3>화면 미러링</h3>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-primary" id="btn-stream" onclick="ui.toggleStream()" disabled>스트리밍 시작</button>
+                        <button class="btn btn-sm" id="btn-record" onclick="ui.toggleRecord()">녹화</button>
+                    </div>
+                </div>
+                <div class="panel-content screen-content">
+                    <div class="stream-placeholder" id="stream-placeholder">
+                        <div class="placeholder-icon">📱</div>
+                        <div class="placeholder-text">
+                            <p class="placeholder-title">디바이스 화면 미러링</p>
+                            <p class="placeholder-description">1. 왼쪽에서 디바이스를 선택하고 연결하세요</p>
+                            <p class="placeholder-description">2. 스트리밍 시작 버튼을 눌러주세요</p>
+                        </div>
+                    </div>
+                    <canvas id="screen-canvas" class="screen-canvas hidden"></canvas>
+                    <div class="screen-overlay" id="screen-overlay">
+                        <!-- 좌표 표시 등 오버레이 요소 -->
+                        <div id="tracking-overlay" class="tracking-overlay hidden">
+                            <!-- 추적 마커들이 여기에 동적으로 추가됨 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 오른쪽 중앙: 매크로 도구 -->
+            <section class="panel macro-panel">
+                <div class="panel-header">
+                    <h3>매크로</h3>
+                </div>
+                <div class="panel-content">
+                    <!-- 매크로 컨텐츠 -->
+                    <div id="macro-content">
+                        <!-- 탭 메뉴 -->
+                        <div class="mini-tabs">
+                            <div class="mini-tabs-left">
+                                <button class="mini-tab active" data-tab="add">추가</button>
+                                <button class="mini-tab" data-tab="manage">관리</button>
+                            </div>
+                            <div class="mini-tabs-right">
+                                <button class="btn btn-action" onclick="ui.clearActions()">초기화</button>
+                                <button class="btn btn-action" onclick="ui.saveMacro()">저장</button>
+                                <button class="btn btn-action btn-primary" onclick="ui.runActions()">실행</button>
+                            </div>
+                        </div>
+
+                        <!-- 매크로 추가 탭 -->
+                        <div class="tab-content" id="add-tab">
+                            <!-- 수정 모드 표시 -->
+                            <div id="edit-mode-indicator" class="edit-mode-indicator hidden">
+                                <div>
+                                    <strong style="color: #2196f3;">수정 중:</strong>
+                                    <span id="editing-macro-name" style="color: #1976d2; font-weight: 500;"></span>
+                                </div>
+                                <button class="btn btn-sm" onclick="ui.cancelEdit()" style="background: #fff;">수정 취소</button>
+                            </div>
+
+                            <div class="macro-section-title">액션 추가</div>
+
+                            <!-- 액션 카테고리 탭 -->
+                            <div class="action-category-tabs">
+                                <button class="action-tab active" data-category="interaction">상호작용</button>
+                                <button class="action-tab" data-category="control">제어</button>
+                                <button class="action-tab" data-category="smart">스마트</button>
+                                <button class="action-tab" data-category="loop">반복</button>
+                                <button class="action-tab" data-category="adb">ADB</button>
+                            </div>
+
+                            <!-- 카테고리별 액션 버튼 -->
+                            <div class="action-buttons">
+                                <!-- 상호작용 카테고리 -->
+                                <div class="action-category-content active" data-category="interaction">
+                                    <button class="action-btn" data-action-type="tap" onclick="ui.addAction('tap')">탭</button>
+                                    <button class="action-btn" data-action-type="swipe" onclick="ui.addAction('swipe')">스와이프</button>
+                                    <button class="action-btn" data-action-type="scroll_up" onclick="ui.addScrollAction('up')">스크롤 ↑</button>
+                                    <button class="action-btn" data-action-type="scroll_down" onclick="ui.addScrollAction('down')">스크롤 ↓</button>
+                                    <button class="action-btn" data-action-type="scroll_left" onclick="ui.addScrollAction('left')">스크롤 ←</button>
+                                    <button class="action-btn" data-action-type="scroll_right" onclick="ui.addScrollAction('right')">스크롤 →</button>
+                                    <button class="action-btn" data-action-type="input" onclick="ui.addAction('input')">입력</button>
+                                </div>
+                                <!-- 제어 카테고리 -->
+                                <div class="action-category-content hidden" data-category="control">
+                                    <button class="action-btn" data-action-type="wait" onclick="ui.addAction('wait')">딜레이</button>
+                                    <button class="action-btn" data-action-type="key" onclick="ui.addAction('key')">키</button>
+                                </div>
+                                <!-- 스마트 카테고리 -->
+                                <div class="action-category-content hidden" data-category="smart">
+                                    <button class="action-btn" data-action-type="image" onclick="ui.addAction('image')">이미지 매칭</button>
+                                    <button class="action-btn" data-action-type="tap_last_match" onclick="ui.addAction('tap_last_match')">찾은 위치 탭</button>
+                                    <button class="action-btn" data-action-type="if" onclick="ui.addAction('if')">조건 if</button>
+                                    <button class="action-btn" data-action-type="elseif" onclick="ui.addAction('elseif')">조건 elseif</button>
+                                    <button class="action-btn" data-action-type="else" onclick="ui.addAction('else')">조건 else</button>
+                                    <button class="action-btn" data-action-type="endif" onclick="ui.addAction('endif')">조건 endif</button>
+                                </div>
+                                <!-- 반복 카테고리 -->
+                                <div class="action-category-content hidden" data-category="loop">
+                                    <button class="action-btn" data-action-type="loop_count" onclick="ui.addAction('loop_count')">횟수 반복</button>
+                                    <button class="action-btn" data-action-type="break" onclick="ui.addAction('break')">중단 (BREAK)</button>
+                                </div>
+                                <!-- ADB 카테고리 -->
+                                <div class="action-category-content hidden" data-category="adb">
+                                    <button class="action-btn" data-action-type="adb_screenshot" onclick="ui.addAction('adb_screenshot')">스크린샷 저장</button>
+                                    <button class="action-btn" data-action-type="adb_logcat" onclick="ui.addAction('adb_logcat')">Logcat 저장</button>
+                                </div>
+                            </div>
+
+                            <div class="macro-section-title" style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>액션 목록</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="tracking-toggle" onchange="ui.toggleTrackingOverlay()">
+                                    <span class="toggle-slider">
+                                        <span class="toggle-label off">OFF</span>
+                                        <span class="toggle-label on">ON</span>
+                                    </span>
+                                    <span style="margin-left: 8px; font-size: 12px; color: #666;">추적 표시</span>
+                                </label>
+                            </div>
+                            <div class="action-list" id="action-list">
+                                <!-- 액션 목록 -->
+                            </div>
+                        </div>
+
+                        <!-- 매크로 관리 탭 -->
+                        <div class="tab-content hidden" id="manage-tab">
+                            <div class="macro-section-title">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="select-all-macros" onchange="ui.toggleSelectAll()">
+                                    저장된 매크로
+                                </label>
+                            </div>
+                            <div class="macro-list" id="macro-list">
+                                <!-- 매크로 목록 -->
+                            </div>
+                            <div class="macro-controls">
+                                <button class="btn btn-sm btn-primary" onclick="ui.runSelectedMacros()">선택 항목 실행</button>
+                                <button class="btn btn-sm btn-danger" onclick="ui.deleteSelectedMacros()">선택 항목 삭제</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- 하단: 로그 뷰어 -->
+            <section class="panel log-panel">
+                <div class="panel-header">
+                    <h3>로그</h3>
+                    <div class="panel-actions">
+                        <select id="log-level" class="form-control-sm">
+                            <option value="all">전체</option>
+                            <option value="info">정보</option>
+                            <option value="warning">경고</option>
+                            <option value="error">오류</option>
+                        </select>
+                        <button class="btn btn-sm" onclick="ui.clearLogs()">초기화</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div class="log-viewer" id="log-viewer">
+                        <!-- 로그 항목들 -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 플로팅 액션 버튼 (옵션) -->
+        <div class="floating-actions">
+            <button class="fab" onclick="ui.toggleQuickPanel()">⚡</button>
+        </div>
+    </div>
+
+    <!-- 모달들 -->
+    <!-- 매크로 생성 모달 -->
+    <div id="macro-name-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="ui.closeModal('macro-name-modal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>새 매크로 만들기</h3>
+                <button class="modal-close" onclick="ui.closeModal('macro-name-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>매크로 이름</label>
+                    <input type="text" id="macro-name-input" class="form-control" placeholder="예: 자동 로그인">
+                </div>
+                <div class="form-group">
+                    <label>설명 (선택사항)</label>
+                    <textarea id="macro-description-input" class="form-control" rows="3" placeholder="이 매크로가 하는 일을 설명해주세요"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="ui.closeModal('macro-name-modal')">취소</button>
+                <button class="btn btn-primary" onclick="ui.confirmCreateMacro()">만들기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 액션 추가 모달 -->
+    <div id="action-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="ui.closeModal('action-modal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="action-modal-title">액션 추가</h3>
+                <button class="modal-close" onclick="ui.closeModal('action-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="action-modal-body">
+                <!-- 동적으로 생성됨 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="ui.closeModal('action-modal')">취소</button>
+                <button class="btn btn-primary" onclick="ui.confirmAddAction()">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 액션 별칭 편집 모달 -->
+    <div id="edit-label-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="ui.closeModal('edit-label-modal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>액션 별칭 편집</h3>
+                <button class="modal-close" onclick="ui.closeModal('edit-label-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>이 액션의 별칭을 입력하세요 (별칭을 제거하려면 비워두세요)</p>
+                <input type="text" id="edit-label-input" class="form-control" placeholder="예: 로그인 버튼">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="ui.cancelEditLabel()">취소</button>
+                <button class="btn btn-primary" onclick="ui.confirmEditLabel()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이미지 매칭 편집 모달 -->
+    <div id="image-match-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="ui.closeModal('image-match-modal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>이미지 매칭 설정</h3>
+                <button class="modal-close" onclick="ui.closeModal('image-match-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>캡처된 이미지</label>
+                    <div class="image-preview-container">
+                        <canvas id="crop-canvas" style="max-width: 100%; max-height: 400px; display: none;"></canvas>
+                        <div id="captured-image-preview" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #666; font-size: 14px; font-weight: 500;">이미지를 드래그하여 선택하세요</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; display: flex; gap: 8px;">
+                        <button class="btn btn-sm" onclick="ui.autoCropBackground()" id="auto-crop-btn" style="display: none;">자동 배경 제거</button>
+                        <button class="btn btn-sm" onclick="ui.resetCrop()" id="reset-crop-btn" style="display: none;">원본으로</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>매칭 정확도</label>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <input type="range" id="match-threshold" class="form-control" min="0.5" max="1" step="0.01" value="0.95" style="flex: 1;" oninput="document.getElementById('threshold-value').textContent = (this.value * 100).toFixed(0) + '%'">
+                        <span id="threshold-value" style="font-weight: 600; min-width: 50px;">95%</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn btn-sm" onclick="document.getElementById('match-threshold').value = 0.7; document.getElementById('threshold-value').textContent = '70%';">느슨 (70%)</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('match-threshold').value = 0.85; document.getElementById('threshold-value').textContent = '85%';">보통 (85%)</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('match-threshold').value = 0.95; document.getElementById('threshold-value').textContent = '95%';">정확 (95%)</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('match-threshold').value = 0.99; document.getElementById('threshold-value').textContent = '99%';">매우 정확 (99%)</button>
+                    </div>
+                    <small>높을수록 정확한 매칭을 요구합니다. 이미지가 약간 변할 수 있다면 낮은 값을 사용하세요.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="ui.closeModal('image-match-modal')">취소</button>
+                <button class="btn btn-primary" onclick="ui.confirmImageMatch()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/image-matcher.js"></script>
+    <script src="js/tracking-overlay.js"></script>
+
+    <!-- New architecture files -->
+    <!-- Stores -->
+    <script src="stores/DeviceStore.js"></script>
+    <script src="stores/ScreenStore.js"></script>
+    <script src="stores/MacroStore.js"></script>
+    <script src="stores/ActionStore.js"></script>
+
+    <!-- Services -->
+    <script src="services/EventBus.js"></script>
+    <script src="services/IPCService.js"></script>
+
+    <!-- Components -->
+    <script src="components/DevicePanel.js"></script>
+    <script src="components/ScreenPanel.js"></script>
+    <script src="components/MacroPanel.js"></script>
+    <script src="components/ActionPanel.js"></script>
+
+    <script src="unified-app.js"></script>
+</body>
+</html>

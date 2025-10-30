@@ -1,0 +1,362 @@
+/**
+ * Timeline Editor Styles
+ * 타임라인 형태의 액션 에디터
+ */
+
+/* Timeline Container */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  min-height: 100%;
+}
+
+/* Action Card */
+.action-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--editor-bg-tertiary);
+  border: 1px solid var(--editor-border);
+  border-left: 3px solid var(--editor-border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--editor-transition);
+  user-select: none;
+}
+
+.action-card:hover {
+  background: var(--editor-bg-hover);
+  border-left-color: var(--editor-accent-blue);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.action-card.selected {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: var(--editor-accent-blue);
+  border-left-color: var(--editor-accent-blue);
+  box-shadow: 0 0 0 1px var(--editor-accent-blue);
+}
+
+.action-card.executing {
+  animation: pulse-action 1s ease-in-out infinite;
+  border-left: 3px solid var(--editor-accent-blue);
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.2) 0%, transparent 100%);
+}
+
+@keyframes pulse-action {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+}
+
+/* Drag Handle */
+.action-drag-handle {
+  flex: 0 0 auto;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--editor-text-tertiary);
+  cursor: grab;
+  font-size: 16px;
+}
+
+.action-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Action Index */
+.action-index {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--editor-text-secondary);
+}
+
+.action-card.executing .action-index {
+  background: var(--editor-accent-blue);
+  color: white;
+  border-color: var(--editor-accent-blue);
+}
+
+/* Action Icon */
+.action-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--editor-bg-secondary);
+  border-radius: 6px;
+  font-size: 20px;
+}
+
+/* Action type specific icons */
+.action-icon.type-tap { background: rgba(37, 99, 235, 0.15); }
+.action-icon.type-swipe { background: rgba(139, 92, 246, 0.15); }
+.action-icon.type-scroll { background: rgba(59, 130, 246, 0.15); }
+.action-icon.type-input { background: rgba(16, 185, 129, 0.15); }
+.action-icon.type-wait { background: rgba(245, 158, 11, 0.15); }
+.action-icon.type-image { background: rgba(236, 72, 153, 0.15); }
+.action-icon.type-key { background: rgba(107, 114, 128, 0.15); }
+
+/* Action Content */
+.action-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.action-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--editor-text-primary);
+}
+
+.action-type-badge {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--editor-bg-secondary);
+  border-radius: 3px;
+  color: var(--editor-text-tertiary);
+}
+
+.action-description {
+  font-size: 12px;
+  color: var(--editor-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.action-param {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--editor-text-tertiary);
+}
+
+.action-param .param-key {
+  color: var(--editor-text-secondary);
+  font-weight: 500;
+}
+
+.action-param .param-value {
+  padding: 1px 6px;
+  background: var(--editor-bg-secondary);
+  border-radius: 3px;
+  color: var(--editor-text-accent);
+  font-family: 'Courier New', monospace;
+}
+
+/* Action Actions (Buttons) */
+.action-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.action-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  color: var(--editor-text-tertiary);
+  cursor: pointer;
+  transition: var(--editor-transition);
+  font-size: 14px;
+}
+
+.action-action-btn:hover {
+  background: var(--editor-bg-hover);
+  color: var(--editor-text-primary);
+  border-color: var(--editor-border-light);
+}
+
+.action-action-btn.btn-danger:hover {
+  background: var(--editor-accent-red);
+  color: white;
+  border-color: var(--editor-accent-red);
+}
+
+/* Add Action Button */
+.add-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: var(--editor-bg-tertiary);
+  border: 1px dashed var(--editor-border-light);
+  border-radius: 6px;
+  color: var(--editor-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--editor-transition);
+}
+
+.add-action-btn:hover {
+  background: var(--editor-bg-hover);
+  border-color: var(--editor-accent-blue);
+  color: var(--editor-accent-blue);
+}
+
+.add-action-btn .btn-icon {
+  font-size: 18px;
+}
+
+/* Sortable States */
+.sortable-ghost {
+  opacity: 0.4;
+  background: var(--editor-bg-hover);
+}
+
+.sortable-chosen {
+  box-shadow: var(--editor-shadow-md);
+  transform: scale(1.02);
+}
+
+.sortable-drag {
+  opacity: 1;
+  box-shadow: var(--editor-shadow-lg);
+}
+
+/* Timeline Empty State */
+.timeline-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.timeline-empty .empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.timeline-empty .empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--editor-text-secondary);
+  margin-bottom: 8px;
+}
+
+.timeline-empty .empty-description {
+  font-size: 13px;
+  color: var(--editor-text-tertiary);
+  margin-bottom: 24px;
+  max-width: 300px;
+}
+
+/* Action Type Colors */
+.action-card[data-type="tap"] { border-left-color: #2563eb; }
+.action-card[data-type="swipe"] { border-left-color: #8b5cf6; }
+.action-card[data-type="scroll"] { border-left-color: #3b82f6; }
+.action-card[data-type="input"] { border-left-color: #10b981; }
+.action-card[data-type="wait"] { border-left-color: #f59e0b; }
+.action-card[data-type="image"] { border-left-color: #ec4899; }
+.action-card[data-type="key"] { border-left-color: #6b7280; }
+
+/* Multi-select checkbox */
+.action-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  display: none;
+  cursor: pointer;
+}
+
+.action-card:hover .action-checkbox,
+.action-card.selected .action-checkbox {
+  display: block;
+}
+
+/* Timeline Header */
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--editor-bg-tertiary);
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.timeline-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--editor-text-secondary);
+}
+
+.timeline-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timeline-stat .stat-value {
+  font-weight: 600;
+  color: var(--editor-text-primary);
+}
+
+/* Compact Mode */
+.timeline-container.compact .action-card {
+  padding: 8px 12px;
+}
+
+.timeline-container.compact .action-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+
+.timeline-container.compact .action-title {
+  font-size: 13px;
+}
+
+.timeline-container.compact .action-params {
+  display: none;
+}
