@@ -11,14 +11,14 @@
 }
 
 body {
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     font-size: 16px;
     line-height: 1.5;
     color: #0F172A;
     background: #F8FAFC;
 }
 
-/* Color Palette - From globals.css */
+/* Color Palette - From globals.css and Tailwind v4 */
 :root {
     --background: #ffffff;
     --foreground: #0F172A;
@@ -33,6 +33,18 @@ body {
     --border: rgba(0, 0, 0, 0.1);
     --input-background: #f3f3f5;
     --radius: 0.625rem;
+
+    /* Text sizes from Tailwind v4 */
+    --text-xs: 0.75rem;
+    --text-xs--line-height: 1.333333;
+    --text-sm: 0.875rem;
+    --text-sm--line-height: 1.428571;
+    --text-base: 1rem;
+    --text-base--line-height: 1.5;
+    --text-lg: 1.125rem;
+    --text-lg--line-height: 1.555556;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
 
     /* Slate Colors */
     --slate-50: #F8FAFC;
@@ -245,14 +257,32 @@ body {
 }
 
 /* Typography */
+.text-xs {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+}
+
 .text-sm {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+}
+
+.text-base {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
 }
 
 .text-lg {
-    font-size: 1.125rem;
-    line-height: 1.75rem;
+    font-size: var(--text-lg);
+    line-height: var(--text-lg--line-height);
+}
+
+.text-xl {
+    font-size: var(--text-xl);
+}
+
+.text-2xl {
+    font-size: var(--text-2xl);
 }
 
 /* Header */
@@ -261,15 +291,29 @@ body {
 }
 
 h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
+    font-size: var(--text-2xl);
+    font-weight: 500;
     line-height: 1.5;
     margin: 0;
 }
 
 h2 {
-    font-size: 1.125rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: 500;
+    line-height: 1.5;
+    margin: 0;
+}
+
+h3 {
+    font-size: var(--text-lg);
+    font-weight: 500;
+    line-height: 1.5;
+    margin: 0;
+}
+
+p {
+    font-size: var(--text-base);
+    font-weight: 400;
     line-height: 1.5;
     margin: 0;
 }
