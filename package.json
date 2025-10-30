@@ -6,7 +6,10 @@
   "scripts": {
     "start": "NODE_ENV=development electron . --dev",
     "dev": "NODE_ENV=development electron . --dev",
-    "prod": "NODE_ENV=production electron ."
+    "prod": "NODE_ENV=production electron .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "electron",
@@ -22,6 +25,9 @@
     "jimp": "^0.22.10"
   },
   "devDependencies": {
-    "electron": "^28.0.0"
+    "@types/jest": "^30.0.0",
+    "electron": "^28.0.0",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0"
   }
 }

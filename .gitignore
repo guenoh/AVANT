@@ -39,3 +39,4 @@ _backup/
 # Environment
 .env
 .env.local
+coverage/
