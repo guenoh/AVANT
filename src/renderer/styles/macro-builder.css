@@ -710,6 +710,15 @@ svg {
     }
 }
 
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
 /* Utility Classes */
 .hidden {
     display: none;
@@ -763,6 +772,19 @@ svg {
 /* Action Sequence List */
 #action-sequence-list {
     position: relative;
+}
+
+/* Action Block */
+.action-block {
+    position: relative;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-block:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
 }
 
 /* Connector lines between actions */

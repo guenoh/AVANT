@@ -445,22 +445,32 @@ class MacroBuilderApp {
     renderActionBlock(action, index, total) {
         const config = this.getActionConfig(action.type);
         const isSelected = this.selectedActionId === action.id;
+        const isRunning = this.isRunning && isSelected;
         const isFirst = index === 0;
         const isLast = index === total - 1;
         const depth = action.depth || 0;
 
         const description = this.getActionDescription(action);
 
+        // Border and background styles based on selection
+        let cardStyle = 'border: 2px solid var(--slate-200); background: white;';
+        if (isSelected) {
+            cardStyle = `border: 2px solid var(${config.borderColorVar}); background: var(${config.bgColorVar});`;
+        }
+        if (isRunning) {
+            cardStyle += ' box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5); animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;';
+        }
+
         return `
             <div style="margin-left: ${depth * 24}px; position: relative;" data-action-id="${action.id}">
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
 
-                <div class="action-card ${isSelected ? 'border-' + config.borderColor : ''}" style="background: ${isSelected ? config.bgColor : 'white'}; border-width: 2px;">
+                <div class="action-block" style="${cardStyle} border-radius: var(--radius); cursor: pointer; transition: all 0.2s; ${isSelected ? '' : 'hover: box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);'}">
                     <div class="p-4">
                         <div class="flex items-start gap-3">
                             <!-- Index Badge -->
-                            <div style="flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px; background: white; border: 2px solid var(--slate-300); display: flex; align-items: center; justify-content: center; font-size: 0.875rem; color: var(--slate-700);">
+                            <div style="flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px; background: white; border: 2px solid var(--slate-300); display: flex; align-items: center; justify-content: center; font-size: 0.875rem; font-weight: 500; color: var(--slate-700);">
                                 ${index + 1}
                             </div>
 
@@ -471,19 +481,19 @@ class MacroBuilderApp {
 
                             <!-- Content -->
                             <div class="action-card-content">
-                                <h3 class="action-card-title">${config.label}</h3>
-                                ${description ? `<p class="action-card-description truncate">${description}</p>` : ''}
+                                <h3 style="font-size: var(--text-base); font-weight: 500; color: var(--slate-900); margin: 0 0 0.25rem 0;">${config.label}</h3>
+                                ${description ? `<p style="font-size: var(--text-sm); color: var(--slate-600); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${description}</p>` : ''}
                             </div>
 
                             <!-- Actions -->
                             <div class="flex gap-1 flex-shrink-0">
-                                <button class="btn-sm btn-move-up" ${isFirst ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0;">
+                                <button class="btn-sm btn-move-up" ${isFirst ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-sm btn-move-down" ${isLast ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0;">
+                                <button class="btn-sm btn-move-down" ${isLast ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-sm btn-delete" style="width: 2rem; height: 2rem; padding: 0; color: var(--red-500);">
+                                <button class="btn-sm btn-delete" style="width: 2rem; height: 2rem; padding: 0; color: var(--red-500); display: flex; align-items: center; justify-content: center;">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
@@ -496,24 +506,24 @@ class MacroBuilderApp {
 
     getActionConfig(type) {
         const configs = {
-            'click': { label: '클릭', color: 'bg-blue-500', borderColor: 'blue-500', bgColor: 'var(--blue-50)', icon: this.getIconSVG('click') },
-            'long-press': { label: '롱프레스', color: 'bg-purple-500', borderColor: 'purple-500', bgColor: 'var(--purple-50)', icon: this.getIconSVG('hand') },
-            'drag': { label: '드래그', color: 'bg-green-500', borderColor: 'green-500', bgColor: 'var(--green-50)', icon: this.getIconSVG('move') },
-            'keyboard': { label: '키보드 입력', color: 'bg-orange-500', borderColor: 'orange-500', bgColor: 'var(--orange-50)', icon: this.getIconSVG('keyboard') },
-            'wait': { label: '대기', color: 'bg-slate-500', borderColor: 'slate-500', bgColor: 'var(--slate-50)', icon: this.getIconSVG('clock') },
-            'home': { label: '홈 버튼', color: 'bg-cyan-500', borderColor: 'cyan-500', bgColor: 'var(--cyan-50)', icon: this.getIconSVG('home') },
-            'back': { label: '뒤로가기', color: 'bg-pink-500', borderColor: 'pink-500', bgColor: 'var(--pink-50)', icon: this.getIconSVG('arrow-left') },
-            'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderColor: 'violet-500', bgColor: 'var(--violet-50)', icon: this.getIconSVG('camera') },
-            'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderColor: 'indigo-500', bgColor: 'var(--indigo-50)', icon: this.getIconSVG('image') },
-            'if': { label: 'If', color: 'bg-emerald-500', borderColor: 'emerald-500', bgColor: 'var(--emerald-50)', icon: this.getIconSVG('git-branch') },
-            'else-if': { label: 'Else If', color: 'bg-teal-500', borderColor: 'teal-500', bgColor: 'var(--teal-50)', icon: this.getIconSVG('code') },
-            'else': { label: 'Else', color: 'bg-sky-500', borderColor: 'sky-500', bgColor: 'var(--sky-50)', icon: this.getIconSVG('code') },
-            'log': { label: '로그', color: 'bg-amber-500', borderColor: 'amber-500', bgColor: 'var(--amber-50)', icon: this.getIconSVG('file-text') },
-            'loop': { label: 'Loop', color: 'bg-pink-500', borderColor: 'pink-500', bgColor: 'var(--pink-50)', icon: this.getIconSVG('repeat') },
-            'while': { label: 'While', color: 'bg-cyan-500', borderColor: 'cyan-500', bgColor: 'var(--cyan-50)', icon: this.getIconSVG('rotate-cw') },
-            'end-if': { label: 'End If', color: 'bg-red-500', borderColor: 'red-500', bgColor: 'var(--red-50)', icon: this.getIconSVG('x') },
-            'end-loop': { label: 'End Loop', color: 'bg-red-500', borderColor: 'red-500', bgColor: 'var(--red-50)', icon: this.getIconSVG('x') },
-            'end-while': { label: 'End While', color: 'bg-red-500', borderColor: 'red-500', bgColor: 'var(--red-50)', icon: this.getIconSVG('x') },
+            'click': { label: '클릭', color: 'bg-blue-500', borderColorVar: '--blue-500', bgColorVar: '--blue-50', icon: this.getIconSVG('click') },
+            'long-press': { label: '롱프레스', color: 'bg-purple-500', borderColorVar: '--purple-500', bgColorVar: '--purple-50', icon: this.getIconSVG('hand') },
+            'drag': { label: '드래그', color: 'bg-green-500', borderColorVar: '--green-500', bgColorVar: '--green-50', icon: this.getIconSVG('move') },
+            'keyboard': { label: '키보드 입력', color: 'bg-orange-500', borderColorVar: '--orange-500', bgColorVar: '--orange-50', icon: this.getIconSVG('keyboard') },
+            'wait': { label: '대기', color: 'bg-slate-500', borderColorVar: '--slate-600', bgColorVar: '--slate-50', icon: this.getIconSVG('clock') },
+            'home': { label: '홈 버튼', color: 'bg-cyan-500', borderColorVar: '--cyan-500', bgColorVar: '--cyan-50', icon: this.getIconSVG('home') },
+            'back': { label: '뒤로가기', color: 'bg-pink-500', borderColorVar: '--pink-500', bgColorVar: '--pink-50', icon: this.getIconSVG('arrow-left') },
+            'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderColorVar: '--violet-500', bgColorVar: '--violet-50', icon: this.getIconSVG('camera') },
+            'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderColorVar: '--indigo-500', bgColorVar: '--indigo-50', icon: this.getIconSVG('image') },
+            'if': { label: 'If', color: 'bg-emerald-500', borderColorVar: '--emerald-500', bgColorVar: '--emerald-50', icon: this.getIconSVG('git-branch') },
+            'else-if': { label: 'Else If', color: 'bg-teal-500', borderColorVar: '--teal-500', bgColorVar: '--teal-50', icon: this.getIconSVG('code') },
+            'else': { label: 'Else', color: 'bg-sky-500', borderColorVar: '--sky-500', bgColorVar: '--sky-50', icon: this.getIconSVG('code') },
+            'log': { label: '로그', color: 'bg-amber-500', borderColorVar: '--amber-500', bgColorVar: '--amber-50', icon: this.getIconSVG('file-text') },
+            'loop': { label: 'Loop', color: 'bg-pink-500', borderColorVar: '--pink-500', bgColorVar: '--pink-50', icon: this.getIconSVG('repeat') },
+            'while': { label: 'While', color: 'bg-cyan-500', borderColorVar: '--cyan-500', bgColorVar: '--cyan-50', icon: this.getIconSVG('rotate-cw') },
+            'end-if': { label: 'End If', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
+            'end-loop': { label: 'End Loop', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
+            'end-while': { label: 'End While', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
         };
         return configs[type] || configs['click'];
     }
