@@ -99,16 +99,19 @@ body {
     flex: 1 1 0%;
 }
 
-.flex-[2] {
+.flex-\[2\] {
     flex: 2 1 0%;
+    min-width: 0;
 }
 
-.flex-[3] {
+.flex-\[3\] {
     flex: 3 1 0%;
+    min-width: 0;
 }
 
-.flex-[5] {
+.flex-\[5\] {
     flex: 5 1 0%;
+    min-width: 0;
 }
 
 .h-screen {
@@ -131,6 +134,10 @@ body {
 
 .justify-between {
     justify-content: space-between;
+}
+
+.justify-center {
+    justify-content: center;
 }
 
 .gap-1 {
@@ -240,6 +247,7 @@ body {
 /* Borders */
 .border {
     border-width: 1px;
+    border-style: solid;
 }
 
 .border-b {
@@ -721,6 +729,7 @@ svg {
 /* Border utilities */
 .border-2 {
     border-width: 2px;
+    border-style: solid;
 }
 
 .hover\:border-slate-300:hover {

@@ -45,6 +45,17 @@ class MacroBuilderApp {
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
         });
+
+        // Action list - use event delegation
+        document.getElementById('action-list-container')?.addEventListener('click', (e) => {
+            const actionCard = e.target.closest('.action-card');
+            if (actionCard) {
+                const actionType = actionCard.dataset.actionType;
+                if (actionType) {
+                    this.addAction(actionType);
+                }
+            }
+        });
     }
 
     switchTab(tabName) {
@@ -299,14 +310,6 @@ class MacroBuilderApp {
                     ${actions.map(action => this.renderActionCard(action)).join('')}
                 </div>
             `;
-
-            // Add click handlers
-            actions.forEach(action => {
-                const card = container.querySelector(`[data-action-type="${action.type}"]`);
-                if (card) {
-                    card.addEventListener('click', () => this.addAction(action.type));
-                }
-            });
         }
     }
 
@@ -352,6 +355,9 @@ class MacroBuilderApp {
     renderActionSequence() {
         const container = document.getElementById('action-sequence-list');
         if (!container) return;
+
+        // Save scroll position
+        const scrollTop = container.scrollTop;
 
         const emptyState = container.querySelector('#empty-state');
 
@@ -409,6 +415,9 @@ class MacroBuilderApp {
                 }
             }
         });
+
+        // Restore scroll position
+        container.scrollTop = scrollTop;
     }
 
     calculateDepths() {
