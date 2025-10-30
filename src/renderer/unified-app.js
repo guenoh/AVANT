@@ -33,9 +33,13 @@ class UnifiedApp {
 
     // Initialize new architecture components
     this.deviceStore = window.DeviceStore;
+    this.screenStore = window.ScreenStore;
+    this.macroStore = window.MacroStore;
+    this.actionStore = window.ActionStore;
     this.ipcService = window.IPCService;
     this.eventBus = window.EventBus;
     this.devicePanel = null; // Will be initialized in init()
+    this.screenPanel = null; // Will be initialized in init()
 
     this.init();
   }
@@ -49,8 +53,13 @@ class UnifiedApp {
     this.devicePanel = new window.DevicePanel(window.api, this.deviceStore);
     this.devicePanel.init();
 
-    // Subscribe to device panel events
+    // Initialize ScreenPanel
+    this.screenPanel = new window.ScreenPanel(window.api, this.screenStore, this.canvas);
+    this.screenPanel.init();
+
+    // Subscribe to panel events
     this._setupDevicePanelListeners();
+    this._setupScreenPanelListeners();
 
     // 초기 디바이스 목록 로드
     await this.scanDevices();
@@ -131,6 +140,48 @@ class UnifiedApp {
     if (recordBtn) recordBtn.disabled = !connected;
   }
 
+  /**
+   * Setup listeners for ScreenPanel events
+   */
+  _setupScreenPanelListeners() {
+    // Screenshot events
+    document.addEventListener('screen-panel:screenshot-success', (e) => {
+      this.log('스크린샷 캡처 완료', 'success');
+    });
+
+    document.addEventListener('screen-panel:screenshot-error', (e) => {
+      this.log(`스크린샷 실패: ${e.detail.error}`, 'error');
+    });
+
+    // Streaming events
+    document.addEventListener('screen-panel:stream-started', (e) => {
+      const { fps } = e.detail;
+      this.log(`스트리밍 시작: ${fps} FPS`, 'success');
+    });
+
+    document.addEventListener('screen-panel:stream-stopped', () => {
+      this.log('스트리밍 중지', 'info');
+    });
+
+    document.addEventListener('screen-panel:stream-error', (e) => {
+      this.log(`스트리밍 오류: ${e.detail.error}`, 'error');
+    });
+
+    // Recording events
+    document.addEventListener('screen-panel:recording-started', () => {
+      this.log('화면 녹화 시작', 'success');
+    });
+
+    document.addEventListener('screen-panel:recording-stopped', (e) => {
+      const { path, duration } = e.detail;
+      this.log(`녹화 완료: ${path} (${duration}초)`, 'success');
+    });
+
+    document.addEventListener('screen-panel:recording-error', (e) => {
+      this.log(`녹화 오류: ${e.detail.error}`, 'error');
+    });
+  }
+
   setupEventListeners() {
     // 전역 UI 객체로 메서드 노출
     window.ui = {
@@ -146,10 +197,14 @@ class UnifiedApp {
       connectDevice: (deviceId) => this.connectDevice(deviceId),
       connectSelectedDevice: () => this.connectSelectedDevice(),
       onConnectionTypeChange: (type) => this.onConnectionTypeChange(type),
+
+      // Delegate screen methods to ScreenPanel
+      takeScreenshot: () => this.screenPanel.takeScreenshot(),
+      toggleStream: () => this.screenPanel.toggleStream(),
+      toggleRecord: () => this.screenPanel.toggleRecord(),
+
+      // Other UI methods
       toggleSettings: () => this.toggleSettings(),
-      takeScreenshot: () => this.takeScreenshot(),
-      toggleStream: () => this.toggleStream(),
-      toggleRecord: () => this.toggleRecord(),
       quickAction: (action) => this.quickAction(action),
       createNewMacro: () => this.createNewMacro(),
       toggleTrackingOverlay: () => this.toggleTrackingOverlay(),
