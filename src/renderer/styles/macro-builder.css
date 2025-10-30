@@ -1035,6 +1035,17 @@ svg {
 /* Action Sequence List */
 #action-sequence-list {
     position: relative;
+    min-height: 0;
+}
+
+/* Action List Container */
+#action-list-container {
+    min-height: 0;
+}
+
+/* Screen Preview Container */
+#screen-preview-container {
+    min-height: 0;
 }
 
 /* Action Block */

@@ -472,8 +472,10 @@ class MacroBuilderApp {
                             </div>
 
                             <!-- Icon -->
-                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0">
-                                ${config.icon}
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
+                                <div style="width: 1.25rem; height: 1.25rem;">
+                                    ${config.icon}
+                                </div>
                             </div>
 
                             <!-- Content -->
