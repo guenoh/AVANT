@@ -101,14 +101,17 @@ body {
 
 .flex-[2] {
     flex: 2 1 0%;
+    min-width: 320px;
 }
 
 .flex-[3] {
     flex: 3 1 0%;
+    min-width: 400px;
 }
 
 .flex-[5] {
     flex: 5 1 0%;
+    min-width: 480px;
 }
 
 .h-screen {
@@ -123,6 +126,12 @@ body {
 
 .overflow-auto {
     overflow: auto;
+}
+
+/* Main content area - allow horizontal scroll when panels are too wide */
+#app > div.flex-1.flex.overflow-hidden {
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .items-center {
