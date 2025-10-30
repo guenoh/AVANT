@@ -1059,7 +1059,14 @@ svg {
     min-height: 0;
     overflow-y: auto !important;
     overflow-x: hidden;
-    background-color: #ffffff;
+    background-color: #ffffff !important;
+}
+
+/* Force white background on right panel and its children */
+.flex-[2].bg-white,
+.flex-[2].bg-white > div,
+.flex-[2].bg-white #action-list-container {
+    background-color: #ffffff !important;
 }
 
 /* Screen Preview Container */
