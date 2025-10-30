@@ -1059,6 +1059,7 @@ svg {
     min-height: 0;
     overflow-y: auto !important;
     overflow-x: hidden;
+    background-color: #ffffff;
 }
 
 /* Screen Preview Container */
