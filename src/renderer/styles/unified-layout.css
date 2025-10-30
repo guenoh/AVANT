@@ -1624,3 +1624,288 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+/* ============================================
+   Device Connection Panel (UI.md Based Design)
+   ============================================ */
+
+.device-connection-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+}
+
+/* Protocol Selector */
+.protocol-selector {
+  display: flex;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+}
+
+.protocol-radio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.protocol-radio input[type="radio"] {
+  margin-right: var(--spacing-2);
+}
+
+.protocol-radio:has(input:checked) {
+  background: var(--color-primary);
+  color: white;
+}
+
+.protocol-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+/* Connection Area */
+.connection-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.connection-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.connection-input-group > label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Device Select */
+.device-select-wrapper {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.device-select {
+  flex: 1;
+  padding: var(--spacing-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.device-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Input Fields */
+.input-text {
+  padding: var(--spacing-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.input-text:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.input-row {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.input-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-field label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.input-text-sm {
+  padding: 6px var(--spacing-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.input-text-sm:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Connection Action Button */
+.connection-action-btn {
+  width: 100%;
+  padding: var(--spacing-3);
+  font-weight: 600;
+}
+
+/* Connection Status Card */
+.connection-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+  transition: all 0.3s;
+}
+
+/* Status: Disconnected (Gray) */
+.connection-status-card.status-disconnected {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.connection-status-card.status-disconnected .status-icon::before {
+  content: '○';
+  color: #94a3b8;
+}
+
+/* Status: Connecting (Blue) */
+.connection-status-card.status-connecting {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.connection-status-card.status-connecting .status-icon::before {
+  content: '◐';
+  color: #2563eb;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Status: Connected (Green) */
+.connection-status-card.status-connected {
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  animation: fadeIn 0.3s;
+}
+
+.connection-status-card.status-connected .status-icon::before {
+  content: '✓';
+  color: #16a34a;
+  font-weight: bold;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Status: Failed (Red) */
+.connection-status-card.status-failed {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  animation: shake 0.5s;
+}
+
+.connection-status-card.status-failed .status-icon::before {
+  content: '⚠';
+  color: #dc2626;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+/* Status Header */
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.status-icon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.status-text {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* Status Details */
+.status-details {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* Status Actions */
+.status-actions {
+  display: flex;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.status-actions .btn {
+  flex: 1;
+}
+
+/* Compact Inline Status (연결 완료 시 1줄 표시) */
+.connection-status-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  border-radius: var(--radius-md);
+  gap: var(--spacing-2);
+}
+
+.status-inline-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.status-inline-icon {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-inline-text {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+/* Utility: Hidden */
+.hidden {
+  display: none !important;
+}

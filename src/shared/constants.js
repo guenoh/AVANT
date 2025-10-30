@@ -18,6 +18,7 @@ const IPC = {
   // Action Operations
   ACTION_TAP: 'action:tap',
   ACTION_SWIPE: 'action:swipe',
+  ACTION_SCROLL: 'action:scroll',
   ACTION_INPUT: 'action:input',
   ACTION_KEY: 'action:key',
 
@@ -44,6 +45,7 @@ const IPC = {
 const ACTION_TYPES = {
   TAP: 'tap',
   SWIPE: 'swipe',
+  SCROLL: 'scroll',
   INPUT: 'input',
   KEY: 'key',
   WAIT: 'wait',
@@ -79,6 +81,7 @@ const LOG_LEVEL = {
   INFO: 'info',
   WARNING: 'warning',
   ERROR: 'error',
+  FATAL: 'fatal',
   SUCCESS: 'success'
 };
 

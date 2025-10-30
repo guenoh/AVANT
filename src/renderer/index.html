@@ -30,45 +30,76 @@
         <main class="main-grid">
             <!-- 왼쪽 상단: 디바이스 연결/정보 -->
             <section class="panel device-panel">
-                <div class="panel-content device-single-line">
-                    <!-- 타이틀 -->
-                    <div class="device-section-title">
-                        <h4>디바이스</h4>
-                    </div>
-
-                    <!-- 연결 타입 탭 -->
-                    <div class="device-tabs-inline">
-                        <button class="device-tab-inline active" data-type="adb" onclick="ui.onConnectionTypeChange('adb')">ADB</button>
-                        <button class="device-tab-inline" data-type="ccnc" onclick="ui.onConnectionTypeChange('ccnc')">ccNC</button>
+                <div class="panel-header">
+                    <h3>장치 연결</h3>
+                </div>
+                <div class="panel-content device-connection-wrapper">
+                    <!-- 프로토콜 선택 -->
+                    <div class="protocol-selector">
+                        <label class="protocol-radio">
+                            <input type="radio" name="protocol" value="adb" checked onchange="ui.onProtocolChange('adb')">
+                            <span class="protocol-label">ADB</span>
+                        </label>
+                        <label class="protocol-radio">
+                            <input type="radio" name="protocol" value="ccnc" onchange="ui.onProtocolChange('ccnc')">
+                            <span class="protocol-label">ccNC</span>
+                        </label>
                     </div>
 
                     <!-- ADB 연결 영역 -->
-                    <div id="adb-connection-area" class="connection-area-inline">
-                        <button class="btn btn-xs btn-secondary" onclick="ui.scanDevices()">스캔</button>
-                        <div id="device-list-mini" class="device-list-inline">
-                            <!-- 디바이스 목록 -->
+                    <div id="adb-connection-area" class="connection-area">
+                        <div class="connection-input-group">
+                            <label>연결할 ADB 장치를 선택하세요</label>
+                            <div class="device-select-wrapper">
+                                <select id="adb-device-list" class="device-select">
+                                    <option value="">장치를 선택하세요</option>
+                                </select>
+                                <button class="btn btn-sm btn-secondary" onclick="ui.scanDevices()">새로고침</button>
+                            </div>
                         </div>
+                        <button id="adb-connect-btn" class="btn btn-primary connection-action-btn" onclick="ui.connectADB()">연결</button>
                     </div>
 
                     <!-- ccNC 연결 영역 -->
-                    <div id="ccnc-connection-area" class="connection-area-inline" style="display: none;">
-                        <input type="text" id="ccnc-host" value="localhost" placeholder="Host" class="input-xs">
-                        <input type="number" id="ccnc-port" value="20000" placeholder="Port" class="input-xs" style="width: 60px;">
-                        <button class="btn btn-xs btn-primary" onclick="ui.connectCCNC()">연결</button>
+                    <div id="ccnc-connection-area" class="connection-area" style="display: none;">
+                        <div class="connection-input-group">
+                            <label>연결할 장치 IP를 입력하세요</label>
+                            <input type="text" id="ccnc-host" value="localhost" placeholder="예: 192.168.0.10" class="input-text">
+                            <div class="input-row">
+                                <div class="input-field">
+                                    <label>포트</label>
+                                    <input type="number" id="ccnc-port" value="20000" class="input-text-sm">
+                                </div>
+                                <div class="input-field">
+                                    <label>FPS</label>
+                                    <input type="number" id="ccnc-fps" value="30" min="1" max="60" class="input-text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="ccnc-connect-btn" class="btn btn-primary connection-action-btn" onclick="ui.connectCCNC()">연결</button>
                     </div>
 
-                    <!-- 구분선 -->
-                    <div class="divider-vertical"></div>
-
-                    <!-- 연결 상태 -->
-                    <div id="device-status-inline" class="device-status-inline hidden">
-                        <span class="status-dot-inline connected"></span>
-                        <span id="status-info-inline" class="status-info-inline">ccNC 1.3</span>
-                        <button class="btn-close-inline" onclick="ui.disconnectDevice()" title="연결 해제">×</button>
+                    <!-- 연결 상태 카드 (연결 중/실패 시) -->
+                    <div id="connection-status-card" class="connection-status-card hidden">
+                        <div class="status-header">
+                            <span class="status-icon"></span>
+                            <span class="status-text">연결 안 됨</span>
+                        </div>
+                        <div class="status-details">
+                            <span id="status-device-info"></span>
+                        </div>
+                        <div class="status-actions">
+                            <button id="status-action-btn" class="btn btn-sm">연결</button>
+                        </div>
                     </div>
 
-                    <div id="device-empty-inline" class="device-empty-inline">
-                        <span class="empty-text">연결 안됨</span>
+                    <!-- 연결 완료 시 작은 인라인 상태 -->
+                    <div id="connection-status-inline" class="connection-status-inline hidden">
+                        <div class="status-inline-info">
+                            <span class="status-inline-icon">🟢</span>
+                            <span class="status-inline-text" id="status-inline-text">연결됨</span>
+                        </div>
+                        <button id="status-inline-disconnect-btn" class="btn btn-sm btn-secondary" onclick="ui.disconnectDevice()">끊기</button>
                     </div>
                 </div>
             </section>
@@ -150,6 +181,10 @@
                                 <div class="action-category-content active" data-category="interaction">
                                     <button class="action-btn" data-action-type="tap" onclick="ui.addAction('tap')">탭</button>
                                     <button class="action-btn" data-action-type="swipe" onclick="ui.addAction('swipe')">스와이프</button>
+                                    <button class="action-btn" data-action-type="scroll_up" onclick="ui.addScrollAction('up')">스크롤 ↑</button>
+                                    <button class="action-btn" data-action-type="scroll_down" onclick="ui.addScrollAction('down')">스크롤 ↓</button>
+                                    <button class="action-btn" data-action-type="scroll_left" onclick="ui.addScrollAction('left')">스크롤 ←</button>
+                                    <button class="action-btn" data-action-type="scroll_right" onclick="ui.addScrollAction('right')">스크롤 →</button>
                                     <button class="action-btn" data-action-type="input" onclick="ui.addAction('input')">입력</button>
                                 </div>
                                 <!-- 제어 카테고리 -->

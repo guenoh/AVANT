@@ -323,6 +323,58 @@ class CCNCConnectionService extends EventEmitter {
   }
 
   /**
+   * Scroll screen in specified direction
+   * @param {string} direction - 'up'|'down'|'left'|'right'
+   * @param {Object} options - Options
+   * @param {number} options.distance - Scroll distance in pixels
+   * @param {number} options.duration - Scroll duration in ms
+   * @param {number} options.monitor - Monitor ID
+   * @param {boolean} options.waitResponse - Wait for response
+   * @returns {Promise<void>}
+   */
+  async scroll(direction, options = {}) {
+    const { distance = 400, duration = 300, monitor = MONITOR.FRONT, waitResponse = false } = options;
+
+    // Screen center (assuming 1920x720 screen)
+    const centerX = 960;
+    const centerY = 360;
+
+    let startX, startY, endX, endY;
+
+    switch (direction) {
+      case 'up':
+        startX = centerX;
+        startY = centerY + distance / 2;
+        endX = centerX;
+        endY = centerY - distance / 2;
+        break;
+      case 'down':
+        startX = centerX;
+        startY = centerY - distance / 2;
+        endX = centerX;
+        endY = centerY + distance / 2;
+        break;
+      case 'left':
+        startX = centerX + distance / 2;
+        startY = centerY;
+        endX = centerX - distance / 2;
+        endY = centerY;
+        break;
+      case 'right':
+        startX = centerX - distance / 2;
+        startY = centerY;
+        endX = centerX + distance / 2;
+        endY = centerY;
+        break;
+      default:
+        throw new Error(`Invalid scroll direction: ${direction}`);
+    }
+
+    // Use drag command for scrolling
+    await this.drag(startX, startY, endX, endY, { duration, monitor, waitResponse });
+  }
+
+  /**
    * Capture screen region
    * @param {number} left - Left coordinate
    * @param {number} top - Top coordinate

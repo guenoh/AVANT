@@ -81,7 +81,7 @@ async function initializeServices() {
     await settingsService.initialize();
     await deviceService.initialize();
     await screenService.initialize(deviceService);
-    await actionService.initialize(deviceService);
+    await actionService.initialize(deviceService, ccncService);
     await macroService.initialize();
 
     loggerService.info('All services initialized successfully');
@@ -149,17 +149,35 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle('device:connect-ccnc', async (event, { host, port }) => {
+  ipcMain.handle('device:connect-ccnc', async (event, { host, port, fps }) => {
     try {
-      console.log('[IPC] device:connect-ccnc called with:', host, port);
+      console.log('[IPC] device:connect-ccnc called with:', host, port, fps);
 
       // Create new ccNC service if not exists
       if (!ccncService) {
         ccncService = new CCNCConnectionService();
+
+        // Handle ccNC errors to prevent uncaughtException
+        ccncService.on('error', (error) => {
+          console.error('[ccNC] Service error:', error.message);
+        });
+      }
+
+      // Store FPS setting on ccNC service
+      ccncService.targetFPS = fps || 30;
+
+      // Disconnect first if already connected or in error state
+      if (ccncService.getState() !== 'disconnected') {
+        ccncService.disconnect();
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Connect to ccNC server
       await ccncService.connect(host, port);
+
+      // Update actionService with ccNC service
+      actionService.ccncService = ccncService;
 
       // Try to get version (optional)
       let version = 'unknown';
@@ -213,7 +231,7 @@ function setupIpcHandlers() {
     try {
       // Use ccNC if connected, otherwise use ADB
       if (ccncService && ccncService.isConnected()) {
-        // Use actual ccNC resolution: 1920x720
+        // Capture full screen: 1920x720
         const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
         const base64 = imageData.toString('base64');
         return { success: true, screenshot: `data:image/jpeg;base64,${base64}` };
@@ -238,7 +256,7 @@ function setupIpcHandlers() {
     const startTime = Date.now();
 
     try {
-      // Use actual ccNC resolution: 1920x720
+      // Capture full screen: 1920x720
       const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
       const base64 = imageData.toString('base64');
 
@@ -272,14 +290,14 @@ function setupIpcHandlers() {
           throw new Error('ccNC stream already active');
         }
 
-        // ccNC: 2 FPS with JPEG for stability
-        const fps = 2;
+        // ccNC: Use target FPS from connection
+        const fps = ccncService.targetFPS || 30;
         const interval = 1000 / fps;
 
         ccncStreamActive = true;
         ccncStreamLoop(interval);
 
-        loggerService.info(`ccNC stream started at ${fps} FPS (JPEG format)`);
+        loggerService.info(`ccNC stream started at ${fps} FPS (JPEG, 1920x720)`);
         return { success: true };
       } else {
         // ADB: Use requested FPS (default 30)
@@ -349,6 +367,13 @@ function setupIpcHandlers() {
             );
             return { success: true };
 
+          case 'scroll':
+            await ccncService.scroll(action.direction, {
+              distance: action.distance || 600,
+              duration: action.duration || 300
+            });
+            return { success: true };
+
           case 'wait':
             await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
             return { success: true };
@@ -387,6 +412,14 @@ function setupIpcHandlers() {
                 action.endY,
                 { duration: action.duration || 300 }
               );
+              results.push({ success: true });
+              break;
+
+            case 'scroll':
+              await ccncService.scroll(action.direction, {
+                distance: action.distance || 600,
+                duration: action.duration || 300
+              });
               results.push({ success: true });
               break;
 

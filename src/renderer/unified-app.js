@@ -6,6 +6,7 @@ class UnifiedApp {
   constructor() {
     this.state = {
       selectedDevice: null,
+      connectionType: 'adb',
       isStreaming: false,
       isRecording: false,
       isMacroRecording: false,
@@ -73,6 +74,8 @@ class UnifiedApp {
       connectDevice: (deviceId) => this.connectDevice(deviceId),
       connectSelectedDevice: () => this.connectSelectedDevice(),
       onConnectionTypeChange: (type) => this.onConnectionTypeChange(type),
+      onProtocolChange: (protocol) => this.onProtocolChange(protocol),
+      connectADB: () => this.connectADB(),
       connectCCNC: () => this.connectCCNC(),
       disconnectDevice: () => this.disconnectDevice(),
       toggleSettings: () => this.toggleSettings(),
@@ -83,6 +86,7 @@ class UnifiedApp {
       createNewMacro: () => this.createNewMacro(),
       toggleTrackingOverlay: () => this.toggleTrackingOverlay(),
       addAction: (type) => this.addAction(type),
+      addScrollAction: (direction) => this.addScrollAction(direction),
       removeAction: (index) => this.removeAction(index),
       clearActions: () => this.clearActions(),
       runActions: () => this.runActions(),
@@ -246,6 +250,21 @@ class UnifiedApp {
   }
 
   displayDevices(devices) {
+    // Try new design first (select dropdown)
+    const select = document.getElementById('adb-device-list');
+    if (select) {
+      select.innerHTML = '<option value="">장치를 선택하세요</option>';
+
+      devices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.id;
+        option.textContent = `${device.model || 'Unknown'} (${device.id})`;
+        select.appendChild(option);
+      });
+      return;
+    }
+
+    // Fallback to old design (inline list)
     const deviceList = document.getElementById('device-list-mini');
     if (!deviceList) return;
 
@@ -464,6 +483,9 @@ class UnifiedApp {
       streamBtn.disabled = true;
     }
 
+    // Update new connection status UI to disconnected state
+    this.updateConnectionStatus('disconnected', '연결 안 됨', '');
+
     this.log('디바이스 연결 해제', 'info');
   }
 
@@ -522,62 +544,71 @@ class UnifiedApp {
   }
 
   async connectCCNC() {
-    try {
-      const host = document.getElementById('ccnc-host')?.value || 'localhost';
-      const port = parseInt(document.getElementById('ccnc-port')?.value) || 20000;
-      const statusDiv = document.getElementById('ccnc-status');
+    const maxRetries = 5;
+    const retryDelay = 1000; // 1 second
 
-      if (!window.api || !window.api.device.connectCCNC) {
-        throw new Error('ccNC API가 초기화되지 않았습니다');
-      }
+    const host = document.getElementById('ccnc-host')?.value || 'localhost';
+    const port = parseInt(document.getElementById('ccnc-port')?.value) || 20000;
+    const fps = parseInt(document.getElementById('ccnc-fps')?.value) || 30;
+    const statusDiv = document.getElementById('ccnc-status');
 
-      this.log(`ccNC 연결 시도: ${host}:${port}`, 'info');
+    if (!window.api || !window.api.device.connectCCNC) {
+      this.log('ccNC API가 초기화되지 않았습니다', 'error');
+      return;
+    }
 
-      if (statusDiv) {
-        statusDiv.textContent = '연결 중...';
-        statusDiv.className = 'connection-status';
-      }
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.log(`ccNC 연결 시도 ${attempt}/${maxRetries}: ${host}:${port} (${fps} FPS)`, 'info');
 
-      const result = await window.api.device.connectCCNC(host, port);
+        // Update status card
+        this.updateConnectionStatus('connecting', `ccNC 연결 중... (${attempt}/${maxRetries})`, `${host}:${port}`);
 
-      if (result.success) {
-        this.log(`ccNC 연결 성공: ${result.version || 'unknown'}`, 'success');
+        const result = await window.api.device.connectCCNC(host, port, fps);
 
-        // Store ccNC connection info
-        this.state.selectedDevice = {
-          id: 'ccnc',
-          model: 'ccNC',
-          device: 'ccNC',
-          connectionType: 'ccnc',
-          host,
-          port,
-          version: result.version
-        };
+        if (result.success) {
+          this.log(`ccNC 연결 성공: ${result.version || 'unknown'}`, 'success');
 
-        // Show status card
-        this.showDeviceStatusCard({
-          name: 'ccNC',
-          version: result.version || 'unknown',
-          model: 'ccNC',
-          android: result.version || '1.3'
-        });
+          // Store ccNC connection info
+          this.state.selectedDevice = {
+            id: 'ccnc',
+            model: 'ccNC',
+            device: 'ccNC',
+            connectionType: 'ccnc',
+            host,
+            port,
+            fps,
+            version: result.version
+          };
 
-        // Enable streaming button
-        const streamBtn = document.getElementById('btn-stream');
-        if (streamBtn) {
-          streamBtn.disabled = false;
+          // Update status card
+          this.updateConnectionStatus('connected', 'ccNC 연결됨', `${host}:${port} (v${result.version || 'unknown'})`);
+
+          // Enable streaming button
+          const streamBtn = document.getElementById('btn-stream');
+          if (streamBtn) {
+            streamBtn.disabled = false;
+          }
+
+          return; // Success, exit function
+        } else {
+          throw new Error(result.error || 'ccNC 연결 실패');
         }
-      } else {
-        throw new Error(result.error || 'ccNC 연결 실패');
-      }
-    } catch (error) {
-      console.error('ccNC 연결 오류:', error);
-      this.log(`ccNC 연결 실패: ${error.message}`, 'error');
+      } catch (error) {
+        console.error(`ccNC 연결 시도 ${attempt} 실패:`, error);
 
-      const statusDiv = document.getElementById('ccnc-status');
-      if (statusDiv) {
-        statusDiv.textContent = `연결 실패: ${error.message}`;
-        statusDiv.className = 'connection-status error';
+        if (attempt === maxRetries) {
+          // Final attempt failed
+          this.log(`ccNC 연결 실패 (${maxRetries}번 시도): ${error.message}`, 'error');
+          this.log('ccNC 서버가 실행 중인지 확인해주세요', 'warning');
+
+          // Update status card
+          this.updateConnectionStatus('failed', 'ccNC 연결 실패', `${error.message} (${maxRetries}번 시도)`);
+        } else {
+          // Not final attempt, wait and retry
+          this.log(`재시도 대기 중... (${attempt}/${maxRetries})`, 'warning');
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
     }
   }
@@ -1254,6 +1285,27 @@ class UnifiedApp {
     this.log(`액션 추가: ${action.type}`, 'info');
   }
 
+  addScrollAction(direction) {
+    const action = {
+      type: 'scroll',
+      direction: direction,
+      distance: 600,
+      duration: 300
+    };
+
+    this.state.actions.push(action);
+    this.displayActions();
+
+    const directionText = {
+      'up': '위',
+      'down': '아래',
+      'left': '왼쪽',
+      'right': '오른쪽'
+    }[direction] || direction;
+
+    this.log(`스크롤 ${directionText} 액션 추가`, 'info');
+  }
+
   displayActions() {
     const actionList = document.getElementById('action-list');
     if (!actionList) return;
@@ -1389,6 +1441,15 @@ class UnifiedApp {
           break;
         case 'swipe':
           description = `스와이프 (${action.x1},${action.y1} → ${action.x2},${action.y2})`;
+          break;
+        case 'scroll':
+          const directionText = {
+            'up': '↑ 위',
+            'down': '↓ 아래',
+            'left': '← 왼쪽',
+            'right': '→ 오른쪽'
+          }[action.direction] || action.direction;
+          description = `스크롤 ${directionText}`;
           break;
         case 'input':
           description = `입력: "${action.text}"`;
@@ -3847,6 +3908,123 @@ class UnifiedApp {
       this.log('원본 이미지로 복원됨', 'info');
     } catch (error) {
       this.log(`원본 복원 실패: ${error.message}`, 'error');
+    }
+  }
+
+  // New device connection methods (UI.md based)
+  onProtocolChange(protocol) {
+    const adbArea = document.getElementById('adb-connection-area');
+    const ccncArea = document.getElementById('ccnc-connection-area');
+
+    if (protocol === 'adb') {
+      adbArea.style.display = 'flex';
+      ccncArea.style.display = 'none';
+      this.state.connectionType = 'adb';
+    } else if (protocol === 'ccnc') {
+      adbArea.style.display = 'none';
+      ccncArea.style.display = 'flex';
+      this.state.connectionType = 'ccnc';
+    }
+  }
+
+  async connectADB() {
+    const select = document.getElementById('adb-device-list');
+    const deviceId = select.value;
+
+    if (!deviceId) {
+      this.log('장치를 선택해주세요', 'warning');
+      return;
+    }
+
+    this.updateConnectionStatus('connecting', 'ADB 연결 중...', deviceId);
+
+    try {
+      const result = await window.api.device.select(deviceId);
+
+      if (result.success) {
+        this.log(`ADB 장치 연결 성공: ${deviceId}`, 'success');
+        this.state.selectedDevice = { id: deviceId, connectionType: 'adb' };
+        this.updateConnectionStatus('connected', `ADB 연결됨`, deviceId);
+
+        // Enable streaming button
+        const streamBtn = document.getElementById('btn-stream');
+        if (streamBtn) {
+          streamBtn.disabled = false;
+        }
+      } else {
+        throw new Error(result.error || 'ADB 연결 실패');
+      }
+    } catch (error) {
+      this.log(`ADB 연결 실패: ${error.message}`, 'error');
+      this.updateConnectionStatus('failed', `연결 실패`, error.message);
+    }
+  }
+
+  updateConnectionStatus(status, statusText, details = '') {
+    const card = document.getElementById('connection-status-card');
+    const textEl = card.querySelector('.status-text');
+    const detailsEl = card.querySelector('.status-details span');
+    const actionBtn = document.getElementById('status-action-btn');
+    const adbArea = document.getElementById('adb-connection-area');
+    const ccncArea = document.getElementById('ccnc-connection-area');
+    const protocolSelector = document.querySelector('.protocol-selector');
+    const inlineStatus = document.getElementById('connection-status-inline');
+    const inlineText = document.getElementById('status-inline-text');
+
+    // Remove all status classes
+    card.classList.remove('status-disconnected', 'status-connecting', 'status-connected', 'status-failed');
+
+    // Toggle visibility based on connection status
+    if (status === 'disconnected') {
+      // Show: protocol selector + connection area
+      // Hide: status card + inline status
+      card.classList.add('hidden');
+      if (inlineStatus) inlineStatus.classList.add('hidden');
+      if (protocolSelector) protocolSelector.style.display = 'flex';
+
+      if (this.state.connectionType === 'adb') {
+        if (adbArea) adbArea.style.display = 'flex';
+        if (ccncArea) ccncArea.style.display = 'none';
+      } else {
+        if (adbArea) adbArea.style.display = 'none';
+        if (ccncArea) ccncArea.style.display = 'flex';
+      }
+    } else if (status === 'connected') {
+      // Show: inline status only (compact 1-line)
+      // Hide: protocol selector + connection areas + status card
+      card.classList.add('hidden');
+      if (protocolSelector) protocolSelector.style.display = 'none';
+      if (adbArea) adbArea.style.display = 'none';
+      if (ccncArea) ccncArea.style.display = 'none';
+
+      if (inlineStatus) {
+        inlineStatus.classList.remove('hidden');
+        if (inlineText) inlineText.textContent = `${statusText}: ${details}`;
+      }
+    } else {
+      // connecting/failed: Show status card
+      // Hide: protocol selector + connection areas + inline status
+      if (protocolSelector) protocolSelector.style.display = 'none';
+      if (adbArea) adbArea.style.display = 'none';
+      if (ccncArea) ccncArea.style.display = 'none';
+      if (inlineStatus) inlineStatus.classList.add('hidden');
+
+      card.classList.add(`status-${status}`);
+      textEl.textContent = statusText;
+      detailsEl.textContent = details;
+      card.classList.remove('hidden');
+
+      // Update button
+      switch (status) {
+        case 'connecting':
+          actionBtn.textContent = '취소';
+          actionBtn.onclick = () => this.disconnectDevice();
+          break;
+        case 'failed':
+          actionBtn.textContent = '재시도';
+          actionBtn.onclick = () => this.state.connectionType === 'adb' ? this.connectADB() : this.connectCCNC();
+          break;
+      }
     }
   }
 }

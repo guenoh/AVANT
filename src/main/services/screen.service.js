@@ -54,11 +54,17 @@ class ScreenService extends EventEmitter {
       await this.stopRecording();
     }
 
-    // 임시 파일 정리
+    // 임시 파일 정리 (디렉토리는 유지, 파일만 삭제)
     try {
-      await fs.rmdir(this.tempDir, { recursive: true });
+      const files = await fs.readdir(this.tempDir);
+      for (const file of files) {
+        await fs.unlink(path.join(this.tempDir, file));
+      }
     } catch (error) {
-      console.error('Failed to clean temp directory:', error);
+      // 디렉토리가 없거나 파일이 없는 경우는 무시
+      if (error.code !== 'ENOENT') {
+        console.error('Failed to clean temp files:', error);
+      }
     }
 
     this._initialized = false;

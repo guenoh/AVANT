@@ -36,6 +36,7 @@ class ActionService extends EventEmitter {
   constructor() {
     super();
     this.deviceService = null;
+    this.ccncService = null;
     this._initialized = false;
     this.executionHistory = [];
     this.maxHistorySize = 100;
@@ -44,10 +45,11 @@ class ActionService extends EventEmitter {
   /**
    * 서비스 초기화
    */
-  async initialize(deviceService) {
+  async initialize(deviceService, ccncService = null) {
     if (this._initialized) return;
 
     this.deviceService = deviceService;
+    this.ccncService = ccncService;
     this._initialized = true;
     console.log('Action service initialized');
   }
@@ -419,37 +421,46 @@ class ActionService extends EventEmitter {
    */
   async scroll(direction = 'down', amount = 300) {
     try {
-      // 화면 정보 가져오기 (screen service 필요)
-      const centerX = 540; // 기본값
-      const centerY = 960; // 기본값
+      // Use ccNC if available and connected
+      if (this.ccncService && this.ccncService.isConnected()) {
+        await this.ccncService.scroll(direction, {
+          distance: amount * 2, // ccNC uses larger distance
+          duration: 300
+        });
+      } else {
+        // Use ADB swipe for scroll
+        // 화면 정보 가져오기 (screen service 필요)
+        const centerX = 540; // 기본값 (1080 기준)
+        const centerY = 960; // 기본값 (1920 기준)
 
-      let x1 = centerX;
-      let y1 = centerY;
-      let x2 = centerX;
-      let y2 = centerY;
+        let x1 = centerX;
+        let y1 = centerY;
+        let x2 = centerX;
+        let y2 = centerY;
 
-      switch (direction) {
-        case 'up':
-          y1 = centerY + amount;
-          y2 = centerY - amount;
-          break;
-        case 'down':
-          y1 = centerY - amount;
-          y2 = centerY + amount;
-          break;
-        case 'left':
-          x1 = centerX + amount;
-          x2 = centerX - amount;
-          break;
-        case 'right':
-          x1 = centerX - amount;
-          x2 = centerX + amount;
-          break;
-        default:
-          throw new Error('Invalid scroll direction');
+        switch (direction) {
+          case 'up':
+            y1 = centerY + amount;
+            y2 = centerY - amount;
+            break;
+          case 'down':
+            y1 = centerY - amount;
+            y2 = centerY + amount;
+            break;
+          case 'left':
+            x1 = centerX + amount;
+            x2 = centerX - amount;
+            break;
+          case 'right':
+            x1 = centerX - amount;
+            x2 = centerX + amount;
+            break;
+          default:
+            throw new Error('Invalid scroll direction');
+        }
+
+        await this.swipe(x1, y1, x2, y2, 300);
       }
-
-      await this.swipe(x1, y1, x2, y2, 300);
 
       const action = {
         type: 'scroll',
@@ -586,6 +597,8 @@ class ActionService extends EventEmitter {
         return await this.tap(action.x, action.y, action.duration);
       case 'swipe':
         return await this.swipe(action.x1, action.y1, action.x2, action.y2, action.duration);
+      case 'scroll':
+        return await this.scroll(action.direction, action.amount);
       case 'input':
         return await this.inputText(action.text);
       case 'key':
