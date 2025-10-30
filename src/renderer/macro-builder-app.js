@@ -12,6 +12,13 @@ class MacroBuilderApp {
         this.macroName = '새 매크로';
         this.currentCoordinate = null;
 
+        // Coordinate picking mode
+        this.isPickingCoordinate = false;
+        this.pendingActionType = null;
+
+        // Log output
+        this.logs = [];
+
         this.init();
     }
 
@@ -56,6 +63,22 @@ class MacroBuilderApp {
                 }
             }
         });
+
+        // ESC key to cancel coordinate picking
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isPickingCoordinate) {
+                this.cancelCoordinatePicking();
+            }
+        });
+
+        // Screen preview click handling - removed, now handled in renderScreenPreview once
+
+        // Mouse move for tooltip
+        document.addEventListener('mousemove', (e) => {
+            if (this.isPickingCoordinate) {
+                this.updatePickingTooltip(e);
+            }
+        });
     }
 
     switchTab(tabName) {
@@ -80,50 +103,69 @@ class MacroBuilderApp {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="screen-preview-wrapper">
-                <div class="screen-preview" id="screen-preview-canvas">
-                    <div class="screen-preview-content">
-                        <!-- Status Bar -->
-                        <div class="screen-status-bar">
-                            <span>12:00</span>
-                            <div class="flex gap-1">
-                                <div style="width: 1rem; height: 0.75rem; border: 1px solid white; border-radius: 0.125rem;"></div>
-                                <div style="width: 0.75rem; height: 0.75rem; background: white; border-radius: 9999px;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Mock App Content -->
-                        <div class="screen-app-content">
-                            <div class="screen-grid">
-                                <div class="screen-card">
-                                    <div class="screen-card-bar screen-card-bar-primary"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary" style="width: 66%;"></div>
-                                </div>
-                                <div class="screen-card">
-                                    <div class="screen-card-bar screen-card-bar-primary" style="width: 50%;"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary" style="width: 75%;"></div>
-                                </div>
-                                <div class="screen-card">
-                                    <div class="screen-card-bar screen-card-bar-primary" style="width: 66%;"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                    <div class="screen-card-bar screen-card-bar-secondary" style="width: 50%;"></div>
+            <div class="screen-preview-with-log">
+                <!-- Screen Preview Display (80%) -->
+                <div class="screen-preview-display">
+                    <div class="screen-preview" id="screen-preview-canvas">
+                        <div class="screen-preview-content">
+                            <!-- Status Bar -->
+                            <div class="screen-status-bar">
+                                <span>12:00</span>
+                                <div class="flex gap-1">
+                                    <div style="width: 1rem; height: 0.75rem; border: 1px solid white; border-radius: 0.125rem;"></div>
+                                    <div style="width: 0.75rem; height: 0.75rem; background: white; border-radius: 9999px;"></div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Navigation Bar -->
-                        <div class="screen-nav-bar">
-                            <div class="screen-nav-button screen-nav-button-square"></div>
-                            <div class="screen-nav-button screen-nav-button-circle"></div>
-                            <div class="screen-nav-button-bar"></div>
+                            <!-- Mock App Content -->
+                            <div class="screen-app-content">
+                                <div class="screen-grid">
+                                    <div class="screen-card">
+                                        <div class="screen-card-bar screen-card-bar-primary"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 66%;"></div>
+                                    </div>
+                                    <div class="screen-card">
+                                        <div class="screen-card-bar screen-card-bar-primary" style="width: 50%;"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 75%;"></div>
+                                    </div>
+                                    <div class="screen-card">
+                                        <div class="screen-card-bar screen-card-bar-primary" style="width: 66%;"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
+                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 50%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Navigation Bar -->
+                            <div class="screen-nav-bar">
+                                <div class="screen-nav-button screen-nav-button-square"></div>
+                                <div class="screen-nav-button screen-nav-button-circle"></div>
+                                <div class="screen-nav-button-bar"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Selected Action Info -->
-                <div id="selected-action-info"></div>
+                <!-- Log Output Area (20%) - Separate section -->
+                <div class="log-output-container" id="log-output-container">
+                    <div class="log-output-header">
+                        <p class="log-output-title">실행 로그</p>
+                        <button class="btn-ghost" id="btn-clear-logs" style="padding: 0.25rem 0.5rem;">
+                            <svg style="width: 0.875rem; height: 0.875rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="log-output-content" id="log-output-content">
+                        <div class="log-entry">
+                            <span class="log-timestamp">00:00:00</span>
+                            <span class="log-level log-level-info">[INFO]</span>
+                            <span class="log-message">매크로 빌더 준비 완료</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -132,14 +174,33 @@ class MacroBuilderApp {
         if (screenCanvas) {
             screenCanvas.addEventListener('click', (e) => this.handleScreenClick(e));
         }
+
+        // Add clear logs button handler
+        const clearLogsBtn = document.getElementById('btn-clear-logs');
+        if (clearLogsBtn) {
+            clearLogsBtn.addEventListener('click', () => this.clearLogs());
+        }
+
+        // Initialize with welcome log
+        this.addLog('info', '매크로 빌더 준비 완료');
     }
 
     handleScreenClick(e) {
-        if (!this.selectedActionId) return;
-
         const rect = e.currentTarget.getBoundingClientRect();
         const x = Math.round(((e.clientX - rect.left) / rect.width) * 1400);
         const y = Math.round(((e.clientY - rect.top) / rect.height) * 500);
+
+        // If in coordinate picking mode, create new action
+        if (this.isPickingCoordinate) {
+            this.handleScreenPreviewClick(e);
+            return;
+        }
+
+        // If no action selected, just show coordinates
+        if (!this.selectedActionId) {
+            this.addLog('info', `좌표: (${x}, ${y})`);
+            return;
+        }
 
         const action = this.actions.find(a => a.id === this.selectedActionId);
         if (!action) return;
@@ -330,12 +391,16 @@ class MacroBuilderApp {
     }
 
     addAction(type) {
+        // For click and long-press, enter coordinate picking mode
+        if (type === 'click' || type === 'long-press') {
+            this.startCoordinatePicking(type);
+            return;
+        }
+
         const newAction = {
             id: `action-${Date.now()}`,
             type,
             ...(type === 'wait' && { duration: 1000 }),
-            ...(type === 'click' && { x: 0, y: 0 }),
-            ...(type === 'long-press' && { x: 0, y: 0, duration: 1000 }),
             ...(type === 'drag' && { x: 0, y: 0, endX: 0, endY: 0 }),
             ...(type === 'keyboard' && { text: '' }),
             ...(type === 'screenshot' && { filename: 'screenshot.png' }),
@@ -766,9 +831,19 @@ class MacroBuilderApp {
 
     deleteAction(id) {
         this.actions = this.actions.filter(a => a.id !== id);
+
+        // If deleted action was selected, clear selection and markers
         if (this.selectedActionId === id) {
             this.selectedActionId = null;
+
+            // Clear all markers from screen
+            const screenPreview = document.getElementById('screen-preview-canvas');
+            if (screenPreview) {
+                const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+                markers.forEach(m => m.remove());
+            }
         }
+
         this.renderActionSequence();
     }
 
@@ -876,6 +951,172 @@ class MacroBuilderApp {
             'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>',
         };
         return icons[name] || icons['click'];
+    }
+
+    // Coordinate picking methods
+    startCoordinatePicking(type) {
+        this.isPickingCoordinate = true;
+        this.pendingActionType = type;
+
+        // Add visual feedback
+        document.body.classList.add('picking-coordinate');
+
+        // Add visual indicator to the action card
+        const actionCards = document.querySelectorAll('.action-card');
+        actionCards.forEach(card => {
+            if (card.dataset.actionType === type) {
+                card.classList.add('picking-active');
+            }
+        });
+
+        // Create tooltip
+        this.createPickingTooltip();
+    }
+
+    cancelCoordinatePicking() {
+        this.isPickingCoordinate = false;
+        this.pendingActionType = null;
+
+        // Remove visual feedback
+        document.body.classList.remove('picking-coordinate');
+
+        // Remove visual indicator from action cards
+        const actionCards = document.querySelectorAll('.action-card.picking-active');
+        actionCards.forEach(card => card.classList.remove('picking-active'));
+
+        // Remove tooltip
+        const tooltip = document.getElementById('coordinate-picking-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }
+
+    createPickingTooltip() {
+        // Remove existing tooltip
+        const existing = document.getElementById('coordinate-picking-tooltip');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create new tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'coordinate-picking-tooltip';
+        tooltip.innerHTML = `
+            <div class="coordinate-tooltip">
+                <p>화면을 클릭하여 좌표를 선택하세요</p>
+                <p class="coordinate-tooltip-hint">ESC 키로 취소</p>
+            </div>
+        `;
+        document.body.appendChild(tooltip);
+    }
+
+    updatePickingTooltip(e) {
+        const tooltip = document.getElementById('coordinate-picking-tooltip');
+        if (tooltip) {
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+        }
+    }
+
+    handleScreenPreviewClick(e) {
+        const screen = document.getElementById('screen-preview-canvas');
+        if (!screen) return;
+
+        // Calculate coordinates relative to screen and convert to device coordinates
+        const rect = screen.getBoundingClientRect();
+        const x = Math.round(((e.clientX - rect.left) / rect.width) * 1400);
+        const y = Math.round(((e.clientY - rect.top) / rect.height) * 500);
+
+        // Create action with coordinates
+        this.createActionWithCoordinate(this.pendingActionType, x, y);
+
+        // Exit picking mode
+        this.cancelCoordinatePicking();
+    }
+
+    createActionWithCoordinate(type, x, y) {
+        const newAction = {
+            id: `action-${Date.now()}`,
+            type,
+            x,
+            y,
+            ...(type === 'long-press' && { duration: 1000 }),
+        };
+
+        this.actions.push(newAction);
+        this.selectedActionId = newAction.id;
+        this.renderActionSequence();
+
+        // Update marker on screen
+        this.updateSelectedActionMarker(newAction);
+
+        // Log the action creation
+        const actionName = type === 'click' ? '클릭' : '롱프레스';
+        this.addLog('success', `${actionName} 액션 추가: (${x}, ${y})`);
+    }
+
+    // Log management methods
+    addLog(level, message) {
+        const timestamp = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+        const logEntry = {
+            timestamp,
+            level,
+            message
+        };
+
+        this.logs.push(logEntry);
+
+        // Keep only last 100 logs
+        if (this.logs.length > 100) {
+            this.logs.shift();
+        }
+
+        this.renderLogs();
+    }
+
+    clearLogs() {
+        this.logs = [];
+        this.renderLogs();
+        this.addLog('info', '로그가 초기화되었습니다');
+    }
+
+    renderLogs() {
+        const container = document.getElementById('log-output-content');
+        if (!container) return;
+
+        if (this.logs.length === 0) {
+            container.innerHTML = `
+                <div class="log-entry">
+                    <span class="log-timestamp">00:00:00</span>
+                    <span class="log-level log-level-info">[INFO]</span>
+                    <span class="log-message">로그가 없습니다</span>
+                </div>
+            `;
+            return;
+        }
+
+        const logsHtml = this.logs.map(log => {
+            const levelClass = `log-level-${log.level}`;
+            const levelText = {
+                'info': '[INFO]',
+                'success': '[SUCCESS]',
+                'warning': '[WARNING]',
+                'error': '[ERROR]'
+            }[log.level] || '[INFO]';
+
+            return `
+                <div class="log-entry">
+                    <span class="log-timestamp">${log.timestamp}</span>
+                    <span class="log-level ${levelClass}">${levelText}</span>
+                    <span class="log-message">${log.message}</span>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = logsHtml;
+
+        // Auto scroll to bottom
+        container.scrollTop = container.scrollHeight;
     }
 }
 
