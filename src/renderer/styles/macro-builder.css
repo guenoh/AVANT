@@ -125,12 +125,6 @@ body {
     overflow: auto;
 }
 
-/* Main content area - allow horizontal scroll when panels are too wide */
-#app > div.flex-1.flex.overflow-hidden {
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
 .items-center {
     align-items: center;
 }
