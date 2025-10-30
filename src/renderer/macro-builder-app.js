@@ -7,6 +7,7 @@ class MacroBuilderApp {
     constructor() {
         this.actions = [];
         this.selectedActionId = null;
+        this.expandedActionId = null;
         this.isRunning = false;
         this.macroName = '새 매크로';
         this.currentCoordinate = null;
@@ -451,79 +452,257 @@ class MacroBuilderApp {
         const depth = action.depth || 0;
 
         const description = this.getActionDescription(action);
+        const isExpanded = action.id === this.expandedActionId;
 
-        // Border and background styles based on selection
-        let cardStyle = 'border: 2px solid var(--slate-200); background: white;';
-        if (isSelected) {
-            cardStyle = `border: 2px solid var(${config.borderColorVar}); background: var(${config.bgColorVar});`;
-        }
-        if (isRunning) {
-            cardStyle += ' box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5); animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;';
-        }
+        // Border classes based on selection
+        const borderClass = isSelected ? config.borderClass : 'border-slate-200 hover:border-slate-300';
+        const ringClass = isRunning ? 'ring-4 ring-blue-400 ring-opacity-50 animate-pulse' : '';
 
         return `
             <div style="margin-left: ${depth * 24}px; position: relative;" data-action-id="${action.id}">
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
 
-                <div class="action-block" style="${cardStyle} border-radius: var(--radius); cursor: pointer; transition: all 0.2s; ${isSelected ? '' : 'hover: box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);'}">
+                <div class="action-block ${config.bgClass} border-2 ${borderClass} ${ringClass} ${isSelected ? 'shadow-lg' : ''}" style="border-radius: var(--radius); cursor: pointer; transition: all 0.2s; position: relative;">
                     <div class="p-4">
                         <div class="flex items-start gap-3">
                             <!-- Index Badge -->
-                            <div style="flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px; background: white; border: 2px solid var(--slate-300); display: flex; align-items: center; justify-content: center; font-size: 0.875rem; font-weight: 500; color: var(--slate-700);">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center text-sm text-slate-700">
                                 ${index + 1}
                             </div>
 
                             <!-- Icon -->
-                            <div class="action-card-icon ${config.color}">
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0">
                                 ${config.icon}
                             </div>
 
                             <!-- Content -->
-                            <div class="action-card-content">
-                                <h3 style="font-size: var(--text-base); font-weight: 500; color: var(--slate-900); margin: 0 0 0.25rem 0;">${config.label}</h3>
-                                ${description ? `<p style="font-size: var(--text-sm); color: var(--slate-600); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${description}</p>` : ''}
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-slate-900 mb-1">${config.label}</h3>
+                                ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
 
                             <!-- Actions -->
                             <div class="flex gap-1 flex-shrink-0">
-                                <button class="btn-sm btn-move-up" ${isFirst ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                ${!['end-if', 'end-loop', 'end-while', 'else'].includes(action.type) ? `
+                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleActionSettings('${action.id}')">
+                                    ${this.getIconSVG('settings')}
+                                </button>
+                                ` : ''}
+                                <button class="btn-ghost h-8 w-8 p-0 btn-move-up" ${isFirst ? 'disabled' : ''}>
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-sm btn-move-down" ${isLast ? 'disabled' : ''} style="width: 2rem; height: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                <button class="btn-ghost h-8 w-8 p-0 btn-move-down" ${isLast ? 'disabled' : ''}>
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-sm btn-delete" style="width: 2rem; height: 2rem; padding: 0; color: var(--red-500); display: flex; align-items: center; justify-content: center;">
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 btn-delete">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Expandable Settings -->
+                    ${isExpanded ? this.renderActionSettings(action) : ''}
                 </div>
             </div>
         `;
     }
 
+    renderActionSettings(action) {
+        return `
+            <div class="border-t bg-white px-4 py-3 space-y-3">
+                ${this.getSettingsHTML(action)}
+            </div>
+        `;
+    }
+
+    getSettingsHTML(action) {
+        switch (action.type) {
+            case 'click':
+            case 'long-press':
+                return `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">X 좌표</label>
+                            <input type="number" value="${action.x || 0}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Y 좌표</label>
+                            <input type="number" value="${action.y || 0}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                        </div>
+                    </div>
+                    ${action.type === 'long-press' ? `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">지속 시간 (ms)</label>
+                        <input type="number" value="${action.duration || 1000}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                    </div>
+                    ` : ''}
+                `;
+            case 'drag':
+                return `
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">시작 X</label>
+                                <input type="number" value="${action.x || 0}"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">시작 Y</label>
+                                <input type="number" value="${action.y || 0}"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">종료 X</label>
+                                <input type="number" value="${action.endX || 0}"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">종료 Y</label>
+                                <input type="number" value="${action.endY || 0}"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            case 'keyboard':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">입력 텍스트</label>
+                        <input type="text" value="${action.text || ''}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="입력할 텍스트를 입력하세요"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'text', this.value)">
+                    </div>
+                `;
+            case 'wait':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">대기 시간 (ms)</label>
+                        <input type="number" value="${action.duration || 1000}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                    </div>
+                `;
+            case 'screenshot':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">파일 이름</label>
+                        <input type="text" value="${action.filename || 'screenshot.png'}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="스크린샷 파일 이름"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'filename', this.value)">
+                    </div>
+                `;
+            case 'image-match':
+                return `
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">이미지 경로</label>
+                            <input type="text" value="${action.imagePath || 'image.png'}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                placeholder="매칭할 이미지 경로"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">임계값 (%)</label>
+                            <input type="number" value="${Math.round((action.threshold || 0.9) * 100)}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                placeholder="매칭 임계값 (%)"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                        </div>
+                    </div>
+                `;
+            case 'if':
+            case 'else-if':
+            case 'while':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">조건</label>
+                        <input type="text" value="${action.condition || ''}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="조건을 입력하세요"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'condition', this.value)">
+                    </div>
+                `;
+            case 'loop':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">반복 횟수</label>
+                        <input type="number" value="${action.loopCount || 1}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="반복 횟수"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
+                    </div>
+                `;
+            case 'log':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">로그 메시지</label>
+                        <input type="text" value="${action.message || ''}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="로그 메시지를 입력하세요"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
+                    </div>
+                `;
+            case 'home':
+            case 'back':
+                return `<p class="text-sm text-slate-600">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
+            default:
+                return '';
+        }
+    }
+
+    toggleActionSettings(id) {
+        if (this.expandedActionId === id) {
+            this.expandedActionId = null;
+        } else {
+            this.expandedActionId = id;
+        }
+        this.renderActionSequence();
+    }
+
+    updateActionValue(id, key, value) {
+        const action = this.actions.find(a => a.id === id);
+        if (action) {
+            action[key] = value;
+            // Don't re-render to avoid losing focus
+        }
+    }
+
     getActionConfig(type) {
         const configs = {
-            'click': { label: '클릭', color: 'bg-blue-500', borderColorVar: '--blue-500', bgColorVar: '--blue-50', icon: this.getIconSVG('click') },
-            'long-press': { label: '롱프레스', color: 'bg-purple-500', borderColorVar: '--purple-500', bgColorVar: '--purple-50', icon: this.getIconSVG('hand') },
-            'drag': { label: '드래그', color: 'bg-green-500', borderColorVar: '--green-500', bgColorVar: '--green-50', icon: this.getIconSVG('move') },
-            'keyboard': { label: '키보드 입력', color: 'bg-orange-500', borderColorVar: '--orange-500', bgColorVar: '--orange-50', icon: this.getIconSVG('keyboard') },
-            'wait': { label: '대기', color: 'bg-slate-500', borderColorVar: '--slate-600', bgColorVar: '--slate-50', icon: this.getIconSVG('clock') },
-            'home': { label: '홈 버튼', color: 'bg-cyan-500', borderColorVar: '--cyan-500', bgColorVar: '--cyan-50', icon: this.getIconSVG('home') },
-            'back': { label: '뒤로가기', color: 'bg-pink-500', borderColorVar: '--pink-500', bgColorVar: '--pink-50', icon: this.getIconSVG('arrow-left') },
-            'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderColorVar: '--violet-500', bgColorVar: '--violet-50', icon: this.getIconSVG('camera') },
-            'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderColorVar: '--indigo-500', bgColorVar: '--indigo-50', icon: this.getIconSVG('image') },
-            'if': { label: 'If', color: 'bg-emerald-500', borderColorVar: '--emerald-500', bgColorVar: '--emerald-50', icon: this.getIconSVG('git-branch') },
-            'else-if': { label: 'Else If', color: 'bg-teal-500', borderColorVar: '--teal-500', bgColorVar: '--teal-50', icon: this.getIconSVG('code') },
-            'else': { label: 'Else', color: 'bg-sky-500', borderColorVar: '--sky-500', bgColorVar: '--sky-50', icon: this.getIconSVG('code') },
-            'log': { label: '로그', color: 'bg-amber-500', borderColorVar: '--amber-500', bgColorVar: '--amber-50', icon: this.getIconSVG('file-text') },
-            'loop': { label: 'Loop', color: 'bg-pink-500', borderColorVar: '--pink-500', bgColorVar: '--pink-50', icon: this.getIconSVG('repeat') },
-            'while': { label: 'While', color: 'bg-cyan-500', borderColorVar: '--cyan-500', bgColorVar: '--cyan-50', icon: this.getIconSVG('rotate-cw') },
-            'end-if': { label: 'End If', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
-            'end-loop': { label: 'End Loop', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
-            'end-while': { label: 'End While', color: 'bg-red-500', borderColorVar: '--red-500', bgColorVar: '--red-50', icon: this.getIconSVG('x') },
+            'click': { label: '클릭', color: 'bg-blue-500', borderClass: 'border-blue-500', bgClass: 'bg-blue-50', icon: this.getIconSVG('click') },
+            'long-press': { label: '롱프레스', color: 'bg-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-50', icon: this.getIconSVG('hand') },
+            'drag': { label: '드래그', color: 'bg-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-50', icon: this.getIconSVG('move') },
+            'keyboard': { label: '키보드 입력', color: 'bg-orange-500', borderClass: 'border-orange-500', bgClass: 'bg-orange-50', icon: this.getIconSVG('keyboard') },
+            'wait': { label: '대기', color: 'bg-slate-500', borderClass: 'border-slate-600', bgClass: 'bg-slate-50', icon: this.getIconSVG('clock') },
+            'home': { label: '홈 버튼', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('home') },
+            'back': { label: '뒤로가기', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('arrow-left') },
+            'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderClass: 'border-violet-500', bgClass: 'bg-violet-50', icon: this.getIconSVG('camera') },
+            'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderClass: 'border-indigo-500', bgClass: 'bg-indigo-50', icon: this.getIconSVG('image') },
+            'if': { label: 'If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('git-branch') },
+            'else-if': { label: 'Else If', color: 'bg-teal-500', borderClass: 'border-teal-500', bgClass: 'bg-teal-50', icon: this.getIconSVG('code') },
+            'else': { label: 'Else', color: 'bg-sky-500', borderClass: 'border-sky-500', bgClass: 'bg-sky-50', icon: this.getIconSVG('code') },
+            'log': { label: '로그', color: 'bg-amber-500', borderClass: 'border-amber-500', bgClass: 'bg-amber-50', icon: this.getIconSVG('file-text') },
+            'loop': { label: 'Loop', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('repeat') },
+            'while': { label: 'While', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('rotate-cw') },
+            'end-if': { label: 'End If', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
+            'end-loop': { label: 'End Loop', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
+            'end-while': { label: 'End While', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
         };
         return configs[type] || configs['click'];
     }
@@ -676,6 +855,7 @@ class MacroBuilderApp {
             'rotate-cw': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>',
             'x': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
             'file-text': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>',
+            'settings': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>',
             'chevron-up': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>',
             'chevron-down': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>',
             'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>',
