@@ -4,269 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' data:">
-    <title>Vision Auto v2 - Macro Editor</title>
-
-    <!-- Stylesheets -->
+    <title>ADB 매크로 빌더</title>
     <link rel="stylesheet" href="styles/base.css">
-    <link rel="stylesheet" href="styles/components.css">
-    <link rel="stylesheet" href="styles/macro-editor-layout.css">
-    <link rel="stylesheet" href="styles/timeline-editor.css">
-    <link rel="stylesheet" href="styles/properties-panel.css">
+    <link rel="stylesheet" href="styles/macro-builder.css">
 </head>
 <body>
-    <!-- Macro Editor Layout -->
-    <div class="macro-editor-layout">
-        <!-- Editor Toolbar -->
-        <header class="editor-toolbar">
-            <!-- Left Section: App Info & Device -->
-            <div class="toolbar-section toolbar-left">
-                <div class="toolbar-title">
-                    <span class="app-icon">⚡</span>
-                    <span>Vision Auto</span>
-                    <span class="editor-badge badge-primary">v2.0</span>
+    <div id="app" class="h-screen flex-col bg-slate-50">
+        <!-- Header -->
+        <header class="header bg-white border-b px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-slate-900">ADB 매크로 빌더</h1>
+                    <p class="text-slate-600 text-sm">블록 코딩으로 안드로이드 자동화 매크로 만들기</p>
                 </div>
-
-                <div class="toolbar-device-selector" id="toolbar-device">
-                    <span class="device-icon" id="device-status-icon">🔴</span>
-                    <span class="device-name" id="device-status-name">연결 안 됨</span>
-                    <button class="device-change-btn" onclick="macroEditor.showDeviceModal()">변경</button>
-                </div>
-            </div>
-
-            <!-- Center Section: Main Actions -->
-            <div class="toolbar-section toolbar-center">
-                <button class="toolbar-btn btn-primary" id="btn-run-macro" onclick="macroEditor.runCurrentMacro()" disabled>
-                    <span class="btn-icon">▶</span>
-                    <span>실행</span>
-                </button>
-                <button class="toolbar-btn" id="btn-stop-macro" onclick="macroEditor.stopMacro()" disabled>
-                    <span class="btn-icon">⏸</span>
-                    <span>중지</span>
-                </button>
-                <button class="toolbar-btn btn-success" id="btn-save-macro" onclick="macroEditor.saveMacro()">
-                    <span class="btn-icon">💾</span>
-                    <span>저장</span>
-                </button>
-                <button class="toolbar-btn" onclick="macroEditor.importMacro()">
-                    <span class="btn-icon">📂</span>
-                    <span>불러오기</span>
-                </button>
-                <button class="toolbar-btn" onclick="macroEditor.exportMacro()">
-                    <span class="btn-icon">📤</span>
-                    <span>내보내기</span>
-                </button>
-            </div>
-
-            <!-- Right Section: Settings & Info -->
-            <div class="toolbar-section toolbar-right">
-                <button class="toolbar-btn" onclick="macroEditor.toggleDebugMode()">
-                    <span class="btn-icon">🧪</span>
-                    <span>디버그</span>
-                </button>
-                <button class="toolbar-btn" onclick="macroEditor.showSettings()">
-                    <span class="btn-icon">⚙️</span>
-                    <span>설정</span>
-                </button>
             </div>
         </header>
 
-        <!-- Editor Main - 3 Column Layout -->
-        <main class="editor-main">
-            <!-- Left Panel: Macro List -->
-            <aside class="editor-panel macro-list-panel">
-                <div class="editor-panel-header">
-                    <h3 class="editor-panel-title">매크로 목록</h3>
-                    <div class="editor-panel-actions">
-                        <button class="toolbar-btn" style="padding: 4px 8px; font-size: 11px;" onclick="macroListPanel.refresh()">
-                            <span>🔄</span>
-                        </button>
-                    </div>
+        <!-- Main Content - 3 Column Layout -->
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Left Panel - Screen Preview (flex-[5]) -->
+            <div class="flex-[5] bg-white border-r flex flex-col">
+                <div class="px-6 py-4 border-b">
+                    <h2 class="text-slate-900">스크린 프리뷰</h2>
+                    <p class="text-sm text-slate-600">화면을 클릭하여 좌표 설정</p>
                 </div>
-                <div class="editor-panel-content" id="macro-list-content">
-                    <!-- Search Box -->
-                    <div style="padding: 12px;">
+                <div class="flex-1 overflow-auto p-6" id="screen-preview-container">
+                    <!-- Screen preview will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Middle Panel - Macro Sequence (flex-[3]) -->
+            <div class="flex-[3] bg-slate-50 flex flex-col" id="macro-sequence-container">
+                <!-- Header with Macro Name and Controls -->
+                <div class="px-6 py-4 bg-white border-b">
+                    <div class="flex items-center justify-between mb-3">
                         <input
                             type="text"
-                            id="macro-search-input"
-                            class="property-input"
-                            placeholder="🔍 매크로 검색..."
-                            oninput="macroListPanel.search(this.value)"
-                        >
+                            id="macro-name-input"
+                            class="text-lg max-w-xs border-0 px-0 focus-visible:ring-0 macro-name-input"
+                            placeholder="매크로 이름"
+                            value="새 매크로"
+                        />
                     </div>
-
-                    <!-- Macro Items Container -->
-                    <div id="macro-list-items" style="padding: 0 12px 12px;">
-                        <!-- Macro items will be rendered here -->
-                        <div class="editor-empty-state">
-                            <div class="empty-icon">📋</div>
-                            <div class="empty-title">매크로가 없습니다</div>
-                            <div class="empty-description">새 매크로를 만들어 시작하세요</div>
-                        </div>
-                    </div>
-
-                    <!-- Add Macro Button -->
-                    <div style="padding: 12px; border-top: 1px solid var(--editor-border);">
-                        <button class="add-action-btn" onclick="macroListPanel.createNewMacro()">
-                            <span class="btn-icon">➕</span>
-                            <span>새 매크로</span>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-outline btn-sm" id="btn-import-macro">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            불러오기
                         </button>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- Center Panel: Timeline Editor -->
-            <section class="editor-panel timeline-editor-panel">
-                <div class="editor-panel-header">
-                    <h3 class="editor-panel-title">
-                        액션 타임라인
-                        <span class="editor-badge" id="timeline-action-count">0개</span>
-                    </h3>
-                    <div class="editor-panel-actions">
-                        <button class="toolbar-btn" style="padding: 4px 8px; font-size: 11px;" onclick="timelineEditor.clearAll()">
-                            <span>🗑️ 전체 삭제</span>
+                        <input
+                            id="import-input-seq"
+                            type="file"
+                            accept=".json"
+                            class="hidden"
+                        />
+                        <button class="btn-outline btn-sm" id="btn-export-macro">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                            </svg>
+                            내보내기
                         </button>
-                    </div>
-                </div>
-
-                <!-- Timeline Header -->
-                <div class="timeline-header">
-                    <div class="timeline-stats">
-                        <div class="timeline-stat">
-                            <span>총 액션:</span>
-                            <span class="stat-value" id="stat-total-actions">0</span>
-                        </div>
-                        <div class="timeline-stat">
-                            <span>예상 시간:</span>
-                            <span class="stat-value" id="stat-estimated-time">0초</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="editor-panel-content">
-                    <!-- Timeline Container -->
-                    <div class="timeline-container" id="timeline-container">
-                        <!-- Action cards will be rendered here -->
-                        <div class="timeline-empty">
-                            <div class="empty-icon">🎬</div>
-                            <div class="empty-title">액션이 없습니다</div>
-                            <div class="empty-description">
-                                아래 버튼을 클릭하거나<br>
-                                화면을 클릭하여 액션을 추가하세요
-                            </div>
-                            <button class="toolbar-btn btn-primary" onclick="timelineEditor.showAddActionModal()" style="margin-top: 16px;">
-                                <span class="btn-icon">➕</span>
-                                <span>액션 추가</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Add Action Button (Fixed Bottom) -->
-                <div style="padding: 12px; border-top: 1px solid var(--editor-border); background: var(--editor-bg-tertiary);">
-                    <button class="add-action-btn" onclick="timelineEditor.showAddActionModal()">
-                        <span class="btn-icon">➕</span>
-                        <span>액션 추가</span>
-                    </button>
-                </div>
-            </section>
-
-            <!-- Right Panel: Properties & Preview -->
-            <aside class="editor-panel properties-panel" id="properties-panel">
-                <div class="editor-panel-header">
-                    <h3 class="editor-panel-title">속성</h3>
-                    <div class="editor-panel-actions">
-                        <button class="toolbar-btn" style="padding: 4px 8px; font-size: 11px;" onclick="propertiesPanel.testAction()">
-                            <span>▶ 테스트</span>
+                        <button class="btn-outline btn-sm" id="btn-save-macro">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                            </svg>
+                            저장
+                        </button>
+                        <button class="btn-primary btn-sm ml-auto" id="btn-run-macro">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            실행
                         </button>
                     </div>
                 </div>
 
-                <div class="properties-content" id="properties-content">
-                    <!-- Properties form will be rendered here -->
-                    <div class="properties-empty">
-                        <div class="empty-icon">⚙️</div>
-                        <div class="empty-title">속성 없음</div>
-                        <div class="empty-description">
-                            액션을 선택하면<br>
-                            속성을 편집할 수 있습니다
-                        </div>
+                <!-- Action List -->
+                <div class="flex-1 overflow-auto p-6" id="action-sequence-list">
+                    <!-- Empty state -->
+                    <div class="empty-state" id="empty-state">
+                        <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <p class="empty-title">매크로가 비어있습니다</p>
+                        <p class="empty-description">오른쪽에서 액션을 선택하여 시작하세요</p>
                     </div>
+                    <!-- Action blocks will be rendered here -->
                 </div>
-
-                <!-- Preview Section -->
-                <div class="preview-section" id="preview-section" style="display: none;">
-                    <div class="preview-title">미리보기</div>
-                    <div class="preview-canvas-wrapper">
-                        <canvas id="preview-canvas" class="preview-canvas"></canvas>
-                        <div class="preview-overlay" id="preview-overlay">
-                            <!-- Preview markers will be rendered here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Property Actions -->
-                <div class="property-actions" id="property-actions" style="display: none;">
-                    <button class="property-action-btn" onclick="propertiesPanel.cancelEdit()">취소</button>
-                    <button class="property-action-btn btn-primary" onclick="propertiesPanel.applyChanges()">적용</button>
-                </div>
-            </aside>
-        </main>
-    </div>
-
-    <!-- Device Connection Modal (Hidden by default) -->
-    <div id="device-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>디바이스 연결</h3>
-                <button class="modal-close" onclick="macroEditor.closeDeviceModal()">×</button>
             </div>
-            <div class="modal-body">
-                <!-- Device connection UI will be here -->
-                <div class="protocol-selector">
-                    <label class="protocol-radio">
-                        <input type="radio" name="protocol" value="adb" checked onchange="macroEditor.onProtocolChange('adb')">
-                        <span class="protocol-label">ADB</span>
-                    </label>
-                    <label class="protocol-radio">
-                        <input type="radio" name="protocol" value="ccnc" onchange="macroEditor.onProtocolChange('ccnc')">
-                        <span class="protocol-label">ccNC</span>
-                    </label>
-                </div>
 
-                <div id="adb-connection-area" class="connection-area" style="margin-top: 16px;">
-                    <label>연결할 ADB 장치를 선택하세요</label>
-                    <div style="display: flex; gap: 8px; margin-top: 8px;">
-                        <select id="adb-device-list" class="property-input" style="flex: 1;">
-                            <option value="">장치를 선택하세요</option>
-                        </select>
-                        <button class="toolbar-btn" onclick="macroEditor.scanDevices()">새로고침</button>
-                    </div>
-                    <button id="adb-connect-btn" class="toolbar-btn btn-primary" onclick="macroEditor.connectADB()" style="width: 100%; margin-top: 12px;">연결</button>
+            <!-- Right Panel - Action List (flex-[2]) -->
+            <div class="flex-[2] bg-white border-l flex flex-col">
+                <div class="px-6 py-4 border-b">
+                    <h2 class="text-slate-900">액션 추가</h2>
+                    <p class="text-sm text-slate-600">매크로에 추가할 액션 선택</p>
                 </div>
-
-                <div id="ccnc-connection-area" class="connection-area" style="display: none; margin-top: 16px;">
-                    <label>연결할 장치 IP를 입력하세요</label>
-                    <input type="text" id="ccnc-host" value="localhost" placeholder="예: 192.168.0.10" class="property-input" style="margin-top: 8px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-                        <div>
-                            <label style="font-size: 12px;">포트</label>
-                            <input type="number" id="ccnc-port" value="20000" class="property-input">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px;">FPS</label>
-                            <input type="number" id="ccnc-fps" value="30" min="1" max="60" class="property-input">
+                <div class="flex-1 overflow-auto p-6" id="action-list-container">
+                    <!-- Tabs -->
+                    <div class="tabs mb-4">
+                        <div class="tabs-list grid grid-cols-4">
+                            <button class="tab active" data-tab="basic">기본</button>
+                            <button class="tab" data-tab="system">시스템</button>
+                            <button class="tab" data-tab="image">이미지</button>
+                            <button class="tab" data-tab="logic">로직</button>
                         </div>
                     </div>
-                    <button id="ccnc-connect-btn" class="toolbar-btn btn-primary" onclick="macroEditor.connectCCNC()" style="width: 100%; margin-top: 12px;">연결</button>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content active" data-tab="basic" id="basic-actions">
+                        <!-- Basic actions will be rendered here -->
+                    </div>
+                    <div class="tab-content hidden" data-tab="system" id="system-actions">
+                        <!-- System actions will be rendered here -->
+                    </div>
+                    <div class="tab-content hidden" data-tab="image" id="image-actions">
+                        <!-- Image actions will be rendered here -->
+                    </div>
+                    <div class="tab-content hidden" data-tab="logic" id="logic-actions">
+                        <!-- Logic actions will be rendered here -->
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Hidden canvas for main screen mirroring -->
-    <canvas id="screen-canvas" style="display: none;"></canvas>
-
-    <!-- Scripts: Load order is important -->
+    <!-- Scripts -->
     <!-- Stores -->
     <script src="stores/DeviceStore.js"></script>
     <script src="stores/ScreenStore.js"></script>
@@ -277,26 +141,7 @@
     <script src="services/EventBus.js"></script>
     <script src="services/IPCService.js"></script>
 
-    <!-- Components (old architecture - still needed for IPC) -->
-    <script src="components/DevicePanel.js"></script>
-    <script src="components/ScreenPanel.js"></script>
-    <script src="components/MacroPanel.js"></script>
-    <script src="components/ActionPanel.js"></script>
-
-    <!-- New Editor Components (to be created) -->
-    <script src="editor/MacroListPanel.js"></script>
-    <script src="editor/TimelineEditor.js"></script>
-    <script src="editor/PropertiesPanel.js"></script>
-    <script src="editor/MacroEditor.js"></script>
-
-    <!-- Initialize -->
-    <script>
-        // Initialize the macro editor when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('[Editor] Initializing Macro Editor...');
-            window.macroEditor = new MacroEditor();
-            window.macroEditor.init();
-        });
-    </script>
+    <!-- Main App -->
+    <script src="macro-builder-app.js"></script>
 </body>
 </html>

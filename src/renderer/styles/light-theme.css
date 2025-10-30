@@ -1,0 +1,385 @@
+/**
+ * Light Theme - Figma Design Style
+ * 밝고 깔끔한 라이트 테마
+ */
+
+/* Light Theme Variables */
+:root {
+  /* Layout dimensions (same as dark theme) */
+  --editor-toolbar-height: 56px;
+  --editor-panel-left-width: 320px;
+  --editor-panel-right-width: 320px;
+  --editor-gap: 20px;
+
+  /* Colors - Light Theme */
+  --editor-bg-primary: #FFFFFF;
+  --editor-bg-secondary: #F8FAFC;
+  --editor-bg-tertiary: #F1F5F9;
+  --editor-bg-hover: #E2E8F0;
+  --editor-border: #E2E8F0;
+  --editor-border-light: #CBD5E1;
+
+  /* Text colors */
+  --editor-text-primary: #0F172A;
+  --editor-text-secondary: #475569;
+  --editor-text-tertiary: #94A3B8;
+  --editor-text-accent: #2563EB;
+
+  /* Accent colors (Figma style - vibrant) */
+  --editor-accent-blue: #2563EB;
+  --editor-accent-blue-hover: #1D4ED8;
+  --editor-accent-purple: #A855F7;
+  --editor-accent-green: #22C55E;
+  --editor-accent-orange: #F97316;
+  --editor-accent-gray: #64748B;
+  --editor-accent-teal: #14B8A6;
+  --editor-accent-pink: #EC4899;
+  --editor-accent-red: #EF4444;
+  --editor-accent-yellow: #EAB308;
+
+  /* Shadows - softer for light theme */
+  --editor-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --editor-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --editor-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --editor-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  /* Transitions */
+  --editor-transition: 0.2s ease;
+  --editor-transition-slow: 0.3s ease;
+}
+
+/* Override dark theme specific styles */
+body {
+  background: var(--editor-bg-primary);
+  color: var(--editor-text-primary);
+}
+
+/* Toolbar adjustments for light theme */
+.editor-toolbar {
+  background: var(--editor-bg-primary);
+  border-bottom: 1px solid var(--editor-border);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+/* Panel adjustments */
+.editor-panel {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+  box-shadow: var(--editor-shadow-card);
+}
+
+.editor-panel-header {
+  background: var(--editor-bg-secondary);
+  border-bottom: 1px solid var(--editor-border);
+}
+
+/* Button adjustments */
+.toolbar-btn {
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+  color: var(--editor-text-primary);
+}
+
+.toolbar-btn:hover {
+  background: var(--editor-bg-hover);
+  border-color: var(--editor-border-light);
+}
+
+.toolbar-btn.btn-primary {
+  background: var(--editor-accent-blue);
+  border-color: var(--editor-accent-blue);
+  color: white;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.toolbar-btn.btn-primary:hover:not(:disabled) {
+  background: var(--editor-accent-blue-hover);
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+}
+
+.toolbar-btn.btn-success {
+  background: var(--editor-accent-green);
+  border-color: var(--editor-accent-green);
+  color: white;
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
+}
+
+.toolbar-btn.btn-danger {
+  background: var(--editor-accent-red);
+  border-color: var(--editor-accent-red);
+  color: white;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+/* Input adjustments */
+.property-input,
+.property-select,
+.property-textarea {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+  color: var(--editor-text-primary);
+}
+
+.property-input:focus,
+.property-select:focus,
+.property-textarea:focus {
+  border-color: var(--editor-accent-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Action card - Figma style */
+.action-card {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+  border-left: 3px solid var(--editor-border-light);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.action-card:hover {
+  background: var(--editor-bg-secondary);
+  box-shadow: var(--editor-shadow-md);
+  transform: translateY(-1px);
+}
+
+.action-card.selected {
+  background: rgba(37, 99, 235, 0.05);
+  border-color: var(--editor-accent-blue);
+  border-left-color: var(--editor-accent-blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.action-card.executing {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.1) 0%, transparent 100%);
+  border-left-color: var(--editor-accent-blue);
+}
+
+/* Action icon - Figma style with vibrant backgrounds */
+.action-icon {
+  background: var(--editor-bg-secondary);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.action-icon.type-tap {
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  color: var(--editor-accent-blue);
+}
+
+.action-icon.type-swipe {
+  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
+  color: var(--editor-accent-purple);
+}
+
+.action-icon.type-scroll {
+  background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%);
+  color: var(--editor-accent-green);
+}
+
+.action-icon.type-input {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
+  color: var(--editor-accent-orange);
+}
+
+.action-icon.type-wait {
+  background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
+  color: var(--editor-accent-gray);
+}
+
+.action-icon.type-image {
+  background: linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 100%);
+  color: var(--editor-accent-pink);
+}
+
+.action-icon.type-key {
+  background: linear-gradient(135deg, #CCFBF1 0%, #99F6E4 100%);
+  color: var(--editor-accent-teal);
+}
+
+/* Action type colors */
+.action-card[data-type="tap"] { border-left-color: var(--editor-accent-blue); }
+.action-card[data-type="swipe"] { border-left-color: var(--editor-accent-purple); }
+.action-card[data-type="scroll"] { border-left-color: var(--editor-accent-green); }
+.action-card[data-type="input"] { border-left-color: var(--editor-accent-orange); }
+.action-card[data-type="wait"] { border-left-color: var(--editor-accent-gray); }
+.action-card[data-type="image"] { border-left-color: var(--editor-accent-pink); }
+.action-card[data-type="key"] { border-left-color: var(--editor-accent-teal); }
+
+/* Macro item - Figma style */
+.macro-item {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.macro-item:hover {
+  background: var(--editor-bg-secondary);
+  box-shadow: var(--editor-shadow-md);
+  transform: translateY(-1px);
+}
+
+.macro-item.selected {
+  background: rgba(37, 99, 235, 0.05);
+  border-color: var(--editor-accent-blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+/* Modal adjustments */
+.modal {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.modal-content {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+  box-shadow: var(--editor-shadow-lg);
+}
+
+.modal-header {
+  background: var(--editor-bg-secondary);
+  border-bottom: 1px solid var(--editor-border);
+}
+
+/* Empty state */
+.editor-empty-state,
+.timeline-empty,
+.properties-empty {
+  color: var(--editor-text-tertiary);
+}
+
+.empty-title {
+  color: var(--editor-text-secondary);
+}
+
+/* Badge adjustments */
+.editor-badge {
+  background: var(--editor-bg-tertiary);
+  color: var(--editor-text-secondary);
+}
+
+.editor-badge.badge-primary {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--editor-accent-blue);
+}
+
+.editor-badge.badge-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--editor-accent-green);
+}
+
+/* Timeline header */
+.timeline-header {
+  background: var(--editor-bg-secondary);
+  border-bottom: 1px solid var(--editor-border);
+}
+
+/* Device selector in toolbar */
+.toolbar-device-selector {
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+/* Property section */
+.property-section {
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+}
+
+/* Add action button */
+.add-action-btn {
+  background: var(--editor-bg-secondary);
+  border: 1px dashed var(--editor-border-light);
+  color: var(--editor-text-secondary);
+}
+
+.add-action-btn:hover {
+  background: var(--editor-bg-hover);
+  border-color: var(--editor-accent-blue);
+  color: var(--editor-accent-blue);
+}
+
+/* Action action buttons */
+.action-action-btn,
+.macro-action-btn {
+  background: var(--editor-bg-secondary);
+  border: 1px solid var(--editor-border);
+  color: var(--editor-text-tertiary);
+}
+
+.action-action-btn:hover,
+.macro-action-btn:hover {
+  background: var(--editor-bg-hover);
+  color: var(--editor-text-primary);
+  border-color: var(--editor-border-light);
+}
+
+/* Scrollbar for light theme */
+.editor-panel-content::-webkit-scrollbar-track,
+.modal-body::-webkit-scrollbar-track {
+  background: var(--editor-bg-secondary);
+}
+
+.editor-panel-content::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--editor-border-light);
+}
+
+.editor-panel-content::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--editor-accent-gray);
+}
+
+/* Preview section */
+.preview-section {
+  background: var(--editor-bg-secondary);
+  border-top: 1px solid var(--editor-border);
+}
+
+.preview-canvas-wrapper {
+  background: var(--editor-bg-tertiary);
+  border: 1px solid var(--editor-border);
+}
+
+/* Property actions */
+.property-actions {
+  background: var(--editor-bg-secondary);
+  border-top: 1px solid var(--editor-border);
+}
+
+/* Animation adjustments */
+@keyframes pulse-action {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
+  }
+}
+
+/* Make sure text is readable */
+.action-title,
+.action-description,
+.macro-item-name {
+  color: var(--editor-text-primary);
+}
+
+.action-param .param-key,
+.macro-item-meta {
+  color: var(--editor-text-secondary);
+}
+
+.action-param .param-value {
+  background: var(--editor-bg-secondary);
+  color: var(--editor-accent-blue);
+}
+
+/* Protocol radio for light theme */
+.protocol-radio {
+  background: var(--editor-bg-primary);
+  border: 1px solid var(--editor-border);
+}
+
+.protocol-radio:has(input:checked) {
+  background: var(--editor-accent-blue);
+  border-color: var(--editor-accent-blue);
+}

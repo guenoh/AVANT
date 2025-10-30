@@ -1,0 +1,733 @@
+/**
+ * Macro Builder - React Design Implementation
+ * 100% match with Figma/React reference design
+ */
+
+/* Reset and Base */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #0F172A;
+    background: #F8FAFC;
+}
+
+/* Color Palette - From globals.css */
+:root {
+    --background: #ffffff;
+    --foreground: #0F172A;
+    --card: #ffffff;
+    --card-foreground: #0F172A;
+    --primary: #030213;
+    --primary-foreground: #ffffff;
+    --secondary: #F1F5F9;
+    --secondary-foreground: #030213;
+    --muted: #ececf0;
+    --muted-foreground: #717182;
+    --border: rgba(0, 0, 0, 0.1);
+    --input-background: #f3f3f5;
+    --radius: 0.625rem;
+
+    /* Slate Colors */
+    --slate-50: #F8FAFC;
+    --slate-100: #F1F5F9;
+    --slate-200: #E2E8F0;
+    --slate-300: #CBD5E1;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1E293B;
+    --slate-900: #0F172A;
+
+    /* Action Colors */
+    --blue-500: #3b82f6;
+    --blue-50: #EFF6FF;
+    --blue-200: #BFDBFE;
+    --purple-500: #a855f7;
+    --purple-50: #FAF5FF;
+    --green-500: #22c55e;
+    --green-50: #F0FDF4;
+    --orange-500: #f97316;
+    --orange-50: #FFF7ED;
+    --cyan-500: #06b6d4;
+    --cyan-50: #ECFEFF;
+    --pink-500: #ec4899;
+    --pink-50: #FDF2F8;
+    --violet-500: #8b5cf6;
+    --violet-50: #F5F3FF;
+    --indigo-500: #6366f1;
+    --indigo-50: #EEF2FF;
+    --emerald-500: #10b981;
+    --emerald-50: #ECFDF5;
+    --teal-500: #14b8a6;
+    --teal-50: #F0FDFA;
+    --sky-500: #0ea5e9;
+    --sky-50: #F0F9FF;
+    --red-500: #ef4444;
+    --red-50: #FEF2F2;
+    --amber-500: #f59e0b;
+    --amber-50: #FFFBEB;
+}
+
+/* Layout Utilities */
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-1 {
+    flex: 1 1 0%;
+}
+
+.flex-[2] {
+    flex: 2 1 0%;
+}
+
+.flex-[3] {
+    flex: 3 1 0%;
+}
+
+.flex-[5] {
+    flex: 5 1 0%;
+}
+
+.h-screen {
+    height: 100vh;
+}
+
+.overflow-hidden {
+    overflow: hidden;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-1 {
+    gap: 0.25rem;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 0.75rem;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+/* Spacing */
+.p-2 {
+    padding: 0.5rem;
+}
+
+.p-3 {
+    padding: 0.75rem;
+}
+
+.p-4 {
+    padding: 1rem;
+}
+
+.p-6 {
+    padding: 1.5rem;
+}
+
+.px-0 {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.px-6 {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.py-4 {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+.mb-3 {
+    margin-bottom: 0.75rem;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.ml-auto {
+    margin-left: auto;
+}
+
+.mt-0 {
+    margin-top: 0;
+}
+
+/* Colors */
+.bg-white {
+    background-color: #ffffff;
+}
+
+.bg-slate-50 {
+    background-color: var(--slate-50);
+}
+
+.bg-slate-900 {
+    background-color: var(--slate-900);
+}
+
+.text-slate-600 {
+    color: var(--slate-600);
+}
+
+.text-slate-900 {
+    color: var(--slate-900);
+}
+
+/* Borders */
+.border {
+    border-width: 1px;
+}
+
+.border-b {
+    border-bottom-width: 1px;
+}
+
+.border-l {
+    border-left-width: 1px;
+}
+
+.border-r {
+    border-right-width: 1px;
+}
+
+.border-slate-200 {
+    border-color: var(--slate-200);
+}
+
+/* Typography */
+.text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+/* Header */
+.header {
+    border-color: var(--slate-200);
+}
+
+h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.5;
+    margin: 0;
+}
+
+h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Input */
+.macro-name-input {
+    outline: none;
+    font-size: 1.125rem;
+    font-weight: 500;
+    max-width: 20rem;
+}
+
+.macro-name-input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* Buttons */
+.btn-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--slate-200);
+    background: white;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-sm:hover {
+    background: var(--slate-50);
+}
+
+.btn-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-outline {
+    background: white;
+    border: 1px solid var(--slate-200);
+    color: var(--slate-900);
+}
+
+.btn-outline:hover {
+    background: var(--slate-50);
+}
+
+.btn-primary {
+    background: var(--blue-500);
+    border-color: var(--blue-500);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+/* Icons */
+.icon-sm {
+    width: 1rem;
+    height: 1rem;
+    display: inline-block;
+}
+
+svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--slate-600);
+    text-align: center;
+}
+
+.empty-icon {
+    width: 6rem;
+    height: 6rem;
+    color: var(--slate-300);
+    margin-bottom: 1rem;
+}
+
+.empty-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--slate-700);
+    margin-bottom: 0.5rem;
+}
+
+.empty-description {
+    font-size: 0.875rem;
+    color: var(--slate-600);
+}
+
+/* Tabs */
+.tabs {
+    width: 100%;
+}
+
+.tabs-list {
+    display: grid;
+    width: 100%;
+    background: var(--slate-100);
+    border-radius: var(--radius);
+    padding: 0.25rem;
+}
+
+.grid-cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--slate-600);
+    cursor: pointer;
+    border-radius: calc(var(--radius) - 0.25rem);
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: var(--slate-900);
+}
+
+.tab.active {
+    background: white;
+    color: var(--slate-900);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Action Cards */
+.action-card {
+    background: white;
+    border: 2px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.5rem;
+}
+
+.action-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    border-color: var(--slate-300);
+}
+
+.action-card-icon {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.action-card-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.action-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.action-card-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--slate-900);
+    margin: 0;
+}
+
+.action-card-description {
+    font-size: 0.75rem;
+    color: var(--slate-600);
+    margin: 0;
+}
+
+/* Action Block Colors */
+.bg-blue-500 {
+    background-color: var(--blue-500);
+}
+
+.bg-purple-500 {
+    background-color: var(--purple-500);
+}
+
+.bg-green-500 {
+    background-color: var(--green-500);
+}
+
+.bg-orange-500 {
+    background-color: var(--orange-500);
+}
+
+.bg-slate-500 {
+    background-color: var(--slate-600);
+}
+
+.bg-cyan-500 {
+    background-color: var(--cyan-500);
+}
+
+.bg-pink-500 {
+    background-color: var(--pink-500);
+}
+
+.bg-violet-500 {
+    background-color: var(--violet-500);
+}
+
+.bg-indigo-500 {
+    background-color: var(--indigo-500);
+}
+
+.bg-emerald-500 {
+    background-color: var(--emerald-500);
+}
+
+.bg-teal-500 {
+    background-color: var(--teal-500);
+}
+
+.bg-sky-500 {
+    background-color: var(--sky-500);
+}
+
+.bg-red-500 {
+    background-color: var(--red-500);
+}
+
+.bg-amber-500 {
+    background-color: var(--amber-500);
+}
+
+/* Screen Preview */
+.screen-preview-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.screen-preview {
+    position: relative;
+    background: var(--slate-900);
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    cursor: crosshair;
+    border: 4px solid var(--slate-800);
+    width: 700px;
+    height: 250px;
+}
+
+.screen-preview-content {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--slate-800) 0%, var(--slate-900) 100%);
+}
+
+.screen-status-bar {
+    height: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    color: white;
+    font-size: 0.75rem;
+}
+
+.screen-app-content {
+    padding: 1rem;
+    height: 100%;
+}
+
+.screen-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    height: 100%;
+}
+
+.screen-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    color: white;
+}
+
+.screen-card-bar {
+    height: 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.screen-card-bar-primary {
+    background: rgba(255, 255, 255, 0.2);
+    width: 75%;
+}
+
+.screen-card-bar-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    width: 100%;
+    height: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.screen-nav-bar {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 9999px;
+    padding: 0.5rem;
+}
+
+.screen-nav-button {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.screen-nav-button-square {
+    border-radius: 0.25rem;
+}
+
+.screen-nav-button-circle {
+    border-radius: 9999px;
+}
+
+.screen-nav-button-bar {
+    width: 0.25rem;
+    height: 1.25rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 0.125rem;
+}
+
+/* Action Marker */
+.action-marker {
+    position: absolute;
+    width: 2rem;
+    height: 2rem;
+    margin-left: -1rem;
+    margin-top: -1rem;
+    border-radius: 9999px;
+    border: 4px solid var(--blue-500);
+    background: rgba(59, 130, 246, 0.2);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.action-marker-pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: var(--blue-500);
+    opacity: 0.75;
+    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.75;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none;
+}
+
+.max-w-xs {
+    max-width: 20rem;
+}
+
+.grid {
+    display: grid;
+}
+
+.space-y-2 > * + * {
+    margin-top: 0.5rem;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+.flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--slate-100);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--slate-300);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--slate-600);
+}
+
+/* Action Sequence List */
+#action-sequence-list {
+    position: relative;
+}
+
+/* Connector lines between actions */
+.action-connector {
+    position: absolute;
+    left: 1.5rem;
+    top: 100%;
+    width: 2px;
+    height: 0.5rem;
+    background-color: var(--slate-300);
+    z-index: 0;
+}
