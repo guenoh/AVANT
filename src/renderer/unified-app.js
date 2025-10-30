@@ -31,6 +31,12 @@ class UnifiedApp {
     this.fpsCounter = 0;
     this.lastFpsUpdate = Date.now();
 
+    // Initialize new architecture components
+    this.deviceStore = window.DeviceStore;
+    this.ipcService = window.IPCService;
+    this.eventBus = window.EventBus;
+    this.devicePanel = null; // Will be initialized in init()
+
     this.init();
   }
 
@@ -38,6 +44,13 @@ class UnifiedApp {
     // Canvas 초기화
     this.canvas = document.getElementById('screen-canvas');
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+
+    // Initialize DevicePanel
+    this.devicePanel = new window.DevicePanel(window.api, this.deviceStore);
+    this.devicePanel.init();
+
+    // Subscribe to device panel events
+    this._setupDevicePanelListeners();
 
     // 초기 디바이스 목록 로드
     await this.scanDevices();
@@ -66,18 +79,73 @@ class UnifiedApp {
     this.log('Vision Auto v2 시작됨', 'info');
   }
 
+  /**
+   * Setup listeners for DevicePanel events
+   */
+  _setupDevicePanelListeners() {
+    // Device connected event
+    document.addEventListener('device-panel:device-connected', (e) => {
+      const { type, device, version } = e.detail;
+      this.log(`디바이스 연결됨: ${type} ${version || ''}`, 'success');
+
+      // Update internal state
+      const deviceInfo = this.deviceStore.get('selectedDevice');
+      this.state.selectedDevice = deviceInfo;
+
+      // Enable streaming/recording buttons
+      this._updateUIAfterConnection(true);
+    });
+
+    // Device disconnected event
+    document.addEventListener('device-panel:device-disconnected', () => {
+      this.log('디바이스 연결 해제', 'info');
+
+      // Update internal state
+      this.state.selectedDevice = null;
+
+      // Disable streaming/recording buttons
+      this._updateUIAfterConnection(false);
+    });
+
+    // Devices scanned event
+    document.addEventListener('device-panel:devices-scanned', (e) => {
+      const { count } = e.detail;
+      this.log(`${count}개의 디바이스 발견`, 'info');
+    });
+
+    // Connection attempt event (for ccNC retries)
+    document.addEventListener('device-panel:connection-attempt', (e) => {
+      const { attempt, maxRetries, host, port } = e.detail;
+      this.log(`연결 시도 ${attempt}/${maxRetries}: ${host}:${port}`, 'info');
+    });
+  }
+
+  /**
+   * Update UI after device connection/disconnection
+   */
+  _updateUIAfterConnection(connected) {
+    const streamBtn = document.getElementById('stream-btn');
+    const recordBtn = document.getElementById('record-btn');
+
+    if (streamBtn) streamBtn.disabled = !connected;
+    if (recordBtn) recordBtn.disabled = !connected;
+  }
+
   setupEventListeners() {
     // 전역 UI 객체로 메서드 노출
     window.ui = {
-      scanDevices: () => this.scanDevices(),
+      // Delegate device methods to DevicePanel
+      scanDevices: () => this.devicePanel.scanDevices(),
+      connectADB: () => this.devicePanel.connectADB(),
+      connectCCNC: () => this.devicePanel.connectCCNC(),
+      disconnectDevice: () => this.devicePanel.disconnect(),
+      onProtocolChange: (protocol) => this.devicePanel._onProtocolChange(protocol),
+
+      // Keep legacy methods for backwards compatibility
       wirelessConnect: () => this.wirelessConnect(),
       connectDevice: (deviceId) => this.connectDevice(deviceId),
       connectSelectedDevice: () => this.connectSelectedDevice(),
       onConnectionTypeChange: (type) => this.onConnectionTypeChange(type),
-      onProtocolChange: (protocol) => this.onProtocolChange(protocol),
-      connectADB: () => this.connectADB(),
-      connectCCNC: () => this.connectCCNC(),
-      disconnectDevice: () => this.disconnectDevice(),
       toggleSettings: () => this.toggleSettings(),
       takeScreenshot: () => this.takeScreenshot(),
       toggleStream: () => this.toggleStream(),
