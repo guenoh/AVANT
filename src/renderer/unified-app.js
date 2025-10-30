@@ -40,6 +40,8 @@ class UnifiedApp {
     this.eventBus = window.EventBus;
     this.devicePanel = null; // Will be initialized in init()
     this.screenPanel = null; // Will be initialized in init()
+    this.macroPanel = null; // Will be initialized in init()
+    this.actionPanel = null; // Will be initialized in init()
 
     this.init();
   }
@@ -57,9 +59,19 @@ class UnifiedApp {
     this.screenPanel = new window.ScreenPanel(window.api, this.screenStore, this.canvas);
     this.screenPanel.init();
 
+    // Initialize MacroPanel
+    this.macroPanel = new window.MacroPanel(window.api, this.macroStore, this.actionStore);
+    this.macroPanel.init();
+
+    // Initialize ActionPanel
+    this.actionPanel = new window.ActionPanel(window.api, this.actionStore, this.screenPanel);
+    this.actionPanel.init();
+
     // Subscribe to panel events
     this._setupDevicePanelListeners();
     this._setupScreenPanelListeners();
+    this._setupMacroPanelListeners();
+    this._setupActionPanelListeners();
 
     // 초기 디바이스 목록 로드
     await this.scanDevices();
@@ -182,6 +194,81 @@ class UnifiedApp {
     });
   }
 
+  /**
+   * Setup listeners for MacroPanel events
+   */
+  _setupMacroPanelListeners() {
+    // Macro loaded
+    document.addEventListener('macro-panel:macros-loaded', (e) => {
+      this.log(`${e.detail.count}개의 매크로 로드됨`, 'info');
+    });
+
+    // Macro saved
+    document.addEventListener('macro-panel:macro-saved', (e) => {
+      this.log(`매크로 저장됨: ${e.detail.macro.name}`, 'success');
+    });
+
+    // Macro run
+    document.addEventListener('macro-panel:macro-run-start', (e) => {
+      this.log(`매크로 실행: ${e.detail.name}`, 'info');
+    });
+
+    document.addEventListener('macro-panel:macro-run-success', (e) => {
+      this.log('매크로 실행 완료', 'success');
+    });
+
+    document.addEventListener('macro-panel:macro-run-error', (e) => {
+      this.log(`매크로 실행 실패: ${e.detail.error}`, 'error');
+    });
+
+    // Macro deleted
+    document.addEventListener('macro-panel:macro-deleted', (e) => {
+      this.log('매크로 삭제됨', 'info');
+    });
+
+    // Edit mode
+    document.addEventListener('macro-panel:macro-edit-start', (e) => {
+      this.log(`매크로 편집 시작: ${e.detail.name}`, 'info');
+    });
+  }
+
+  /**
+   * Setup listeners for ActionPanel events
+   */
+  _setupActionPanelListeners() {
+    // Action added
+    document.addEventListener('action-panel:action-added', (e) => {
+      this.log(`액션 추가됨: ${e.detail.action.type}`, 'info');
+    });
+
+    // Actions run
+    document.addEventListener('action-panel:run-start', (e) => {
+      this.log(`${e.detail.count}개 액션 실행 시작`, 'info');
+    });
+
+    document.addEventListener('action-panel:run-complete', (e) => {
+      this.log('액션 실행 완료', 'success');
+    });
+
+    document.addEventListener('action-panel:run-error', (e) => {
+      this.log(`액션 실행 오류: ${e.detail.error}`, 'error');
+    });
+
+    // Recording
+    document.addEventListener('action-panel:recording-started', () => {
+      this.log('액션 녹화 시작', 'info');
+    });
+
+    document.addEventListener('action-panel:recording-stopped', () => {
+      this.log('액션 녹화 중지', 'info');
+    });
+
+    // Click mode
+    document.addEventListener('action-panel:click-mode-entered', (e) => {
+      this.log(`클릭 모드: ${e.detail.type}`, 'info');
+    });
+  }
+
   setupEventListeners() {
     // 전역 UI 객체로 메서드 노출
     window.ui = {
@@ -208,18 +295,26 @@ class UnifiedApp {
       quickAction: (action) => this.quickAction(action),
       createNewMacro: () => this.createNewMacro(),
       toggleTrackingOverlay: () => this.toggleTrackingOverlay(),
-      addAction: (type) => this.addAction(type),
-      addScrollAction: (direction) => this.addScrollAction(direction),
-      removeAction: (index) => this.removeAction(index),
-      clearActions: () => this.clearActions(),
-      runActions: () => this.runActions(),
-      loadMacro: () => this.loadMacro(),
-      saveMacro: () => this.saveMacro(),
-      runMacro: () => this.runMacro(),
-      editMacro: () => this.editMacro(),
-      deleteMacro: () => this.deleteMacro(),
-      editMacroById: (macroId) => this.editMacroById(macroId),
-      toggleSelectAll: () => this.toggleSelectAll(),
+
+      // Delegate action methods to ActionPanel
+      addAction: (type) => this.actionPanel.addAction(type),
+      addScrollAction: (direction) => this.actionPanel.addScrollAction(direction),
+      removeAction: (index) => this.actionPanel.removeAction(index),
+      clearActions: () => this.actionPanel.clearActions(),
+      runActions: () => this.actionPanel.runActions(),
+
+      // Delegate macro methods to MacroPanel
+      loadMacro: () => this.macroPanel.loadMacros(),
+      saveMacro: () => this.macroPanel.saveMacro(),
+      runMacro: () => this.runSelectedMacro(),
+      runMacroById: (macroId) => this.macroPanel.runMacro(macroId),
+      editMacro: () => this.editSelectedMacro(),
+      editMacroById: (macroId) => this.macroPanel.editMacro(macroId),
+      deleteMacro: () => this.deleteSelectedMacro(),
+      deleteMacroById: (macroId) => this.macroPanel.deleteMacro(macroId),
+      runSelectedMacros: () => this.macroPanel.runSelectedMacros(),
+      deleteSelectedMacros: () => this.macroPanel.deleteSelectedMacros(),
+      toggleSelectAll: () => this.macroPanel.toggleSelectAll(),
       updateSelectAllState: () => this.updateSelectAllState(),
       runSelectedMacros: () => this.runSelectedMacros(),
       deleteSelectedMacros: () => this.deleteSelectedMacros(),
