@@ -515,6 +515,9 @@ svg {
     border-radius: 0.5rem;
     color: white;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .action-card-icon svg {
