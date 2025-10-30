@@ -113,6 +113,8 @@ body {
 
 .h-screen {
     height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
 }
 
 .overflow-hidden {
@@ -1036,16 +1038,28 @@ svg {
 #action-sequence-list {
     position: relative;
     min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
 }
 
 /* Action List Container */
 #action-list-container {
     min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
 }
 
 /* Screen Preview Container */
 #screen-preview-container {
     min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+}
+
+/* Macro Sequence Container */
+#macro-sequence-container {
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Action Block */
