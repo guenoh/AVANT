@@ -1662,7 +1662,7 @@ class MacroBuilderApp {
                                 min="100"
                                 max="5000"
                                 step="100"
-                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-slate-500 shadow-inner"
+                                class="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-slate-500 border border-slate-300"
                             >
                         </div>
 
@@ -1678,7 +1678,7 @@ class MacroBuilderApp {
                                 min="100"
                                 max="10000"
                                 step="100"
-                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-slate-500 shadow-inner"
+                                class="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-slate-500 border border-slate-300"
                             >
                         </div>
 
