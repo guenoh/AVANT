@@ -632,6 +632,7 @@ class MacroBuilderApp {
                 { type: 'while', icon: this.getIconSVG('rotate-cw'), label: 'While', description: '조건 반복', color: 'bg-cyan-500' },
                 { type: 'end-while', icon: this.getIconSVG('x'), label: 'End While', description: 'While 종료', color: 'bg-red-500' },
                 { type: 'log', icon: this.getIconSVG('file-text'), label: '로그', description: '로그 저장', color: 'bg-amber-500' },
+                { type: 'test', icon: this.getIconSVG('settings'), label: '테스트', description: 'UI 컴포넌트', color: 'bg-fuchsia-500' },
             ]
         };
 
@@ -1558,6 +1559,207 @@ class MacroBuilderApp {
                             onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
                     </div>
                 `;
+            case 'test':
+                return `
+                    <div class="space-y-6">
+                        <!-- Section: Text Inputs -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">텍스트 입력</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">기본 텍스트 입력</label>
+                                    <input type="text" value="Sample text" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8" placeholder="플레이스홀더">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">숫자 입력</label>
+                                    <input type="number" value="42" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8" min="0" max="100">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">비밀번호 입력</label>
+                                    <input type="password" value="password" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">텍스트 영역</label>
+                                    <textarea class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" rows="3" placeholder="여러 줄 입력...">샘플 텍스트
+여러 줄 입력 가능</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Select & Radio & Checkbox -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">선택 컴포넌트</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">셀렉트 박스</label>
+                                    <select class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8 bg-white">
+                                        <option>옵션 1</option>
+                                        <option selected>옵션 2 (선택됨)</option>
+                                        <option>옵션 3</option>
+                                        <option>옵션 4</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">체크박스</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                                            <span class="text-sm text-slate-700">체크됨</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                                            <span class="text-sm text-slate-700">체크 안됨</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer opacity-50">
+                                            <input type="checkbox" disabled class="w-4 h-4 rounded border-slate-300">
+                                            <span class="text-sm text-slate-700">비활성화</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">라디오 버튼</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="test-radio" checked class="w-4 h-4 border-slate-300 text-blue-600">
+                                            <span class="text-sm text-slate-700">옵션 A (선택됨)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="test-radio" class="w-4 h-4 border-slate-300 text-blue-600">
+                                            <span class="text-sm text-slate-700">옵션 B</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="test-radio" class="w-4 h-4 border-slate-300 text-blue-600">
+                                            <span class="text-sm text-slate-700">옵션 C</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Sliders & Progress -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">슬라이더 & 프로그레스</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-xs font-medium text-slate-700">기본 슬라이더</label>
+                                        <span class="text-xs text-slate-600">50%</span>
+                                    </div>
+                                    <input type="range" value="50" min="0" max="100" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-xs font-medium text-slate-700">커스텀 프로그레스 바</label>
+                                        <span class="text-xs font-semibold text-purple-600">75%</span>
+                                    </div>
+                                    <div style="position: relative; height: 8px;">
+                                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; border-radius: 9999px;"></div>
+                                        <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 75%; background: linear-gradient(to right, #c084fc, #9333ea); border-radius: 9999px; transition: all 0.2s;"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-1">
+                                        <span class="text-xs text-slate-400">0%</span>
+                                        <span class="text-xs text-slate-400">100%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">HTML5 프로그레스</label>
+                                    <progress value="60" max="100" class="w-full h-2"></progress>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Buttons -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">버튼</h3>
+                            <div class="space-y-3">
+                                <div class="flex gap-2 flex-wrap">
+                                    <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600 transition-colors">Primary</button>
+                                    <button class="px-4 py-2 bg-slate-200 text-slate-700 rounded-md text-sm font-medium hover:bg-slate-300 transition-colors">Secondary</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors">Danger</button>
+                                    <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600 transition-colors">Success</button>
+                                </div>
+                                <div class="flex gap-2 flex-wrap">
+                                    <button class="px-4 py-2 border border-blue-500 text-blue-500 rounded-md text-sm font-medium hover:bg-blue-50 transition-colors">Outline</button>
+                                    <button class="px-4 py-2 text-blue-500 rounded-md text-sm font-medium hover:bg-blue-50 transition-colors">Ghost</button>
+                                    <button class="px-4 py-2 bg-slate-300 text-slate-400 rounded-md text-sm font-medium cursor-not-allowed" disabled>Disabled</button>
+                                </div>
+                                <div class="flex gap-2 flex-wrap">
+                                    <button class="btn-ghost h-8 w-8 p-0">${this.getIconSVG('settings')}</button>
+                                    <button class="btn-ghost h-8 w-8 p-0 text-red-500">${this.getIconSVG('trash')}</button>
+                                    <button class="btn-ghost h-8 w-8 p-0">${this.getIconSVG('chevron-up')}</button>
+                                    <button class="btn-ghost h-8 w-8 p-0">${this.getIconSVG('chevron-down')}</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Badges & Tags -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">뱃지 & 태그</h3>
+                            <div class="space-y-3">
+                                <div class="flex gap-2 flex-wrap">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Blue</span>
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Green</span>
+                                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Red</span>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">Yellow</span>
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">Purple</span>
+                                </div>
+                                <div class="flex gap-2 flex-wrap">
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">AND</span>
+                                    <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">OR</span>
+                                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Success</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Alerts & Cards -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">알림 & 카드</h3>
+                            <div class="space-y-3">
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <p class="text-xs text-blue-900 font-medium">정보 알림</p>
+                                    <p class="text-xs text-blue-700 mt-1">이것은 정보성 메시지입니다.</p>
+                                </div>
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                    <p class="text-xs text-green-900 font-medium">성공 알림</p>
+                                    <p class="text-xs text-green-700 mt-1">작업이 성공적으로 완료되었습니다.</p>
+                                </div>
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <p class="text-xs text-yellow-900 font-medium">경고 알림</p>
+                                    <p class="text-xs text-yellow-700 mt-1">주의가 필요한 사항입니다.</p>
+                                </div>
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                                    <p class="text-xs text-red-900 font-medium">오류 알림</p>
+                                    <p class="text-xs text-red-700 mt-1">오류가 발생했습니다.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Misc -->
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3 border-b border-slate-200 pb-2">기타</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">설명 텍스트</label>
+                                    <p class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+                                        이것은 설명 텍스트입니다. 사용자에게 추가 정보를 제공합니다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">구분선</label>
+                                    <hr class="border-t border-slate-200">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block font-medium text-slate-700">Grid 레이아웃</label>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div class="bg-slate-100 border border-slate-200 rounded p-2 text-center text-xs">1</div>
+                                        <div class="bg-slate-100 border border-slate-200 rounded p-2 text-center text-xs">2</div>
+                                        <div class="bg-slate-100 border border-slate-200 rounded p-2 text-center text-xs">3</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             case 'home':
             case 'back':
                 return `<p class="text-xs text-slate-600 text-center py-2">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
@@ -1629,6 +1831,7 @@ class MacroBuilderApp {
             'end-if': { label: 'End If', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
             'end-loop': { label: 'End Loop', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
             'end-while': { label: 'End While', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
+            'test': { label: '테스트', color: 'bg-fuchsia-500', borderClass: 'border-fuchsia-500', bgClass: 'bg-fuchsia-50', icon: this.getIconSVG('settings') },
         };
         return configs[type] || configs['click'];
     }
@@ -1671,6 +1874,8 @@ class MacroBuilderApp {
             case 'home':
             case 'back':
                 return '시스템 버튼';
+            case 'test':
+                return 'UI 컴포넌트 샘플';
             default:
                 return '';
         }
