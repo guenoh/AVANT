@@ -274,6 +274,12 @@ class MacroBuilderApp {
         const coords = this.getScaledCoordinates(e);
         if (!coords) return;
 
+        // Clear existing region when starting new selection
+        if (selectedAction.region) {
+            selectedAction.region = undefined;
+            this.renderActionSequence();
+        }
+
         this.isSelectingRegion = true;
         this.selectionStart = coords;
         this.selectionEnd = coords;
