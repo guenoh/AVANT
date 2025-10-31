@@ -892,25 +892,33 @@ class MacroBuilderApp {
             case 'click':
             case 'long-press':
                 return `
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">X 좌표</label>
+                            <label class="text-xs mb-2 block">X</label>
                             <input type="number" value="${action.x || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Y 좌표</label>
+                            <label class="text-xs mb-2 block">Y</label>
                             <input type="number" value="${action.y || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
                         </div>
                     </div>
                     ${action.type === 'long-press' ? `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">지속 시간 (ms)</label>
-                        <input type="number" value="${action.duration || 1000}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs">지속 시간</label>
+                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
+                        </div>
+                        <input type="range"
+                            value="${action.duration || 1000}"
+                            min="100"
+                            max="5000"
+                            step="100"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
                     </div>
                     ` : ''}
@@ -918,32 +926,38 @@ class MacroBuilderApp {
             case 'drag':
                 return `
                     <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">시작 X</label>
-                                <input type="number" value="${action.x || 0}"
-                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                    onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">시작 Y</label>
-                                <input type="number" value="${action.y || 0}"
-                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                    onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">시작점</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs mb-2 block">X</label>
+                                    <input type="number" value="${action.x || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block">Y</label>
+                                    <input type="number" value="${action.y || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                                </div>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">종료 X</label>
-                                <input type="number" value="${action.endX || 0}"
-                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                    onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">종료 Y</label>
-                                <input type="number" value="${action.endY || 0}"
-                                    class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                    onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">종료점</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs mb-2 block">X</label>
+                                    <input type="number" value="${action.endX || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-2 block">Y</label>
+                                    <input type="number" value="${action.endY || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -951,9 +965,9 @@ class MacroBuilderApp {
             case 'keyboard':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">입력 텍스트</label>
+                        <label class="text-xs mb-2 block">입력 텍스트</label>
                         <input type="text" value="${action.text || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="입력할 텍스트를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'text', this.value)">
                     </div>
@@ -961,18 +975,26 @@ class MacroBuilderApp {
             case 'wait':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">대기 시간 (ms)</label>
-                        <input type="number" value="${action.duration || 1000}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs">대기 시간</label>
+                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
+                        </div>
+                        <input type="range"
+                            value="${action.duration || 1000}"
+                            min="100"
+                            max="10000"
+                            step="100"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500"
+                            oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
                     </div>
                 `;
             case 'screenshot':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">파일 이름</label>
+                        <label class="text-xs mb-2 block">파일 이름</label>
                         <input type="text" value="${action.filename || 'screenshot.png'}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="스크린샷 파일 이름"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'filename', this.value)">
                     </div>
@@ -1011,7 +1033,7 @@ class MacroBuilderApp {
                         <div>
                             <label class="block text-xs font-medium text-slate-700 mb-2">이미지 이름</label>
                             <input type="text" value="${action.imagePath || 'image.png'}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                 placeholder="매칭할 이미지 이름"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
                         </div>
@@ -1041,9 +1063,9 @@ class MacroBuilderApp {
             case 'while':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">조건</label>
+                        <label class="text-xs mb-2 block">조건식</label>
                         <input type="text" value="${action.condition || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-xs h-8 font-mono"
                             placeholder="조건을 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'condition', this.value)">
                     </div>
@@ -1051,26 +1073,33 @@ class MacroBuilderApp {
             case 'loop':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">반복 횟수</label>
-                        <input type="number" value="${action.loopCount || 1}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                            placeholder="반복 횟수"
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs">반복 횟수</label>
+                            <span class="text-xs text-slate-600">${action.loopCount || 1}회</span>
+                        </div>
+                        <input type="range"
+                            value="${action.loopCount || 1}"
+                            min="1"
+                            max="100"
+                            step="1"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                            oninput="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
                     </div>
                 `;
             case 'log':
                 return `
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">로그 메시지</label>
+                        <label class="text-xs mb-2 block">로그 메시지</label>
                         <input type="text" value="${action.message || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="로그 메시지를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
                     </div>
                 `;
             case 'home':
             case 'back':
-                return `<p class="text-sm text-slate-600">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
+                return `<p class="text-xs text-slate-600 text-center py-2">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
             default:
                 return '';
         }
