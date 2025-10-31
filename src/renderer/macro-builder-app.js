@@ -10,7 +10,7 @@ class MacroBuilderApp {
         this.expandedActionId = null;
         this.expandedConditionId = null;
         this.isRunning = false;
-        this.macroName = '새 시나리오';
+        this.macroName = '새 매크로';
         this.currentCoordinate = null;
 
         // Device screen resolution
@@ -1561,7 +1561,7 @@ class MacroBuilderApp {
                 `;
             case 'test':
                 return `
-                    <!-- Design System Test - Copied from Reference Project -->
+                    <!-- Design System Test - Simple Monochrome -->
                     <div class="bg-slate-50/50 px-4 py-4 space-y-4">
                         <!-- Text Input -->
                         <div>
@@ -1570,7 +1570,7 @@ class MacroBuilderApp {
                                 type="text"
                                 value="Sample text"
                                 onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                 placeholder="입력할 텍스트를 입력하세요"
                             >
                         </div>
@@ -1585,7 +1585,7 @@ class MacroBuilderApp {
                                         type="number"
                                         value="100"
                                         onclick="event.stopPropagation()"
-                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                     >
                                 </div>
                                 <div>
@@ -1594,7 +1594,7 @@ class MacroBuilderApp {
                                         type="number"
                                         value="200"
                                         onclick="event.stopPropagation()"
-                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                     >
                                 </div>
                             </div>
@@ -1611,7 +1611,7 @@ class MacroBuilderApp {
                                             type="number"
                                             value="100"
                                             onclick="event.stopPropagation()"
-                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         >
                                     </div>
                                     <div>
@@ -1620,7 +1620,7 @@ class MacroBuilderApp {
                                             type="number"
                                             value="200"
                                             onclick="event.stopPropagation()"
-                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         >
                                     </div>
                                 </div>
@@ -1634,7 +1634,7 @@ class MacroBuilderApp {
                                             type="number"
                                             value="300"
                                             onclick="event.stopPropagation()"
-                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         >
                                     </div>
                                     <div>
@@ -1643,7 +1643,7 @@ class MacroBuilderApp {
                                             type="number"
                                             value="400"
                                             onclick="event.stopPropagation()"
-                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         >
                                     </div>
                                 </div>
@@ -1662,7 +1662,7 @@ class MacroBuilderApp {
                                 min="100"
                                 max="5000"
                                 step="100"
-                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-500 shadow-inner"
+                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-slate-500 shadow-inner"
                             >
                         </div>
 
@@ -1687,7 +1687,7 @@ class MacroBuilderApp {
                             <label class="text-xs mb-2 block">선택 옵션</label>
                             <select
                                 onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300 cursor-pointer"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 cursor-pointer"
                             >
                                 <option>옵션 1</option>
                                 <option selected>옵션 2</option>
@@ -1700,11 +1700,11 @@ class MacroBuilderApp {
                             <label class="text-xs mb-2 block">체크박스</label>
                             <div class="space-y-2">
                                 <label class="flex items-center gap-2.5 cursor-pointer group">
-                                    <input type="checkbox" checked onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <input type="checkbox" checked onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
                                     <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 1</span>
                                 </label>
                                 <label class="flex items-center gap-2.5 cursor-pointer group">
-                                    <input type="checkbox" onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <input type="checkbox" onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
                                     <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 2</span>
                                 </label>
                             </div>
@@ -1715,11 +1715,11 @@ class MacroBuilderApp {
                             <label class="text-xs mb-2 block">라디오 버튼</label>
                             <div class="space-y-2">
                                 <label class="flex items-center gap-2.5 cursor-pointer group">
-                                    <input type="radio" name="test-radio" checked onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <input type="radio" name="test-radio" checked onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
                                     <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 A</span>
                                 </label>
                                 <label class="flex items-center gap-2.5 cursor-pointer group">
-                                    <input type="radio" name="test-radio" onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <input type="radio" name="test-radio" onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
                                     <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 B</span>
                                 </label>
                             </div>
@@ -1746,22 +1746,22 @@ class MacroBuilderApp {
                                 <span class="text-xs text-slate-600">75%</span>
                             </div>
                             <div class="relative h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                <div class="absolute inset-y-0 left-0 w-3/4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300"></div>
+                                <div class="absolute inset-y-0 left-0 w-3/4 bg-slate-500 rounded-full transition-all duration-300"></div>
                             </div>
                         </div>
 
                         <!-- Info Card -->
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <p class="text-xs text-blue-900 leading-relaxed">
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                            <p class="text-xs text-slate-700 leading-relaxed">
                                 이것은 정보 메시지입니다. 사용자에게 추가 정보를 제공할 때 사용합니다.
                             </p>
                         </div>
 
                         <!-- Buttons -->
                         <div class="flex gap-2 flex-wrap">
-                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Primary</button>
+                            <button class="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800 active:scale-95 transition-all duration-150 shadow-sm">Primary</button>
                             <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 active:scale-95 transition-all duration-150">Secondary</button>
-                            <button class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Danger</button>
+                            <button class="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-300 active:scale-95 transition-all duration-150">Tertiary</button>
                         </div>
                     </div>
                 `;
@@ -1949,7 +1949,7 @@ class MacroBuilderApp {
             `;
         }
 
-        this.addLog('info', `시나리오 실행 시작: ${this.macroName}`);
+        this.addLog('info', `매크로 실행 시작: ${this.macroName}`);
 
         await this.executeActionsRange(0, this.actions.length);
 
@@ -1958,7 +1958,7 @@ class MacroBuilderApp {
         this.renderActionSequence();
         this.clearScreenMarkers();
 
-        this.addLog('success', '시나리오 실행 완료');
+        this.addLog('success', '매크로 실행 완료');
 
         if (runBtn) {
             runBtn.disabled = false;
