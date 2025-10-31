@@ -1303,7 +1303,7 @@ class MacroBuilderApp {
 
     renderActionSettings(action) {
         return `
-            <div class="settings-panel border-t border-slate-200 bg-white px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
+            <div class="settings-panel border-t border-slate-200 bg-white px-8 py-5" onclick="event.stopPropagation()" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${this.getSettingsHTML(action)}
             </div>
         `;
