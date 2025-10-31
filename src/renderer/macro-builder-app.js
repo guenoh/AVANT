@@ -906,7 +906,7 @@ class MacroBuilderApp {
         // Only allow certain action types as conditions
         const allowedTypes = ['image-match', 'click', 'long-press', 'wait'];
         if (!allowedTypes.includes(draggedAction.type)) {
-            this.addLog('warning', '해당 액션은 조건으로 사용할 수 없습니다');
+            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다. (image-match, click, long-press, wait만 가능)`);
             return;
         }
 
