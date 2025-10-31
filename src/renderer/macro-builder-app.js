@@ -9,15 +9,32 @@ class MacroBuilderApp {
         this.selectedActionId = null;
         this.expandedActionId = null;
         this.isRunning = false;
-        this.macroName = '새 매크로';
+        this.macroName = '새 시나리오';
         this.currentCoordinate = null;
+
+        // Device screen resolution
+        this.screenWidth = 1400; // Default, will be updated on device connect
+        this.screenHeight = 500; // Default, will be updated on device connect
 
         // Coordinate picking mode
         this.isPickingCoordinate = false;
         this.pendingActionType = null;
+        this.dragStartPoint = null; // For drag action: stores first click point
+
+        // Region selection for image-match
+        this.isSelectingRegion = false;
+        this.selectionStart = null;
+        this.selectionEnd = null;
 
         // Log output
         this.logs = [];
+
+        // Device connection
+        this.isDeviceConnected = false;
+        this.deviceType = null; // 'adb' or 'isap'
+        this.deviceName = null;
+        this.fps = 0;
+        this.adbDevices = null; // Store ADB device list
 
         this.init();
     }
@@ -28,6 +45,7 @@ class MacroBuilderApp {
         this.renderScreenPreview();
         this.renderActionList();
         this.renderActionSequence();
+        this.renderDeviceStatus();
     }
 
     setupEventListeners() {
@@ -47,6 +65,37 @@ class MacroBuilderApp {
         });
         document.getElementById('import-input-seq')?.addEventListener('change', (e) => this.importMacro(e));
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
+
+        // Device connection buttons
+        document.getElementById('btn-connect-adb')?.addEventListener('click', () => this.connectDevice('adb'));
+        document.getElementById('btn-connect-isap')?.addEventListener('click', () => this.connectDevice('isap'));
+
+        // Device card click to restore collapsed cards
+        document.querySelector('.device-connection-methods')?.addEventListener('click', (e) => {
+            const card = e.target.closest('.device-method-card');
+            if (card && card.classList.contains('collapsed')) {
+                this.restoreDeviceCards();
+            }
+        });
+
+        // ESC key to deselect action or cancel coordinate picking
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Priority 1: Cancel coordinate picking if active
+                if (this.isPickingCoordinate) {
+                    this.cancelCoordinatePicking();
+                    this.clearScreenMarkers(); // Remove any markers from screen
+                    return;
+                }
+
+                // Priority 2: Deselect action if one is selected
+                if (this.selectedActionId) {
+                    this.selectedActionId = null;
+                    this.renderActionSequence();
+                    this.clearScreenMarkers(); // Remove markers from screen
+                }
+            }
+        });
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -99,6 +148,11 @@ class MacroBuilderApp {
     }
 
     renderScreenPreview() {
+        // Don't render preview if device not connected
+        if (!this.isDeviceConnected) {
+            return;
+        }
+
         const container = document.getElementById('screen-preview-container');
         if (!container) return;
 
@@ -107,44 +161,7 @@ class MacroBuilderApp {
                 <!-- Screen Preview Display (80%) -->
                 <div class="screen-preview-display">
                     <div class="screen-preview" id="screen-preview-canvas">
-                        <div class="screen-preview-content">
-                            <!-- Status Bar -->
-                            <div class="screen-status-bar">
-                                <span>12:00</span>
-                                <div class="flex gap-1">
-                                    <div style="width: 1rem; height: 0.75rem; border: 1px solid white; border-radius: 0.125rem;"></div>
-                                    <div style="width: 0.75rem; height: 0.75rem; background: white; border-radius: 9999px;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Mock App Content -->
-                            <div class="screen-app-content">
-                                <div class="screen-grid">
-                                    <div class="screen-card">
-                                        <div class="screen-card-bar screen-card-bar-primary"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 66%;"></div>
-                                    </div>
-                                    <div class="screen-card">
-                                        <div class="screen-card-bar screen-card-bar-primary" style="width: 50%;"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 75%;"></div>
-                                    </div>
-                                    <div class="screen-card">
-                                        <div class="screen-card-bar screen-card-bar-primary" style="width: 66%;"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary"></div>
-                                        <div class="screen-card-bar screen-card-bar-secondary" style="width: 50%;"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Navigation Bar -->
-                            <div class="screen-nav-bar">
-                                <div class="screen-nav-button screen-nav-button-square"></div>
-                                <div class="screen-nav-button screen-nav-button-circle"></div>
-                                <div class="screen-nav-button-bar"></div>
-                            </div>
-                        </div>
+                        <img id="screen-stream-image" style="width: 100%; height: 100%; object-fit: contain; background: #1e293b;" />
                     </div>
                 </div>
 
@@ -169,10 +186,14 @@ class MacroBuilderApp {
             </div>
         `;
 
-        // Add click handler
+        // Add mouse event handlers
         const screenCanvas = document.getElementById('screen-preview-canvas');
         if (screenCanvas) {
             screenCanvas.addEventListener('click', (e) => this.handleScreenClick(e));
+            screenCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+            screenCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+            screenCanvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+            screenCanvas.addEventListener('mouseleave', () => this.handleMouseLeave());
         }
 
         // Add clear logs button handler
@@ -186,9 +207,27 @@ class MacroBuilderApp {
     }
 
     handleScreenClick(e) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = Math.round(((e.clientX - rect.left) / rect.width) * 1400);
-        const y = Math.round(((e.clientY - rect.top) / rect.height) * 500);
+        // Get the actual img element bounds (not the container)
+        const img = document.getElementById('screen-stream-image');
+        if (!img) {
+            console.warn('[handleScreenClick] screen-stream-image not found');
+            return;
+        }
+
+        const imgRect = img.getBoundingClientRect();
+
+        // Calculate click position relative to the actual image (not container)
+        const clickX = e.clientX - imgRect.left;
+        const clickY = e.clientY - imgRect.top;
+
+        // Check if click is within the actual image bounds
+        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
+            return;
+        }
+
+        // Convert to device coordinates
+        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
+        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
 
         // If in coordinate picking mode, create new action
         if (this.isPickingCoordinate) {
@@ -223,29 +262,141 @@ class MacroBuilderApp {
         }
     }
 
+    handleMouseDown(e) {
+        const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+        if (!selectedAction || selectedAction.type !== 'image-match') {
+            return;
+        }
+
+        const coords = this.getScaledCoordinates(e);
+        if (!coords) return;
+
+        this.isSelectingRegion = true;
+        this.selectionStart = coords;
+        this.selectionEnd = coords;
+    }
+
+    handleMouseMove(e) {
+        const coords = this.getScaledCoordinates(e);
+        if (!coords) return;
+
+        // Update current coordinate display
+        this.currentCoordinate = coords;
+
+        // Update selection rectangle if selecting region
+        if (this.isSelectingRegion && this.selectionStart) {
+            this.selectionEnd = coords;
+            this.renderSelectionOverlay();
+        }
+    }
+
+    handleMouseUp(e) {
+        const coords = this.getScaledCoordinates(e);
+        if (!coords) return;
+
+        const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+
+        if (selectedAction && selectedAction.type === 'image-match' && this.isSelectingRegion && this.selectionStart) {
+            const region = {
+                x: Math.min(this.selectionStart.x, coords.x),
+                y: Math.min(this.selectionStart.y, coords.y),
+                width: Math.abs(coords.x - this.selectionStart.x),
+                height: Math.abs(coords.y - this.selectionStart.y),
+            };
+
+            // Only update if region is at least 10x10 pixels
+            if (region.width >= 10 && region.height >= 10) {
+                selectedAction.region = region;
+                this.renderActionSequence();
+                this.addLog('success', `영역 선택: ${region.width}×${region.height}`);
+            }
+
+            this.isSelectingRegion = false;
+            this.selectionStart = null;
+            this.selectionEnd = null;
+            this.renderSelectionOverlay();
+        }
+    }
+
+    handleMouseLeave() {
+        this.currentCoordinate = null;
+        if (this.isSelectingRegion) {
+            this.isSelectingRegion = false;
+            this.selectionStart = null;
+            this.selectionEnd = null;
+            this.renderSelectionOverlay();
+        }
+    }
+
+    getScaledCoordinates(e) {
+        const img = document.getElementById('screen-stream-image');
+        if (!img) return null;
+
+        const imgRect = img.getBoundingClientRect();
+        const clickX = e.clientX - imgRect.left;
+        const clickY = e.clientY - imgRect.top;
+
+        // Check if click is within the actual image bounds
+        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
+            return null;
+        }
+
+        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
+        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
+
+        return {
+            x: Math.max(0, Math.min(this.screenWidth, x)),
+            y: Math.max(0, Math.min(this.screenHeight, y)),
+        };
+    }
+
+    renderSelectionOverlay() {
+        // This will be called by updateSelectedActionMarker
+        const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+        if (selectedAction) {
+            this.updateSelectedActionMarker(selectedAction);
+        }
+    }
+
     updateSelectedActionMarker(action) {
         const screenPreview = document.getElementById('screen-preview-canvas');
-        if (!screenPreview) return;
+        const img = document.getElementById('screen-stream-image');
+
+        if (!screenPreview || !img) {
+            return;
+        }
 
         // Remove existing markers
         const existingMarkers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
         existingMarkers.forEach(m => m.remove());
 
         if (action.x !== undefined && action.y !== undefined) {
-            const xPercent = (action.x / 1400) * 100;
-            const yPercent = (action.y / 500) * 100;
+            // Get img bounds relative to container
+            const containerRect = screenPreview.getBoundingClientRect();
+            const imgRect = img.getBoundingClientRect();
+
+            // Calculate marker position in pixels relative to container
+            const imgX = (action.x / this.screenWidth) * imgRect.width;
+            const imgY = (action.y / this.screenHeight) * imgRect.height;
+
+            // Convert to position relative to container
+            const markerX = (imgRect.left - containerRect.left) + imgX;
+            const markerY = (imgRect.top - containerRect.top) + imgY;
 
             const marker = document.createElement('div');
             marker.className = 'action-marker';
-            marker.style.left = `${xPercent}%`;
-            marker.style.top = `${yPercent}%`;
+            marker.style.left = `${markerX}px`;
+            marker.style.top = `${markerY}px`;
             marker.innerHTML = '<div class="action-marker-pulse"></div>';
             screenPreview.appendChild(marker);
 
             // For drag, show line and end marker
             if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
-                const endXPercent = (action.endX / 1400) * 100;
-                const endYPercent = (action.endY / 500) * 100;
+                // Calculate end marker position in pixels
+                const endImgX = (action.endX / this.screenWidth) * imgRect.width;
+                const endImgY = (action.endY / this.screenHeight) * imgRect.height;
+                const endMarkerX = (imgRect.left - containerRect.left) + endImgX;
+                const endMarkerY = (imgRect.top - containerRect.top) + endImgY;
 
                 // SVG line
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -275,10 +426,10 @@ class MacroBuilderApp {
                 svg.appendChild(defs);
 
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', `${xPercent}%`);
-                line.setAttribute('y1', `${yPercent}%`);
-                line.setAttribute('x2', `${endXPercent}%`);
-                line.setAttribute('y2', `${endYPercent}%`);
+                line.setAttribute('x1', `${markerX}`);
+                line.setAttribute('y1', `${markerY}`);
+                line.setAttribute('x2', `${endMarkerX}`);
+                line.setAttribute('y2', `${endMarkerY}`);
                 line.setAttribute('stroke', '#3b82f6');
                 line.setAttribute('stroke-width', '3');
                 line.setAttribute('marker-end', 'url(#arrowhead)');
@@ -289,8 +440,8 @@ class MacroBuilderApp {
                 // End marker
                 const endMarker = document.createElement('div');
                 endMarker.className = 'action-marker';
-                endMarker.style.left = `${endXPercent}%`;
-                endMarker.style.top = `${endYPercent}%`;
+                endMarker.style.left = `${endMarkerX}px`;
+                endMarker.style.top = `${endMarkerY}px`;
                 endMarker.style.width = '1.5rem';
                 endMarker.style.height = '1.5rem';
                 endMarker.style.marginLeft = '-0.75rem';
@@ -299,6 +450,106 @@ class MacroBuilderApp {
                 endMarker.style.background = 'rgba(34, 197, 94, 0.2)';
                 screenPreview.appendChild(endMarker);
             }
+        }
+
+        // Render image-match region marker
+        if (action.type === 'image-match' && action.region) {
+            const containerRect = screenPreview.getBoundingClientRect();
+            const imgRect = img.getBoundingClientRect();
+
+            // Calculate region position and size
+            const regionX = (action.region.x / this.screenWidth) * imgRect.width;
+            const regionY = (action.region.y / this.screenHeight) * imgRect.height;
+            const regionWidth = (action.region.width / this.screenWidth) * imgRect.width;
+            const regionHeight = (action.region.height / this.screenHeight) * imgRect.height;
+
+            // Convert to position relative to container
+            const markerX = (imgRect.left - containerRect.left) + regionX;
+            const markerY = (imgRect.top - containerRect.top) + regionY;
+
+            // Create region rectangle
+            const regionMarker = document.createElement('div');
+            regionMarker.className = 'action-marker';
+            regionMarker.style.left = `${markerX}px`;
+            regionMarker.style.top = `${markerY}px`;
+            regionMarker.style.width = `${regionWidth}px`;
+            regionMarker.style.height = `${regionHeight}px`;
+            regionMarker.style.border = '2px solid #6366f1';
+            regionMarker.style.background = 'rgba(99, 102, 241, 0.2)';
+            regionMarker.style.borderRadius = '4px';
+            regionMarker.style.marginLeft = '0';
+            regionMarker.style.marginTop = '0';
+            regionMarker.style.transform = 'none';
+
+            // Create size label
+            const sizeLabel = document.createElement('div');
+            sizeLabel.style.position = 'absolute';
+            sizeLabel.style.top = '-24px';
+            sizeLabel.style.left = '0';
+            sizeLabel.style.background = '#6366f1';
+            sizeLabel.style.color = 'white';
+            sizeLabel.style.fontSize = '11px';
+            sizeLabel.style.padding = '2px 8px';
+            sizeLabel.style.borderRadius = '4px';
+            sizeLabel.style.whiteSpace = 'nowrap';
+            sizeLabel.textContent = `${action.region.width} × ${action.region.height}`;
+
+            regionMarker.appendChild(sizeLabel);
+            screenPreview.appendChild(regionMarker);
+        }
+
+        // Render live selection rectangle while dragging
+        if (this.isSelectingRegion && this.selectionStart && this.selectionEnd) {
+            const containerRect = screenPreview.getBoundingClientRect();
+            const imgRect = img.getBoundingClientRect();
+
+            // Calculate selection region
+            const selectionRegion = {
+                x: Math.min(this.selectionStart.x, this.selectionEnd.x),
+                y: Math.min(this.selectionStart.y, this.selectionEnd.y),
+                width: Math.abs(this.selectionEnd.x - this.selectionStart.x),
+                height: Math.abs(this.selectionEnd.y - this.selectionStart.y),
+            };
+
+            // Calculate position and size in pixels
+            const regionX = (selectionRegion.x / this.screenWidth) * imgRect.width;
+            const regionY = (selectionRegion.y / this.screenHeight) * imgRect.height;
+            const regionWidth = (selectionRegion.width / this.screenWidth) * imgRect.width;
+            const regionHeight = (selectionRegion.height / this.screenHeight) * imgRect.height;
+
+            // Convert to position relative to container
+            const markerX = (imgRect.left - containerRect.left) + regionX;
+            const markerY = (imgRect.top - containerRect.top) + regionY;
+
+            // Create selection rectangle
+            const selectionMarker = document.createElement('div');
+            selectionMarker.className = 'action-marker';
+            selectionMarker.style.left = `${markerX}px`;
+            selectionMarker.style.top = `${markerY}px`;
+            selectionMarker.style.width = `${regionWidth}px`;
+            selectionMarker.style.height = `${regionHeight}px`;
+            selectionMarker.style.border = '2px solid #6366f1';
+            selectionMarker.style.background = 'rgba(99, 102, 241, 0.2)';
+            selectionMarker.style.borderRadius = '4px';
+            selectionMarker.style.marginLeft = '0';
+            selectionMarker.style.marginTop = '0';
+            selectionMarker.style.transform = 'none';
+
+            // Create size label
+            const sizeLabel = document.createElement('div');
+            sizeLabel.style.position = 'absolute';
+            sizeLabel.style.top = '-24px';
+            sizeLabel.style.left = '0';
+            sizeLabel.style.background = '#6366f1';
+            sizeLabel.style.color = 'white';
+            sizeLabel.style.fontSize = '11px';
+            sizeLabel.style.padding = '2px 8px';
+            sizeLabel.style.borderRadius = '4px';
+            sizeLabel.style.whiteSpace = 'nowrap';
+            sizeLabel.textContent = `${selectionRegion.width} × ${selectionRegion.height}`;
+
+            selectionMarker.appendChild(sizeLabel);
+            screenPreview.appendChild(selectionMarker);
         }
 
         // Update info
@@ -391,8 +642,27 @@ class MacroBuilderApp {
     }
 
     addAction(type) {
-        // For click and long-press, enter coordinate picking mode
-        if (type === 'click' || type === 'long-press') {
+        // If already in coordinate picking mode, cancel it first (ESC effect)
+        if (this.isPickingCoordinate) {
+            this.cancelCoordinatePicking();
+        }
+
+        // Always deselect current action when starting to add new action
+        // This ensures only one action is selected at a time (either in macro list or action list)
+        this.selectedActionId = null;
+
+        // Clear markers from screen
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (screenPreview) {
+            const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+            markers.forEach(m => m.remove());
+        }
+
+        // Re-render to update selection state in macro list
+        this.renderActionSequence();
+
+        // For click, long-press, and drag, enter coordinate picking mode
+        if (type === 'click' || type === 'long-press' || type === 'drag') {
             this.startCoordinatePicking(type);
             return;
         }
@@ -401,7 +671,6 @@ class MacroBuilderApp {
             id: `action-${Date.now()}`,
             type,
             ...(type === 'wait' && { duration: 1000 }),
-            ...(type === 'drag' && { x: 0, y: 0, endX: 0, endY: 0 }),
             ...(type === 'keyboard' && { text: '' }),
             ...(type === 'screenshot' && { filename: 'screenshot.png' }),
             ...(type === 'log' && { message: 'Log message' }),
@@ -487,6 +756,17 @@ class MacroBuilderApp {
 
         // Restore scroll position
         container.scrollTop = scrollTop;
+
+        // Update marker for selected action (if any)
+        if (this.selectedActionId) {
+            const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+            if (selectedAction) {
+                // Use requestAnimationFrame to ensure DOM is ready
+                requestAnimationFrame(() => {
+                    this.updateSelectedActionMarker(selectedAction);
+                });
+            }
+        }
     }
 
     calculateDepths() {
@@ -689,20 +969,60 @@ class MacroBuilderApp {
                 `;
             case 'image-match':
                 return `
-                    <div class="space-y-3">
+                    <div class="space-y-4">
+                        ${action.region ? `
+                            <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-xs font-medium text-purple-900">선택된 영역</label>
+                                    <button
+                                        class="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 hover:bg-purple-100 rounded"
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
+                                    >
+                                        초기화
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="bg-white rounded p-2">
+                                        <span class="text-slate-600">위치:</span> (${action.region.x}, ${action.region.y})
+                                    </div>
+                                    <div class="bg-white rounded p-2">
+                                        <span class="text-slate-600">크기:</span> ${action.region.width} × ${action.region.height}
+                                    </div>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-slate-100 border border-slate-200 rounded-lg p-3 text-center">
+                                <p class="text-xs text-slate-600">
+                                    스크린 프리뷰에서 드래그하여<br />매칭 영역을 선택하세요
+                                </p>
+                            </div>
+                        `}
+
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">이미지 경로</label>
+                            <label class="block text-xs font-medium text-slate-700 mb-2">이미지 이름</label>
                             <input type="text" value="${action.imagePath || 'image.png'}"
                                 class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                placeholder="매칭할 이미지 경로"
+                                placeholder="매칭할 이미지 이름"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">임계값 (%)</label>
-                            <input type="number" value="${Math.round((action.threshold || 0.9) * 100)}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                placeholder="매칭 임계값 (%)"
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs font-medium text-slate-700">매칭 정확도</label>
+                                <span class="text-xs text-slate-600">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                            </div>
+                            <input type="range"
+                                value="${Math.round((action.threshold || 0.9) * 100)}"
+                                min="50"
+                                max="100"
+                                step="1"
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                oninput="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                            <div class="flex justify-between mt-1">
+                                <span class="text-xs text-slate-400">50%</span>
+                                <span class="text-xs text-slate-400">100%</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -802,7 +1122,10 @@ class MacroBuilderApp {
             case 'screenshot':
                 return action.filename || 'screenshot.png';
             case 'image-match':
-                return `${action.imagePath || 'image.png'} (${Math.round((action.threshold || 0.9) * 100)}%)`;
+                if (action.region) {
+                    return `영역: ${action.region.width}×${action.region.height} • ${Math.round((action.threshold || 0.9) * 100)}%`;
+                }
+                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%)`;
             case 'if':
             case 'else-if':
             case 'while':
@@ -859,6 +1182,16 @@ class MacroBuilderApp {
     }
 
     async runMacro() {
+        if (!this.isDeviceConnected) {
+            this.addLog('error', '장치가 연결되지 않았습니다');
+            return;
+        }
+
+        if (this.actions.length === 0) {
+            this.addLog('warning', '실행할 액션이 없습니다');
+            return;
+        }
+
         this.isRunning = true;
         const runBtn = document.getElementById('btn-run-macro');
         if (runBtn) {
@@ -872,15 +1205,43 @@ class MacroBuilderApp {
             `;
         }
 
+        this.addLog('info', `시나리오 실행 시작: ${this.macroName}`);
+
         for (let i = 0; i < this.actions.length; i++) {
-            this.selectedActionId = this.actions[i].id;
+            const action = this.actions[i];
+
+            // Highlight current action
+            this.selectedActionId = action.id;
             this.renderActionSequence();
-            await new Promise(resolve => setTimeout(resolve, 500));
+            this.updateSelectedActionMarker(action);
+
+            try {
+                // Execute action via backend
+                const result = await this.executeAction(action);
+
+                if (result.success) {
+                    this.addLog('success', `${this.getActionTypeName(action.type)} 실행 완료`);
+                } else {
+                    this.addLog('error', `${this.getActionTypeName(action.type)} 실행 실패: ${result.error}`);
+                }
+
+                // Get delay from option
+                const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                if (delay > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            } catch (error) {
+                this.addLog('error', `액션 실행 오류: ${error.message}`);
+                break;
+            }
         }
 
         this.isRunning = false;
         this.selectedActionId = null;
         this.renderActionSequence();
+        this.clearScreenMarkers();
+
+        this.addLog('success', '시나리오 실행 완료');
 
         if (runBtn) {
             runBtn.disabled = false;
@@ -892,6 +1253,63 @@ class MacroBuilderApp {
                 실행
             `;
         }
+    }
+
+    async executeAction(action) {
+        try {
+            // Map frontend action format to backend format
+            const backendAction = this.mapActionToBackend(action);
+            console.log('[executeAction] Original action:', action);
+            console.log('[executeAction] Backend action:', backendAction);
+            console.log('[executeAction] window.api:', window.api);
+            console.log('[executeAction] window.api.action:', window.api?.action);
+
+            const result = await window.api.action.execute(backendAction);
+            console.log('[executeAction] Result:', result);
+            return result;
+        } catch (error) {
+            console.error('[executeAction] Error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    mapActionToBackend(action) {
+        const mapped = { type: action.type };
+
+        switch (action.type) {
+            case 'click':
+                return { type: 'tap', x: action.x, y: action.y, duration: 100 };
+            case 'long-press':
+                return { type: 'tap', x: action.x, y: action.y, duration: action.duration || 1000 };
+            case 'drag':
+                return { type: 'swipe', x1: action.x, y1: action.y, x2: action.endX, y2: action.endY, duration: action.duration || 300 };
+            case 'input':
+                return { type: 'input', text: action.text };
+            case 'wait':
+                return { type: 'wait', delay: action.delay || 1000 };
+            case 'home':
+                return { type: 'key', keyCode: 3 }; // HOME
+            case 'back':
+                return { type: 'key', keyCode: 4 }; // BACK
+            case 'scroll':
+                return { type: 'scroll', direction: action.direction || 'down', amount: action.amount || 300 };
+            default:
+                return action;
+        }
+    }
+
+    getActionTypeName(type) {
+        const names = {
+            'click': '클릭',
+            'long-press': '롱프레스',
+            'drag': '드래그',
+            'input': '텍스트 입력',
+            'wait': '대기',
+            'home': '홈 버튼',
+            'back': '뒤로 버튼',
+            'scroll': '스크롤'
+        };
+        return names[type] || type;
     }
 
     exportMacro() {
@@ -976,6 +1394,7 @@ class MacroBuilderApp {
     cancelCoordinatePicking() {
         this.isPickingCoordinate = false;
         this.pendingActionType = null;
+        this.dragStartPoint = null; // Reset drag start point
 
         // Remove visual feedback
         document.body.classList.remove('picking-coordinate');
@@ -989,6 +1408,9 @@ class MacroBuilderApp {
         if (tooltip) {
             tooltip.remove();
         }
+
+        // Clear any screen markers left from coordinate picking
+        this.clearScreenMarkers();
     }
 
     createPickingTooltip() {
@@ -998,12 +1420,18 @@ class MacroBuilderApp {
             existing.remove();
         }
 
+        // Create message based on action type
+        let message = '화면을 클릭하여 좌표를 선택하세요';
+        if (this.pendingActionType === 'drag') {
+            message = '화면을 클릭하여 첫번째 지점을 선택하세요';
+        }
+
         // Create new tooltip
         const tooltip = document.createElement('div');
         tooltip.id = 'coordinate-picking-tooltip';
         tooltip.innerHTML = `
             <div class="coordinate-tooltip">
-                <p>화면을 클릭하여 좌표를 선택하세요</p>
+                <p>${message}</p>
                 <p class="coordinate-tooltip-hint">ESC 키로 취소</p>
             </div>
         `;
@@ -1019,19 +1447,53 @@ class MacroBuilderApp {
     }
 
     handleScreenPreviewClick(e) {
-        const screen = document.getElementById('screen-preview-canvas');
-        if (!screen) return;
+        // Get the actual img element bounds (not the container)
+        const img = document.getElementById('screen-stream-image');
+        if (!img) {
+            console.warn('[handleScreenPreviewClick] screen-stream-image not found');
+            return;
+        }
 
-        // Calculate coordinates relative to screen and convert to device coordinates
-        const rect = screen.getBoundingClientRect();
-        const x = Math.round(((e.clientX - rect.left) / rect.width) * 1400);
-        const y = Math.round(((e.clientY - rect.top) / rect.height) * 500);
+        // Calculate coordinates relative to the actual image and convert to device coordinates
+        const imgRect = img.getBoundingClientRect();
+        const clickX = e.clientX - imgRect.left;
+        const clickY = e.clientY - imgRect.top;
 
-        // Create action with coordinates
-        this.createActionWithCoordinate(this.pendingActionType, x, y);
+        // Check if click is within the actual image bounds
+        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
+            console.warn('[handleScreenPreviewClick] Click outside image bounds');
+            return;
+        }
 
-        // Exit picking mode
-        this.cancelCoordinatePicking();
+        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
+        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
+
+        // Handle drag action (requires two clicks)
+        if (this.pendingActionType === 'drag') {
+            if (!this.dragStartPoint) {
+                // First click - store start point and show marker
+                this.dragStartPoint = { x, y };
+                this.addLog('info', `드래그 시작점: (${x}, ${y})`);
+
+                // Show start point marker on screen
+                this.showDragStartMarker(x, y);
+
+                // Update tooltip to ask for end point
+                this.updatePickingTooltipMessage();
+            } else {
+                // Second click - create drag action with start and end points
+                this.createDragAction(this.dragStartPoint.x, this.dragStartPoint.y, x, y);
+
+                // Exit picking mode
+                this.cancelCoordinatePicking();
+            }
+        } else {
+            // Handle click and long-press (single click)
+            this.createActionWithCoordinate(this.pendingActionType, x, y);
+
+            // Exit picking mode
+            this.cancelCoordinatePicking();
+        }
     }
 
     createActionWithCoordinate(type, x, y) {
@@ -1045,14 +1507,80 @@ class MacroBuilderApp {
 
         this.actions.push(newAction);
         this.selectedActionId = newAction.id;
-        this.renderActionSequence();
 
-        // Update marker on screen
-        this.updateSelectedActionMarker(newAction);
+        // renderActionSequence will automatically update marker for selected action
+        this.renderActionSequence();
 
         // Log the action creation
         const actionName = type === 'click' ? '클릭' : '롱프레스';
         this.addLog('success', `${actionName} 액션 추가: (${x}, ${y})`);
+    }
+
+    createDragAction(startX, startY, endX, endY) {
+        const newAction = {
+            id: `action-${Date.now()}`,
+            type: 'drag',
+            x: startX,
+            y: startY,
+            endX: endX,
+            endY: endY
+        };
+
+        this.actions.push(newAction);
+        this.selectedActionId = newAction.id;
+
+        // renderActionSequence will automatically update marker for selected action
+        this.renderActionSequence();
+
+        // Log the action creation
+        this.addLog('success', `드래그 액션 추가: (${startX}, ${startY}) → (${endX}, ${endY})`);
+    }
+
+    updatePickingTooltipMessage() {
+        const tooltip = document.getElementById('coordinate-picking-tooltip');
+        if (tooltip) {
+            tooltip.innerHTML = `
+                <div class="coordinate-tooltip">
+                    <p>두번째 지점을 선택하세요</p>
+                    <p class="coordinate-tooltip-hint">ESC 키로 취소</p>
+                </div>
+            `;
+        }
+    }
+
+    showDragStartMarker(x, y) {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        const img = document.getElementById('screen-stream-image');
+        if (!screenPreview || !img) return;
+
+        // Clear any existing markers
+        const existingMarkers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+        existingMarkers.forEach(m => m.remove());
+
+        // Calculate position in pixels relative to container
+        const containerRect = screenPreview.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+
+        const imgX = (x / this.screenWidth) * imgRect.width;
+        const imgY = (y / this.screenHeight) * imgRect.height;
+        const markerX = (imgRect.left - containerRect.left) + imgX;
+        const markerY = (imgRect.top - containerRect.top) + imgY;
+
+        // Create start point marker
+        const marker = document.createElement('div');
+        marker.className = 'action-marker';
+        marker.style.left = `${markerX}px`;
+        marker.style.top = `${markerY}px`;
+        marker.innerHTML = '<div class="action-marker-pulse"></div>';
+        screenPreview.appendChild(marker);
+    }
+
+    clearScreenMarkers() {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (screenPreview) {
+            const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+            markers.forEach(m => m.remove());
+        }
     }
 
     // Log management methods
@@ -1078,6 +1606,460 @@ class MacroBuilderApp {
         this.logs = [];
         this.renderLogs();
         this.addLog('info', '로그가 초기화되었습니다');
+    }
+
+    restoreDeviceCards() {
+        // Remove all animation classes to restore original state
+        const methodsContainer = document.querySelector('.device-connection-methods');
+        const allCards = document.querySelectorAll('.device-method-card');
+
+        if (methodsContainer) {
+            methodsContainer.classList.remove('adb-active', 'isap-active');
+        }
+
+        allCards.forEach(card => {
+            card.classList.remove('collapsed', 'expanded');
+        });
+
+        // Remove device lists and iSAP forms from both cards
+        const deviceLists = document.querySelectorAll('.device-list');
+        deviceLists.forEach(list => list.remove());
+
+        const isapForms = document.querySelectorAll('.isap-connection-form');
+        isapForms.forEach(form => form.remove());
+
+        // Reset ADB button
+        const adbButton = document.getElementById('btn-connect-adb');
+        if (adbButton) {
+            adbButton.classList.remove('loading');
+            adbButton.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                ADB 연결
+            `;
+        }
+
+        // Reset iSAP button
+        const isapButton = document.getElementById('btn-connect-isap');
+        if (isapButton) {
+            isapButton.classList.remove('loading');
+            isapButton.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                iSAP 연결
+            `;
+        }
+
+        // Reset device connection state
+        this.isDeviceConnected = false;
+        this.deviceType = null;
+        this.deviceName = null;
+        this.adbDevices = null;
+
+        this.addLog('warning', '장치 연결이 취소되었습니다');
+    }
+
+    async connectDevice(type) {
+        const buttonId = type === 'adb' ? 'btn-connect-adb' : 'btn-connect-isap';
+        const button = document.getElementById(buttonId);
+        const card = button?.closest('.device-method-card');
+
+        if (!button || !card) return;
+
+        // Add card animation classes
+        const methodsContainer = card.closest('.device-connection-methods');
+        const oppositeCard = type === 'adb'
+            ? document.getElementById('btn-connect-isap')?.closest('.device-method-card')
+            : document.getElementById('btn-connect-adb')?.closest('.device-method-card');
+
+        if (methodsContainer && oppositeCard) {
+            // Add active class to container
+            methodsContainer.classList.remove('adb-active', 'isap-active');
+            methodsContainer.classList.add(type === 'adb' ? 'adb-active' : 'isap-active');
+
+            // Collapse opposite card and expand current card
+            oppositeCard.classList.add('collapsed');
+            card.classList.add('expanded');
+        }
+
+        if (type === 'adb') {
+            // Show loading state for ADB
+            button.classList.add('loading');
+            button.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                연결 중...
+            `;
+
+            this.addLog('info', 'ADB 장치를 검색 중...');
+        }
+
+        if (type === 'adb') {
+            try {
+                // Call real ADB devices API
+                const result = await window.api.device.list();
+
+                if (result.success && result.devices.length > 0) {
+                    // Extract device names with serial numbers
+                    const deviceNames = result.devices.map(d => {
+                        // Show "Model (Serial)" or just serial if model is unknown
+                        if (d.model && d.model !== 'Unknown') {
+                            return `${d.model} (${d.id})`;
+                        } else {
+                            return d.id;
+                        }
+                    });
+
+                    // Store full device info for later use
+                    this.adbDevices = result.devices;
+
+                    // Show device list in card
+                    this.showDeviceList(card, deviceNames, type);
+
+                    this.addLog('success', `${result.devices.length}개의 장치를 찾았습니다`);
+                } else {
+                    this.addLog('warning', 'ADB 장치를 찾을 수 없습니다');
+
+                    // Reset button
+                    button.classList.remove('loading');
+                    button.innerHTML = `
+                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        ADB 연결
+                    `;
+                }
+            } catch (error) {
+                this.addLog('error', `ADB 연결 실패: ${error.message}`);
+
+                // Reset button
+                button.classList.remove('loading');
+                button.innerHTML = `
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    ADB 연결
+                `;
+            }
+        } else {
+            // iSAP - show SSH connection form
+            button.classList.remove('loading');
+            this.showISAPConnectionForm(card);
+            this.addLog('info', 'iSAP 연결 정보를 입력하세요');
+        }
+    }
+
+    showDeviceList(card, devices, type) {
+        // Find or create device list container
+        let deviceList = card.querySelector('.device-list');
+        if (!deviceList) {
+            deviceList = document.createElement('div');
+            deviceList.className = 'device-list';
+            card.appendChild(deviceList);
+        }
+
+        // Clear existing list
+        deviceList.innerHTML = '';
+
+        // Add devices with staggered animation
+        devices.forEach((deviceName, index) => {
+            const deviceItem = document.createElement('div');
+            deviceItem.className = 'device-item';
+            deviceItem.style.animationDelay = `${index * 0.1}s`;
+            deviceItem.innerHTML = `
+                <span class="device-item-name">${deviceName}</span>
+                <span class="device-item-status">연결 가능</span>
+            `;
+
+            deviceItem.addEventListener('click', () => {
+                this.selectDevice(deviceName, type);
+            });
+
+            deviceList.appendChild(deviceItem);
+        });
+    }
+
+    showISAPConnectionForm(card) {
+        // Find or create connection form container
+        let formContainer = card.querySelector('.isap-connection-form');
+        if (!formContainer) {
+            formContainer = document.createElement('div');
+            formContainer.className = 'isap-connection-form';
+            card.appendChild(formContainer);
+        }
+
+        formContainer.innerHTML = `
+            <div class="ssh-form">
+                <div class="form-group">
+                    <label class="form-label">호스트 IP</label>
+                    <input type="text" id="isap-host" class="form-input" placeholder="10.0.3.0" value="10.0.3.0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">포트</label>
+                    <input type="number" id="isap-port" class="form-input" placeholder="20000" value="20000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">사용자명</label>
+                    <input type="text" id="isap-username" class="form-input" placeholder="root" value="root">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">패스워드</label>
+                    <input type="password" id="isap-password" class="form-input" placeholder="패스워드 입력" value="">
+                </div>
+
+                <div class="form-divider"></div>
+
+                <div class="form-group">
+                    <label class="form-checkbox">
+                        <input type="checkbox" id="isap-proxy-enabled">
+                        <span>Proxy Jump 사용</span>
+                    </label>
+                </div>
+
+                <div id="isap-proxy-fields" class="proxy-fields hidden">
+                    <div class="form-group">
+                        <label class="form-label">Proxy 호스트</label>
+                        <input type="text" id="isap-proxy-host" class="form-input" placeholder="raspberry.local">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proxy 포트</label>
+                        <input type="number" id="isap-proxy-port" class="form-input" placeholder="22" value="22">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proxy 사용자명</label>
+                        <input type="text" id="isap-proxy-username" class="form-input" placeholder="pi" value="pi">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proxy 패스워드</label>
+                        <input type="password" id="isap-proxy-password" class="form-input" placeholder="패스워드 입력" value="">
+                    </div>
+                </div>
+
+                <button class="btn-primary w-full mt-4" id="isap-connect-btn">
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    연결
+                </button>
+            </div>
+        `;
+
+        // Toggle proxy fields
+        const proxyCheckbox = formContainer.querySelector('#isap-proxy-enabled');
+        const proxyFields = formContainer.querySelector('#isap-proxy-fields');
+
+        proxyCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                proxyFields.classList.remove('hidden');
+            } else {
+                proxyFields.classList.add('hidden');
+            }
+        });
+
+        // Connect button handler
+        const connectBtn = formContainer.querySelector('#isap-connect-btn');
+        connectBtn.addEventListener('click', () => this.connectISAP());
+    }
+
+    async connectISAP() {
+        const host = document.getElementById('isap-host').value.trim();
+        const port = document.getElementById('isap-port').value;
+        const username = document.getElementById('isap-username').value.trim();
+        const password = document.getElementById('isap-password').value;
+        const proxyEnabled = document.getElementById('isap-proxy-enabled').checked;
+
+        if (!host) {
+            this.addLog('error', '호스트 IP를 입력하세요');
+            return;
+        }
+
+        if (!password) {
+            this.addLog('error', '패스워드를 입력하세요');
+            return;
+        }
+
+        const connectionInfo = {
+            host,
+            port: parseInt(port) || 20000,
+            username: username || 'root',
+            password,
+        };
+
+        if (proxyEnabled) {
+            const proxyHost = document.getElementById('isap-proxy-host').value.trim();
+            const proxyPort = document.getElementById('isap-proxy-port').value;
+            const proxyUsername = document.getElementById('isap-proxy-username').value.trim();
+            const proxyPassword = document.getElementById('isap-proxy-password').value;
+
+            if (!proxyHost) {
+                this.addLog('error', 'Proxy 호스트를 입력하세요');
+                return;
+            }
+
+            if (!proxyPassword) {
+                this.addLog('error', 'Proxy 패스워드를 입력하세요');
+                return;
+            }
+
+            connectionInfo.proxy = {
+                host: proxyHost,
+                port: parseInt(proxyPort) || 22,
+                username: proxyUsername || 'pi',
+                password: proxyPassword,
+            };
+        }
+
+        this.addLog('info', `iSAP 장치에 연결 중... ${username}@${host}:${port}`);
+        if (proxyEnabled) {
+            this.addLog('info', `Proxy Jump: ${connectionInfo.proxy.username}@${connectionInfo.proxy.host}:${connectionInfo.proxy.port}`);
+        }
+
+        // TODO: Implement actual iSAP connection via backend
+        // For now, just simulate connection
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        this.isDeviceConnected = true;
+        this.deviceType = 'isap';
+        this.deviceName = `${username}@${host}`;
+        this.fps = 30;
+
+        this.renderScreenPreview();
+        this.renderDeviceStatus();
+        this.addLog('success', `iSAP 장치에 연결되었습니다`);
+    }
+
+    async selectDevice(deviceName, type) {
+        this.deviceType = type;
+        this.deviceName = deviceName;
+
+        if (type === 'adb' && this.adbDevices) {
+            try {
+                // Extract serial number from "Model (Serial)" format
+                const serialMatch = deviceName.match(/\(([^)]+)\)$/);
+                const serial = serialMatch ? serialMatch[1] : deviceName;
+
+                // Find the device by serial
+                const device = this.adbDevices.find(d => d.id === serial);
+
+                if (device) {
+                    this.addLog('info', `${deviceName} 장치에 연결 중...`);
+
+                    // Select device via API
+                    const result = await window.api.device.select(device.id);
+
+                    if (result) {
+                        this.isDeviceConnected = true;
+                        this.fps = 30;
+
+                        // Store device screen resolution
+                        // Result format: {success: true, info: {...}}
+                        const deviceInfo = result.info || result;
+
+                        if (deviceInfo.screen) {
+                            this.screenWidth = deviceInfo.screen.width;
+                            this.screenHeight = deviceInfo.screen.height;
+                        }
+
+                        // Hide device connection UI and show screen preview
+                        const deviceConnectionUI = document.getElementById('device-connection-ui');
+                        if (deviceConnectionUI) {
+                            deviceConnectionUI.style.display = 'none';
+                        }
+
+                        // Render screen preview
+                        this.renderScreenPreview();
+
+                        // Render device status in header
+                        this.renderDeviceStatus();
+
+                        this.addLog('success', `${deviceName} 장치가 연결되었습니다`);
+
+                        // Start screen stream
+                        this.startScreenStream();
+                    } else {
+                        this.addLog('error', `장치 연결 실패: ${result.error || 'Unknown error'}`);
+                    }
+                }
+            } catch (error) {
+                this.addLog('error', `장치 선택 실패: ${error.message}`);
+            }
+        } else {
+            // iSAP - keep original behavior for now
+            this.isDeviceConnected = true;
+            this.fps = 30;
+
+            // Hide device connection UI and show screen preview
+            const deviceConnectionUI = document.getElementById('device-connection-ui');
+            if (deviceConnectionUI) {
+                deviceConnectionUI.style.display = 'none';
+            }
+
+            // Render screen preview
+            this.renderScreenPreview();
+
+            // Render device status in header
+            this.renderDeviceStatus();
+
+            this.addLog('success', `${deviceName} 장치가 연결되었습니다`);
+        }
+    }
+
+    async startScreenStream() {
+        try {
+            this.addLog('info', '화면 스트리밍을 시작합니다...');
+
+            // Start stream with 30 FPS
+            const result = await window.api.screen.startStream({ maxFps: 30 });
+
+            if (result) {
+                this.addLog('success', '화면 스트리밍이 시작되었습니다');
+
+                // Listen for stream data
+                window.api.screen.onStreamData((data) => {
+                    const img = document.getElementById('screen-stream-image');
+                    if (img && data.dataUrl) {
+                        img.src = data.dataUrl;
+                    }
+                });
+            }
+        } catch (error) {
+            this.addLog('error', `화면 스트리밍 실패: ${error.message}`);
+        }
+    }
+
+    renderDeviceStatus() {
+        const container = document.getElementById('device-status');
+        if (!container) return;
+
+        if (!this.isDeviceConnected) {
+            container.innerHTML = `
+                <div class="device-status-indicator">
+                    <div class="status-light disconnected"></div>
+                    <span class="device-status-value">장치 없음</span>
+                </div>
+                <div class="device-status-divider"></div>
+                <div class="device-status-indicator">
+                    <span class="device-status-label">FPS</span>
+                    <span class="device-status-value">-</span>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="device-status-indicator">
+                <div class="status-light connected"></div>
+                <span class="device-status-value">${this.deviceName}</span>
+            </div>
+            <div class="device-status-divider"></div>
+            <div class="device-status-indicator">
+                <span class="device-status-label">FPS</span>
+                <span class="device-status-value">${this.fps}</span>
+            </div>
+        `;
     }
 
     renderLogs() {
@@ -1117,6 +2099,12 @@ class MacroBuilderApp {
 
         // Auto scroll to bottom
         container.scrollTop = container.scrollHeight;
+    }
+
+    clearLogs() {
+        this.logs = [];
+        this.renderLogs();
+        this.addLog('info', '로그가 초기화되었습니다');
     }
 }
 
