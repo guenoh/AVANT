@@ -1745,8 +1745,8 @@ class MacroBuilderApp {
                                 <label class="text-xs">프로그레스</label>
                                 <span class="text-xs text-slate-600">75%</span>
                             </div>
-                            <div class="relative h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                <div class="absolute inset-y-0 left-0 w-3/4 bg-slate-500 rounded-full transition-all duration-300"></div>
+                            <div class="relative h-3 bg-slate-200 rounded-lg overflow-hidden border border-slate-300">
+                                <div class="absolute inset-y-0 left-0 w-3/4 bg-slate-600 transition-all duration-300"></div>
                             </div>
                         </div>
 
@@ -1759,9 +1759,9 @@ class MacroBuilderApp {
 
                         <!-- Buttons -->
                         <div class="flex gap-2 flex-wrap">
-                            <button class="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800 active:scale-95 transition-all duration-150 shadow-sm">Primary</button>
-                            <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 active:scale-95 transition-all duration-150">Secondary</button>
-                            <button class="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-300 active:scale-95 transition-all duration-150">Tertiary</button>
+                            <button class="btn-primary">Primary</button>
+                            <button class="btn-secondary">Secondary</button>
+                            <button class="btn-tertiary">Tertiary</button>
                         </div>
                     </div>
                 `;
