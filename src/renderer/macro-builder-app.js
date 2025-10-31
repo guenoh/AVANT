@@ -920,30 +920,10 @@ class MacroBuilderApp {
         const targetAction = this.actions.find(a => a.id === targetActionId);
         if (!targetAction || !targetAction.conditions) return;
 
-        // Copy relevant params from source action
-        let params = {};
-        switch (sourceAction.type) {
-            case 'image-match':
-                params = {
-                    imagePath: sourceAction.imagePath || 'image.png',
-                    threshold: sourceAction.threshold || 0.9,
-                    region: sourceAction.region,
-                    regionImage: sourceAction.regionImage
-                };
-                break;
-            case 'click':
-            case 'long-press':
-                params = {
-                    x: sourceAction.x || 0,
-                    y: sourceAction.y || 0
-                };
-                break;
-            case 'wait':
-                params = { duration: sourceAction.duration || 1000 };
-                break;
-            default:
-                params = {};
-        }
+        // Copy all params from source action (not just specific ones)
+        const params = { ...sourceAction };
+        delete params.id;
+        delete params.type;
 
         const newCondition = {
             id: `cond-${Date.now()}`,
@@ -953,6 +933,13 @@ class MacroBuilderApp {
         };
 
         targetAction.conditions.push(newCondition);
+
+        // Remove source action from scenario (MOVE, not COPY)
+        const sourceIndex = this.actions.findIndex(a => a.id === sourceAction.id);
+        if (sourceIndex !== -1) {
+            this.actions.splice(sourceIndex, 1);
+        }
+
         this.renderActionSequence();
         this.addLog('success', `조건 추가: ${this.getActionTypeLabel(sourceAction.type)}`);
     }
@@ -1105,9 +1092,25 @@ class MacroBuilderApp {
     }
 
     renderConditionSettings(actionId, condition) {
+        // Create a temporary action object from condition
+        const tempAction = {
+            id: condition.id,
+            type: condition.actionType,
+            ...condition.params
+        };
+
+        // Get the same settings HTML as regular actions
+        let settingsHTML = this.getSettingsHTML(tempAction);
+
+        // Replace updateActionValue calls with updateConditionParam calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateActionValue\('([^']+)',\s*'([^']+)',/g,
+            `window.macroApp.updateConditionParam('${actionId}', '${condition.id}', '$2',`
+        );
+
         return `
             <div class="settings-panel border-t border-emerald-200 bg-white px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
-                ${this.renderConditionParams(actionId, condition)}
+                ${settingsHTML}
             </div>
         `;
     }
