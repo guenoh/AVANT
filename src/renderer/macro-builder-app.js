@@ -1745,8 +1745,8 @@ class MacroBuilderApp {
                                 <label class="text-xs">프로그레스</label>
                                 <span class="text-xs text-slate-600">75%</span>
                             </div>
-                            <div class="relative h-3 bg-slate-200 rounded-lg overflow-hidden border border-slate-300">
-                                <div class="absolute inset-y-0 left-0 w-3/4 bg-slate-600 transition-all duration-300"></div>
+                            <div class="relative h-4 bg-slate-200 rounded-lg overflow-hidden border border-slate-300" style="height: 16px;">
+                                <div class="absolute top-0 bottom-0 left-0 bg-slate-700 transition-all duration-300" style="width: 75%; height: 100%;"></div>
                             </div>
                         </div>
 
