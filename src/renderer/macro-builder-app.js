@@ -1650,36 +1650,44 @@ class MacroBuilderApp {
                             </div>
                         </div>
 
-                        <!-- Duration Slider -->
+                        <!-- Time Slider with Ruler -->
                         <div>
                             <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs">지속 시간</label>
-                                <span class="text-xs text-slate-600">1000ms</span>
+                                <label class="text-xs">시간 설정</label>
+                                <span class="text-xs text-slate-600 font-mono">1500ms</span>
                             </div>
                             <input
                                 type="range"
-                                value="1000"
+                                value="1500"
                                 min="100"
-                                max="5000"
+                                max="3000"
                                 step="100"
-                                class="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-slate-500 border border-slate-300"
+                                list="time-markers"
+                                class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600 border border-slate-300"
                             >
-                        </div>
-
-                        <!-- Wait Duration -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs">대기 시간</label>
-                                <span class="text-xs text-slate-600">3000ms</span>
+                            <datalist id="time-markers">
+                                <option value="100" label="100"></option>
+                                <option value="200"></option>
+                                <option value="300"></option>
+                                <option value="400"></option>
+                                <option value="500" label="500"></option>
+                                <option value="600"></option>
+                                <option value="700"></option>
+                                <option value="800"></option>
+                                <option value="900"></option>
+                                <option value="1000" label="1000"></option>
+                                <option value="1500" label="1500"></option>
+                                <option value="2000" label="2000"></option>
+                                <option value="3000" label="3000"></option>
+                            </datalist>
+                            <div class="flex justify-between text-xs text-slate-500 mt-1" style="font-size: 10px;">
+                                <span>100</span>
+                                <span>500</span>
+                                <span>1000</span>
+                                <span>1500</span>
+                                <span>2000</span>
+                                <span>3000</span>
                             </div>
-                            <input
-                                type="range"
-                                value="3000"
-                                min="100"
-                                max="10000"
-                                step="100"
-                                class="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-slate-500 border border-slate-300"
-                            >
                         </div>
 
                         <!-- Select Box -->
