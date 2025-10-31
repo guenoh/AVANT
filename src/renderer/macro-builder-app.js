@@ -1561,6 +1561,10 @@ class MacroBuilderApp {
                 `;
             case 'test':
                 return `
+                    <!--
+                        Design System Reference
+                        See /DESIGN_SYSTEM.md for all rules
+                    -->
                     <div class="space-y-7">
                         <!-- Section: Text Inputs -->
                         <div>
