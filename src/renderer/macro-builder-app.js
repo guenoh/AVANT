@@ -879,6 +879,15 @@ class MacroBuilderApp {
         event.dataTransfer.setData('actionId', actionId);
         event.dataTransfer.setData('actionType', action.type);
         event.dataTransfer.effectAllowed = 'copy';
+
+        // Set custom drag image to the action block itself
+        const actionBlock = event.target.closest('[data-action-id]');
+        if (actionBlock) {
+            const dragImage = actionBlock.querySelector('.action-block');
+            if (dragImage) {
+                event.dataTransfer.setDragImage(dragImage, 20, 20);
+            }
+        }
     }
 
     handleActionDragEnd(event) {
