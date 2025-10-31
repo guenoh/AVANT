@@ -1494,6 +1494,15 @@ svg {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
 }
 
+.action-block.expanded {
+    box-shadow: none;
+}
+
+.action-block.expanded:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 /* Connector lines between actions */
 .action-connector {
     position: absolute;

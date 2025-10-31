@@ -103,7 +103,14 @@ class MacroBuilderApp {
         });
 
         // Action list - use event delegation
+        this.isDraggingAction = false;
         document.getElementById('action-list-container')?.addEventListener('click', (e) => {
+            // Ignore click if drag just happened
+            if (this.isDraggingAction) {
+                this.isDraggingAction = false;
+                return;
+            }
+
             const actionCard = e.target.closest('.action-card');
             if (actionCard) {
                 const actionType = actionCard.dataset.actionType;
@@ -317,6 +324,10 @@ class MacroBuilderApp {
             // Only update if region is at least 10x10 pixels
             if (region.width >= 10 && region.height >= 10) {
                 selectedAction.region = region;
+
+                // Capture the region image immediately
+                this.captureRegionImage(selectedAction);
+
                 this.renderActionSequence();
                 this.addLog('success', `영역 선택: ${region.width}×${region.height}`);
             }
@@ -684,11 +695,11 @@ class MacroBuilderApp {
             ...(type === 'keyboard' && { text: '' }),
             ...(type === 'screenshot' && { filename: 'screenshot.png' }),
             ...(type === 'log' && { message: 'Log message' }),
-            ...(type === 'if' && { condition: 'condition' }),
-            ...(type === 'else-if' && { condition: 'condition' }),
+            ...(type === 'if' && { conditions: [] }),
+            ...(type === 'else-if' && { conditions: [] }),
             ...(type === 'image-match' && { imagePath: 'image.png', threshold: 0.9 }),
             ...(type === 'loop' && { loopCount: 1 }),
-            ...(type === 'while' && { condition: 'condition' }),
+            ...(type === 'while' && { conditions: [] }),
         };
 
         this.actions.push(newAction);
@@ -788,44 +799,328 @@ class MacroBuilderApp {
         });
     }
 
-    renderImageThumbnail(action) {
-        const canvas = document.getElementById(`thumbnail-${action.id}`);
-        if (!canvas || !action.region) return;
+    captureRegionImage(action) {
+        if (!action.region) return;
 
         const sourceImg = document.getElementById('screen-stream-image');
         if (!sourceImg || !sourceImg.complete) return;
 
-        const ctx = canvas.getContext('2d');
         const region = action.region;
 
-        // Set canvas size to region size (maintain aspect ratio)
-        const maxWidth = canvas.clientWidth;
-        const maxHeight = 128; // h-32 = 8rem = 128px
-        const aspectRatio = region.width / region.height;
+        // Create a temporary canvas to capture the region
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = region.width;
+        tempCanvas.height = region.height;
+        const ctx = tempCanvas.getContext('2d');
 
-        let canvasWidth, canvasHeight;
-        if (aspectRatio > maxWidth / maxHeight) {
-            canvasWidth = maxWidth;
-            canvasHeight = maxWidth / aspectRatio;
-        } else {
-            canvasHeight = maxHeight;
-            canvasWidth = maxHeight * aspectRatio;
-        }
-
-        canvas.width = region.width;
-        canvas.height = region.height;
-        canvas.style.width = `${canvasWidth}px`;
-        canvas.style.height = `${canvasHeight}px`;
-
-        // Draw the region from source image
         try {
+            // Draw the selected region from the source image
             ctx.drawImage(
                 sourceImg,
                 region.x, region.y, region.width, region.height,
                 0, 0, region.width, region.height
             );
+
+            // Store the captured image as a data URL
+            action.regionImage = tempCanvas.toDataURL('image/png');
         } catch (e) {
-            console.error('Failed to render thumbnail:', e);
+            console.error('Failed to capture region image:', e);
+        }
+    }
+
+    renderImageThumbnail(action) {
+        const canvas = document.getElementById(`thumbnail-${action.id}`);
+        if (!canvas || !action.region) return;
+
+        // If we have a stored region image, use it
+        if (action.regionImage) {
+            const img = new Image();
+            img.onload = () => {
+                const ctx = canvas.getContext('2d');
+                const region = action.region;
+
+                // Set canvas size to region size (maintain aspect ratio)
+                const maxHeight = 80; // max-height: 80px from CSS
+                const aspectRatio = region.width / region.height;
+
+                let displayWidth = region.width;
+                let displayHeight = region.height;
+
+                // Scale down if too tall
+                if (displayHeight > maxHeight) {
+                    displayHeight = maxHeight;
+                    displayWidth = maxHeight * aspectRatio;
+                }
+
+                canvas.width = region.width;
+                canvas.height = region.height;
+                canvas.style.width = `${displayWidth}px`;
+                canvas.style.height = `${displayHeight}px`;
+
+                // Draw the stored image
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = action.regionImage;
+        }
+    }
+
+    // Drag and Drop handlers
+    handleActionBlockDragStart(event, actionId) {
+        this.isDraggingAction = true;
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        event.dataTransfer.setData('actionId', actionId);
+        event.dataTransfer.setData('actionType', action.type);
+        event.dataTransfer.effectAllowed = 'copy';
+    }
+
+    handleActionDragEnd(event) {
+        setTimeout(() => {
+            this.isDraggingAction = false;
+        }, 100);
+    }
+
+    handleConditionDrop(event, targetActionId) {
+        const draggedActionId = event.dataTransfer.getData('actionId');
+        if (!draggedActionId) return;
+
+        const draggedAction = this.actions.find(a => a.id === draggedActionId);
+        if (!draggedAction) return;
+
+        // Only allow certain action types as conditions
+        const allowedTypes = ['image-match', 'click', 'long-press', 'wait'];
+        if (!allowedTypes.includes(draggedAction.type)) {
+            this.addLog('warning', '해당 액션은 조건으로 사용할 수 없습니다');
+            return;
+        }
+
+        // Copy action parameters to condition
+        this.addConditionFromAction(targetActionId, draggedAction);
+    }
+
+    // Condition management functions
+    addConditionFromAction(targetActionId, sourceAction) {
+        const targetAction = this.actions.find(a => a.id === targetActionId);
+        if (!targetAction || !targetAction.conditions) return;
+
+        // Copy relevant params from source action
+        let params = {};
+        switch (sourceAction.type) {
+            case 'image-match':
+                params = {
+                    imagePath: sourceAction.imagePath || 'image.png',
+                    threshold: sourceAction.threshold || 0.9,
+                    region: sourceAction.region,
+                    regionImage: sourceAction.regionImage
+                };
+                break;
+            case 'click':
+            case 'long-press':
+                params = {
+                    x: sourceAction.x || 0,
+                    y: sourceAction.y || 0
+                };
+                break;
+            case 'wait':
+                params = { duration: sourceAction.duration || 1000 };
+                break;
+            default:
+                params = {};
+        }
+
+        const newCondition = {
+            id: `cond-${Date.now()}`,
+            actionType: sourceAction.type,
+            params: params,
+            operator: targetAction.conditions.length > 0 ? 'AND' : null
+        };
+
+        targetAction.conditions.push(newCondition);
+        this.renderActionSequence();
+        this.addLog('success', `조건 추가: ${this.getActionTypeLabel(sourceAction.type)}`);
+    }
+
+    removeCondition(actionId, conditionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const index = action.conditions.findIndex(c => c.id === conditionId);
+        if (index === -1) return;
+
+        action.conditions.splice(index, 1);
+
+        // Update operator for last condition
+        if (action.conditions.length > 0) {
+            action.conditions[action.conditions.length - 1].operator = null;
+        }
+
+        this.renderActionSequence();
+    }
+
+    updateConditionType(actionId, conditionId, actionType) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.actionType = actionType;
+
+        // Reset params based on action type
+        switch (actionType) {
+            case 'image-match':
+                condition.params = { imagePath: 'image.png', threshold: 0.9 };
+                break;
+            case 'click':
+            case 'long-press':
+                condition.params = { x: 0, y: 0 };
+                break;
+            default:
+                condition.params = {};
+        }
+
+        this.renderActionSequence();
+    }
+
+    updateConditionParam(actionId, conditionId, paramName, paramValue) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.params[paramName] = paramValue;
+        this.renderActionSequence();
+    }
+
+    updateConditionOperator(actionId, conditionId, operator) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.operator = operator;
+        this.renderActionSequence();
+    }
+
+    getActionTypeLabel(type) {
+        const labels = {
+            'image-match': '이미지 매칭',
+            'click': '클릭',
+            'long-press': '롱프레스',
+            'wait': '대기'
+        };
+        return labels[type] || type;
+    }
+
+    renderConditionCard(actionId, condition, index, totalConditions) {
+        const isLast = index === totalConditions - 1;
+
+        return `
+            <div class="bg-white border-2 border-emerald-200 rounded-lg p-3" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-emerald-700">${this.getActionTypeLabel(condition.actionType)}</span>
+                        ${!isLast ? `
+                            <span class="text-xs px-2 py-0.5 rounded-full ${condition.operator === 'OR' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${condition.operator || 'AND'}</span>
+                        ` : ''}
+                    </div>
+                    <button
+                        class="btn-ghost h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')"
+                    >
+                        삭제
+                    </button>
+                </div>
+
+                <div class="space-y-2">
+                    <!-- Condition Parameters -->
+                    ${this.renderConditionParams(actionId, condition)}
+
+                    <!-- Operator (if not last) -->
+                    ${!isLast ? `
+                        <div>
+                            <label class="text-xs mb-1 block text-slate-600">다음 조건과의 관계</label>
+                            <select
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                                value="${condition.operator || 'AND'}"
+                                onclick="event.stopPropagation()"
+                                onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                            >
+                                <option value="AND">AND (그리고)</option>
+                                <option value="OR">OR (또는)</option>
+                            </select>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    renderConditionParams(actionId, condition) {
+        switch (condition.actionType) {
+            case 'image-match':
+                return `
+                    <div>
+                        <label class="text-xs mb-1 block text-slate-600">이미지 이름</label>
+                        <input type="text" value="${condition.params.imagePath || 'image.png'}"
+                            class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                            placeholder="이미지 이름"
+                            onclick="event.stopPropagation()"
+                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'imagePath', this.value)">
+                    </div>
+                    <div>
+                        <label class="text-xs mb-1 block text-slate-600">매칭 정확도: ${Math.round((condition.params.threshold || 0.9) * 100)}%</label>
+                        <input type="range"
+                            value="${Math.round((condition.params.threshold || 0.9) * 100)}"
+                            min="50"
+                            max="100"
+                            step="1"
+                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
+                            onclick="event.stopPropagation()"
+                            oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'threshold', parseFloat(this.value) / 100)"
+                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'threshold', parseFloat(this.value) / 100)">
+                    </div>
+                `;
+            case 'click':
+            case 'long-press':
+                return `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs mb-1 block text-slate-600">X</label>
+                            <input type="number" value="${condition.params.x || 0}"
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                                onclick="event.stopPropagation()"
+                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'x', parseInt(this.value))">
+                        </div>
+                        <div>
+                            <label class="text-xs mb-1 block text-slate-600">Y</label>
+                            <input type="number" value="${condition.params.y || 0}"
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                                onclick="event.stopPropagation()"
+                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'y', parseInt(this.value))">
+                        </div>
+                    </div>
+                `;
+            case 'wait':
+                return `
+                    <div>
+                        <label class="text-xs mb-1 block text-slate-600">대기 시간: ${condition.params.duration || 1000}ms</label>
+                        <input type="range"
+                            value="${condition.params.duration || 1000}"
+                            min="100"
+                            max="10000"
+                            step="100"
+                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
+                            onclick="event.stopPropagation()"
+                            oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))"
+                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))">
+                    </div>
+                `;
+            default:
+                return '';
         }
     }
 
@@ -881,9 +1176,29 @@ class MacroBuilderApp {
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
 
-                <div class="action-block ${config.bgClass} border-2 ${borderClass} ${ringClass} ${isSelected ? 'shadow-lg' : ''}" style="border-radius: var(--radius); cursor: pointer; transition: all 0.2s; position: relative;">
+                <div class="action-block ${config.bgClass} border-2 ${borderClass} ${ringClass} ${isSelected ? 'shadow-lg' : ''} ${isExpanded ? 'expanded' : ''}" style="border-radius: var(--radius); cursor: pointer; transition: all 0.2s; position: relative;">
                     <div class="p-4">
                         <div class="flex items-start gap-3">
+                            <!-- Drag Handle -->
+                            <div class="drag-handle flex-shrink-0"
+                                draggable="true"
+                                onclick="event.stopPropagation()"
+                                onmousedown="event.stopPropagation()"
+                                ondragstart="window.macroApp.handleActionBlockDragStart(event, '${action.id}')"
+                                ondragend="window.macroApp.handleActionDragEnd(event)"
+                                style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s; margin-top: 0.125rem;"
+                                onmouseenter="this.style.opacity='0.6'"
+                                onmouseleave="this.style.opacity='0.3'">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="9" cy="5" r="2"/>
+                                    <circle cx="9" cy="12" r="2"/>
+                                    <circle cx="9" cy="19" r="2"/>
+                                    <circle cx="15" cy="5" r="2"/>
+                                    <circle cx="15" cy="12" r="2"/>
+                                    <circle cx="15" cy="19" r="2"/>
+                                </svg>
+                            </div>
+
                             <!-- Index Badge -->
                             <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center text-sm text-slate-700">
                                 ${index + 1}
@@ -1053,32 +1368,71 @@ class MacroBuilderApp {
                 return `
                     <div class="space-y-4">
                         ${action.region ? `
-                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                <div class="flex items-center justify-between mb-3">
-                                    <label class="text-xs text-purple-900 font-medium">선택된 영역</label>
-                                    <button
-                                        class="btn-ghost h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
-                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
-                                    >
-                                        초기화
-                                    </button>
-                                </div>
-
-                                <!-- Image Thumbnail -->
-                                <div class="mb-3">
-                                    <canvas
-                                        id="thumbnail-${action.id}"
-                                        class="w-full h-32 bg-white rounded border border-purple-200 object-contain"
-                                        style="image-rendering: pixelated;"
-                                    ></canvas>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div class="bg-white rounded p-2">
-                                        <span class="text-slate-600">위치:</span> (${action.region.x}, ${action.region.y})
+                            <div class="grid grid-cols-2 gap-3">
+                                <!-- Left: Selected Region -->
+                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-xs text-purple-900 font-medium">선택된 영역</label>
+                                        <button
+                                            class="btn-ghost h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+                                            onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
+                                        >
+                                            초기화
+                                        </button>
                                     </div>
-                                    <div class="bg-white rounded p-2">
-                                        <span class="text-slate-600">크기:</span> ${action.region.width} × ${action.region.height}
+
+                                    <!-- Image Thumbnail -->
+                                    <div class="mb-2 flex items-center justify-center bg-white rounded border border-purple-200 p-2">
+                                        <canvas
+                                            id="thumbnail-${action.id}"
+                                            class="max-w-full"
+                                            style="image-rendering: pixelated; max-height: 80px;"
+                                        ></canvas>
+                                    </div>
+
+                                    <div class="text-xs text-slate-600">
+                                        <div>위치: (${action.region.x}, ${action.region.y})</div>
+                                        <div>크기: ${action.region.width} × ${action.region.height}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: Settings -->
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-xs mb-2 block">이미지 이름</label>
+                                        <input type="text" value="${action.imagePath || 'image.png'}"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                            placeholder="매칭할 이미지 이름"
+                                            onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
+                                    </div>
+
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="text-xs">매칭 정확도</label>
+                                            <span class="text-xs font-semibold text-purple-600" id="threshold-value-${action.id}">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                                        </div>
+                                        <div style="position: relative; height: 8px;">
+                                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; border-radius: 9999px;"></div>
+                                            <div
+                                                id="threshold-bar-${action.id}"
+                                                style="position: absolute; top: 0; left: 0; bottom: 0; width: ${((action.threshold || 0.9) * 100 - 50) * 2}%; background: linear-gradient(to right, #c084fc, #9333ea); border-radius: 9999px; transition: all 0.2s;"></div>
+                                            <input type="range"
+                                                value="${Math.round((action.threshold || 0.9) * 100)}"
+                                                min="50"
+                                                max="100"
+                                                step="1"
+                                                style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; opacity: 0; cursor: pointer; z-index: 10;"
+                                                oninput="
+                                                    const percent = (this.value - 50) * 2;
+                                                    document.getElementById('threshold-bar-${action.id}').style.width = percent + '%';
+                                                    document.getElementById('threshold-value-${action.id}').textContent = Math.round(this.value) + '%';
+                                                "
+                                                onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                                        </div>
+                                        <div class="flex justify-between mt-1">
+                                            <span class="text-xs text-slate-400">50%</span>
+                                            <span class="text-xs text-slate-400">100%</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1089,56 +1443,36 @@ class MacroBuilderApp {
                                 </p>
                             </div>
                         `}
-
-                        <div>
-                            <label class="text-xs mb-2 block">이미지 이름</label>
-                            <input type="text" value="${action.imagePath || 'image.png'}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                placeholder="매칭할 이미지 이름"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
-                        </div>
-
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs">매칭 정확도</label>
-                                <span class="text-xs font-semibold text-purple-600">${Math.round((action.threshold || 0.9) * 100)}%</span>
-                            </div>
-                            <div class="relative">
-                                <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div class="h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-200"
-                                         style="width: ${(action.threshold || 0.9) * 100 - 50}%"></div>
-                                </div>
-                                <input type="range"
-                                    value="${Math.round((action.threshold || 0.9) * 100)}"
-                                    min="50"
-                                    max="100"
-                                    step="1"
-                                    class="absolute inset-0 w-full opacity-0 cursor-pointer"
-                                    oninput="
-                                        const percent = (this.value - 50);
-                                        this.previousElementSibling.firstElementChild.style.width = percent + '%';
-                                        this.nextElementSibling.nextElementSibling.querySelector('span').textContent = Math.round(this.value) + '%';
-                                        window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)
-                                    "
-                                    onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
-                            </div>
-                            <div class="flex justify-between mt-1">
-                                <span class="text-xs text-slate-400">50%</span>
-                                <span class="text-xs text-slate-400">100%</span>
-                            </div>
-                        </div>
                     </div>
                 `;
             case 'if':
             case 'else-if':
             case 'while':
                 return `
-                    <div>
-                        <label class="text-xs mb-2 block">조건식</label>
-                        <input type="text" value="${action.condition || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-xs h-8 font-mono"
-                            placeholder="조건을 입력하세요"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'condition', this.value)">
+                    <div class="space-y-3">
+                        <label class="text-xs font-medium text-slate-700">조건 목록</label>
+
+                        ${action.conditions && action.conditions.length > 0 ? `
+                            <div class="space-y-2">
+                                ${action.conditions.map((cond, index) => this.renderConditionCard(action.id, cond, index, action.conditions.length)).join('')}
+                            </div>
+                        ` : ''}
+
+                        <!-- Drop Zone -->
+                        <div
+                            class="condition-drop-zone border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-lg p-2.5 text-center transition-all"
+                            ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-emerald-500', 'bg-emerald-100')"
+                            ondragleave="event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100')"
+                            ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
+                            onclick="event.stopPropagation()"
+                        >
+                            <svg class="mx-auto mb-1 text-emerald-500" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
+                            </svg>
+                            <p class="text-xs text-emerald-700 font-medium">
+                                시나리오에서 액션을 드래그하여 조건으로 추가
+                            </p>
+                        </div>
                     </div>
                 `;
             case 'loop':
@@ -1308,7 +1642,7 @@ class MacroBuilderApp {
             runBtn.disabled = true;
             runBtn.innerHTML = `
                 <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 실행 중...
@@ -1317,34 +1651,7 @@ class MacroBuilderApp {
 
         this.addLog('info', `시나리오 실행 시작: ${this.macroName}`);
 
-        for (let i = 0; i < this.actions.length; i++) {
-            const action = this.actions[i];
-
-            // Highlight current action
-            this.selectedActionId = action.id;
-            this.renderActionSequence();
-            this.updateSelectedActionMarker(action);
-
-            try {
-                // Execute action via backend
-                const result = await this.executeAction(action);
-
-                if (result.success) {
-                    this.addLog('success', `${this.getActionTypeName(action.type)} 실행 완료`);
-                } else {
-                    this.addLog('error', `${this.getActionTypeName(action.type)} 실행 실패: ${result.error}`);
-                }
-
-                // Get delay from option
-                const delay = parseInt(document.getElementById('option-delay')?.value || 300);
-                if (delay > 0) {
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            } catch (error) {
-                this.addLog('error', `액션 실행 오류: ${error.message}`);
-                break;
-            }
-        }
+        await this.executeActionsRange(0, this.actions.length);
 
         this.isRunning = false;
         this.selectedActionId = null;
@@ -1363,6 +1670,191 @@ class MacroBuilderApp {
                 실행
             `;
         }
+    }
+
+    async executeActionsRange(startIndex, endIndex) {
+        let i = startIndex;
+
+        while (i < endIndex) {
+            const action = this.actions[i];
+
+            // Highlight current action
+            this.selectedActionId = action.id;
+            this.renderActionSequence();
+            this.updateSelectedActionMarker(action);
+
+            try {
+                // Handle control flow actions
+                if (action.type === 'if' || action.type === 'else-if') {
+                    const conditionResult = await this.evaluateConditions(action.conditions);
+
+                    if (conditionResult) {
+                        // Execute block until else-if/else/end-if
+                        const blockEnd = this.findBlockEnd(i, ['else-if', 'else', 'end-if']);
+                        await this.executeActionsRange(i + 1, blockEnd);
+                        // Skip to end-if
+                        i = this.findBlockEnd(i, ['end-if']) + 1;
+                    } else {
+                        // Skip to next else-if/else/end-if
+                        i = this.findBlockEnd(i, ['else-if', 'else', 'end-if']);
+
+                        // Don't execute the else-if/else block yet, let loop handle it
+                        continue;
+                    }
+                } else if (action.type === 'else') {
+                    // If we reach else, it means previous if/else-if were false
+                    // Execute until end-if
+                    const blockEnd = this.findBlockEnd(i, ['end-if']);
+                    await this.executeActionsRange(i + 1, blockEnd);
+                    i = blockEnd + 1;
+                } else if (action.type === 'while') {
+                    const whileStart = i;
+                    const whileEnd = this.findBlockEnd(i, ['end-while']);
+
+                    // Execute while loop
+                    let iterations = 0;
+                    const maxIterations = 1000; // Safety limit
+
+                    while (iterations < maxIterations) {
+                        const conditionResult = await this.evaluateConditions(action.conditions);
+
+                        if (!conditionResult) break;
+
+                        await this.executeActionsRange(whileStart + 1, whileEnd);
+                        iterations++;
+                    }
+
+                    if (iterations >= maxIterations) {
+                        this.addLog('warning', 'While loop reached maximum iterations (1000)');
+                    }
+
+                    i = whileEnd + 1;
+                } else if (action.type === 'loop') {
+                    const loopStart = i;
+                    const loopEnd = this.findBlockEnd(i, ['end-loop']);
+                    const loopCount = action.loopCount || 1;
+
+                    for (let j = 0; j < loopCount; j++) {
+                        await this.executeActionsRange(loopStart + 1, loopEnd);
+                    }
+
+                    i = loopEnd + 1;
+                } else if (action.type === 'end-if' || action.type === 'end-loop' || action.type === 'end-while') {
+                    // Skip end markers
+                    i++;
+                } else {
+                    // Regular action - execute it
+                    const result = await this.executeAction(action);
+
+                    if (result.success) {
+                        this.addLog('success', `${this.getActionTypeName(action.type)} 실행 완료`);
+                    } else {
+                        this.addLog('error', `${this.getActionTypeName(action.type)} 실행 실패: ${result.error}`);
+                    }
+
+                    // Get delay from option
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    i++;
+                }
+            } catch (error) {
+                this.addLog('error', `액션 실행 오류: ${error.message}`);
+                break;
+            }
+        }
+    }
+
+    findBlockEnd(startIndex, endTypes) {
+        let depth = 0;
+        const blockStartTypes = ['if', 'else-if', 'loop', 'while'];
+        const blockEndTypes = ['end-if', 'end-loop', 'end-while'];
+
+        for (let i = startIndex; i < this.actions.length; i++) {
+            const action = this.actions[i];
+
+            if (i === startIndex) {
+                // Start counting depth from the first action
+                if (blockStartTypes.includes(action.type)) {
+                    depth = 1;
+                }
+                continue;
+            }
+
+            // Increase depth for nested blocks
+            if (blockStartTypes.includes(action.type) && !['else-if', 'else'].includes(action.type)) {
+                depth++;
+            }
+
+            // Check if this is one of the end types we're looking for
+            if (endTypes.includes(action.type) && depth === 1) {
+                return i;
+            }
+
+            // Decrease depth for block end
+            if (blockEndTypes.includes(action.type)) {
+                depth--;
+                if (depth === 0) return i;
+            }
+        }
+
+        return this.actions.length;
+    }
+
+    async evaluateConditions(conditions) {
+        if (!conditions || conditions.length === 0) {
+            return false;
+        }
+
+        // Group conditions by AND operator
+        const andGroups = [];
+        let currentGroup = [];
+
+        for (const condition of conditions) {
+            currentGroup.push(condition);
+
+            // If this is the last condition or next operator is OR, close the group
+            if (!condition.operator || condition.operator === 'OR') {
+                andGroups.push(currentGroup);
+                currentGroup = [];
+            }
+        }
+
+        // Evaluate each AND group
+        const groupResults = [];
+        for (const group of andGroups) {
+            let groupResult = true;
+
+            for (const condition of group) {
+                // Create action object from condition
+                const conditionAction = {
+                    id: condition.id,
+                    type: condition.actionType,
+                    ...condition.params
+                };
+
+                // Execute condition action
+                const result = await this.executeAction(conditionAction);
+
+                this.addLog('info', `조건 평가: ${condition.actionType} = ${result.success ? 'true' : 'false'}`);
+
+                // AND operation
+                groupResult = groupResult && result.success;
+
+                // Short-circuit: if any condition in AND group is false, skip rest
+                if (!groupResult) break;
+            }
+
+            groupResults.push(groupResult);
+        }
+
+        // OR all groups together
+        const finalResult = groupResults.some(r => r);
+        this.addLog('info', `최종 조건 결과: ${finalResult ? 'true' : 'false'}`);
+
+        return finalResult;
     }
 
     async executeAction(action) {
