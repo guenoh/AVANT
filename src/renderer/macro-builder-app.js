@@ -1313,111 +1313,186 @@ class MacroBuilderApp {
             case 'click':
             case 'long-press':
                 return `
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs mb-2 block">X</label>
-                            <input type="number" value="${action.x || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
-                        </div>
-                        <div>
-                            <label class="text-xs mb-2 block">Y</label>
-                            <input type="number" value="${action.y || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
-                        </div>
-                    </div>
-                    ${action.type === 'long-press' ? `
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">지속 시간</label>
-                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
-                        </div>
-                        <input type="range"
-                            value="${action.duration || 1000}"
-                            min="100"
-                            max="5000"
-                            step="100"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                            oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
-                    </div>
-                    ` : ''}
-                `;
-            case 'drag':
-                return `
                     <div class="space-y-3">
-                        <div>
-                            <label class="text-xs text-slate-600 mb-2 block">시작점</label>
+                        <!-- Coordinate Box -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="text-xs text-blue-900 font-medium">좌표</label>
+                                ${(action.x || action.y) ? `
+                                    <button
+                                        class="btn-ghost h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'x', 0); window.macroApp.updateActionValue('${action.id}', 'y', 0);"
+                                    >
+                                        초기화
+                                    </button>
+                                ` : ''}
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-xs mb-2 block">X</label>
+                                    <label class="text-xs mb-1 block text-slate-600">X</label>
                                     <input type="number" value="${action.x || 0}"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
                                 </div>
                                 <div>
-                                    <label class="text-xs mb-2 block">Y</label>
+                                    <label class="text-xs mb-1 block text-slate-600">Y</label>
+                                    <input type="number" value="${action.y || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-2">스크린을 클릭하여 좌표 선택 가능</p>
+                        </div>
+
+                        ${action.type === 'long-press' ? `
+                        <!-- Duration Box -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs text-blue-900 font-medium">지속 시간</label>
+                                <span class="text-xs font-semibold text-blue-600">${action.duration || 1000}ms</span>
+                            </div>
+                            <input type="range"
+                                value="${action.duration || 1000}"
+                                min="100"
+                                max="5000"
+                                step="100"
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                            <div class="flex justify-between mt-1">
+                                <span class="text-xs text-slate-400">100ms</span>
+                                <span class="text-xs text-slate-400">5000ms</span>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            case 'drag':
+                return `
+                    <div class="space-y-3">
+                        <!-- Start Point Box -->
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="text-xs text-green-900 font-medium">시작점</label>
+                                ${(action.x || action.y) ? `
+                                    <button
+                                        class="btn-ghost h-6 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-100"
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'x', 0); window.macroApp.updateActionValue('${action.id}', 'y', 0);"
+                                    >
+                                        초기화
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs mb-1 block text-slate-600">X</label>
+                                    <input type="number" value="${action.x || 0}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                                </div>
+                                <div>
+                                    <label class="text-xs mb-1 block text-slate-600">Y</label>
                                     <input type="number" value="${action.y || 0}"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
                                 </div>
                             </div>
                         </div>
-                        <div>
-                            <label class="text-xs text-slate-600 mb-2 block">종료점</label>
+
+                        <!-- End Point Box -->
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="text-xs text-green-900 font-medium">종료점</label>
+                                ${(action.endX || action.endY) ? `
+                                    <button
+                                        class="btn-ghost h-6 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-100"
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'endX', 0); window.macroApp.updateActionValue('${action.id}', 'endY', 0);"
+                                    >
+                                        초기화
+                                    </button>
+                                ` : ''}
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-xs mb-2 block">X</label>
+                                    <label class="text-xs mb-1 block text-slate-600">X</label>
                                     <input type="number" value="${action.endX || 0}"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
                                 </div>
                                 <div>
-                                    <label class="text-xs mb-2 block">Y</label>
+                                    <label class="text-xs mb-1 block text-slate-600">Y</label>
                                     <input type="number" value="${action.endY || 0}"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
                                 </div>
                             </div>
                         </div>
+                        <p class="text-xs text-slate-500 text-center">스크린을 2번 클릭하여 드래그 경로 선택 가능</p>
                     </div>
                 `;
             case 'keyboard':
                 return `
-                    <div>
-                        <label class="text-xs mb-2 block">입력 텍스트</label>
+                    <div class="bg-cyan-50 border border-cyan-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-xs text-cyan-900 font-medium">입력 텍스트</label>
+                            ${action.text ? `
+                                <button
+                                    class="btn-ghost h-6 px-2 text-xs text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100"
+                                    onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'text', '');"
+                                >
+                                    초기화
+                                </button>
+                            ` : ''}
+                        </div>
                         <input type="text" value="${action.text || ''}"
                             class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="입력할 텍스트를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'text', this.value)">
+                        ${action.text ? `
+                            <p class="text-xs text-slate-500 mt-2">${action.text.length}자</p>
+                        ` : ''}
                     </div>
                 `;
             case 'wait':
                 return `
-                    <div>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                         <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">대기 시간</label>
-                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
+                            <label class="text-xs text-yellow-900 font-medium">대기 시간</label>
+                            <span class="text-xs font-semibold text-yellow-600">${action.duration || 1000}ms</span>
                         </div>
                         <input type="range"
                             value="${action.duration || 1000}"
                             min="100"
                             max="10000"
                             step="100"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
                             oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                        <div class="flex justify-between mt-1">
+                            <span class="text-xs text-slate-400">100ms</span>
+                            <span class="text-xs text-slate-400">10000ms</span>
+                        </div>
                     </div>
                 `;
             case 'screenshot':
                 return `
-                    <div>
-                        <label class="text-xs mb-2 block">파일 이름</label>
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-xs text-indigo-900 font-medium">파일 이름</label>
+                            ${action.filename && action.filename !== 'screenshot.png' ? `
+                                <button
+                                    class="btn-ghost h-6 px-2 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100"
+                                    onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'filename', 'screenshot.png');"
+                                >
+                                    초기화
+                                </button>
+                            ` : ''}
+                        </div>
                         <input type="text" value="${action.filename || 'screenshot.png'}"
                             class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="스크린샷 파일 이름"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'filename', this.value)">
+                        <p class="text-xs text-slate-500 mt-2">PNG 형식으로 저장됩니다</p>
                     </div>
                 `;
             case 'image-match':
@@ -1531,29 +1606,44 @@ class MacroBuilderApp {
                 `;
             case 'loop':
                 return `
-                    <div>
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                         <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">반복 횟수</label>
-                            <span class="text-xs text-slate-600">${action.loopCount || 1}회</span>
+                            <label class="text-xs text-orange-900 font-medium">반복 횟수</label>
+                            <span class="text-xs font-semibold text-orange-600">${action.loopCount || 1}회</span>
                         </div>
                         <input type="range"
                             value="${action.loopCount || 1}"
                             min="1"
                             max="100"
                             step="1"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
                             oninput="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
+                        <div class="flex justify-between mt-1">
+                            <span class="text-xs text-slate-400">1회</span>
+                            <span class="text-xs text-slate-400">100회</span>
+                        </div>
                     </div>
                 `;
             case 'log':
                 return `
-                    <div>
-                        <label class="text-xs mb-2 block">로그 메시지</label>
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-xs text-slate-900 font-medium">로그 메시지</label>
+                            ${action.message ? `
+                                <button
+                                    class="btn-ghost h-6 px-2 text-xs text-slate-600 hover:text-slate-700 hover:bg-slate-100"
+                                    onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'message', '');"
+                                >
+                                    초기화
+                                </button>
+                            ` : ''}
+                        </div>
                         <input type="text" value="${action.message || ''}"
                             class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                             placeholder="로그 메시지를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
+                        <p class="text-xs text-slate-500 mt-2">실행 로그에 메시지가 출력됩니다</p>
                     </div>
                 `;
             case 'home':
