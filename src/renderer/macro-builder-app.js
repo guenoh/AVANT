@@ -747,7 +747,13 @@ class MacroBuilderApp {
         this.actions.forEach((action, index) => {
             const block = container.querySelector(`[data-action-id="${action.id}"]`);
             if (block) {
-                block.addEventListener('click', () => this.selectAction(action.id));
+                block.addEventListener('click', (e) => {
+                    // Ignore click if dragging or clicked on drag handle
+                    if (this.isDraggingAction || e.target.closest('.drag-handle')) {
+                        return;
+                    }
+                    this.selectAction(action.id);
+                });
 
                 const deleteBtn = block.querySelector('.btn-delete');
                 if (deleteBtn) {
@@ -1183,7 +1189,6 @@ class MacroBuilderApp {
                             <div class="drag-handle flex-shrink-0"
                                 draggable="true"
                                 onclick="event.stopPropagation()"
-                                onmousedown="event.stopPropagation()"
                                 ondragstart="window.macroApp.handleActionBlockDragStart(event, '${action.id}')"
                                 ondragend="window.macroApp.handleActionDragEnd(event)"
                                 style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s; margin-top: 0.125rem;"
