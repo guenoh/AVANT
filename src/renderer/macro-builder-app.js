@@ -1515,27 +1515,17 @@ class MacroBuilderApp {
                             <div class="space-y-2">
                                 ${action.conditions.map((cond, index) => this.renderConditionCard(action.id, cond, index, action.conditions.length)).join('')}
                             </div>
-                        ` : `
-                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
-                                <svg class="mx-auto mb-2 text-slate-400" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                <p class="text-xs text-slate-600 mb-1">조건이 없습니다</p>
-                                <p class="text-xs text-slate-400">액션을 드래그하여 추가하세요</p>
-                            </div>
-                        `}
+                        ` : ''}
 
                         <!-- Drop Zone -->
                         <div
-                            class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-md p-2.5 text-center transition-all hover:border-blue-400 hover:bg-blue-50"
+                            class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-md p-3 text-center transition-all hover:border-blue-400 hover:bg-blue-50"
                             ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-blue-400', 'bg-blue-50')"
                             ondragleave="event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')"
                             ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); window.macroApp.handleConditionDrop(event, '${action.id}')"
                             onclick="event.stopPropagation()"
                         >
-                            <p class="text-xs text-slate-500">
-                                <span style="opacity: 0.5;">+</span> 액션을 드래그하여 조건 추가
-                            </p>
+                            <p class="text-xs text-slate-500">액션을 드래그하여 조건 추가</p>
                         </div>
                     </div>
                 `;
@@ -1663,7 +1653,15 @@ class MacroBuilderApp {
             case 'if':
             case 'else-if':
             case 'while':
-                return action.condition || '조건 미설정';
+                if (!action.conditions || action.conditions.length === 0) {
+                    return '조건 없음';
+                }
+                // Show condition summary
+                const conditionLabels = action.conditions.map(c => this.getActionTypeLabel(c.actionType));
+                if (conditionLabels.length > 2) {
+                    return `${conditionLabels.slice(0, 2).join(', ')} 외 ${conditionLabels.length - 2}개`;
+                }
+                return conditionLabels.join(', ');
             case 'log':
                 return action.message || '로그 메시지';
             case 'loop':
