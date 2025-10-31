@@ -777,6 +777,56 @@ class MacroBuilderApp {
                 });
             }
         }
+
+        // Render thumbnails for image-match actions
+        requestAnimationFrame(() => {
+            this.actions.forEach(action => {
+                if (action.type === 'image-match' && action.region) {
+                    this.renderImageThumbnail(action);
+                }
+            });
+        });
+    }
+
+    renderImageThumbnail(action) {
+        const canvas = document.getElementById(`thumbnail-${action.id}`);
+        if (!canvas || !action.region) return;
+
+        const sourceImg = document.getElementById('screen-stream-image');
+        if (!sourceImg || !sourceImg.complete) return;
+
+        const ctx = canvas.getContext('2d');
+        const region = action.region;
+
+        // Set canvas size to region size (maintain aspect ratio)
+        const maxWidth = canvas.clientWidth;
+        const maxHeight = 128; // h-32 = 8rem = 128px
+        const aspectRatio = region.width / region.height;
+
+        let canvasWidth, canvasHeight;
+        if (aspectRatio > maxWidth / maxHeight) {
+            canvasWidth = maxWidth;
+            canvasHeight = maxWidth / aspectRatio;
+        } else {
+            canvasHeight = maxHeight;
+            canvasWidth = maxHeight * aspectRatio;
+        }
+
+        canvas.width = region.width;
+        canvas.height = region.height;
+        canvas.style.width = `${canvasWidth}px`;
+        canvas.style.height = `${canvasHeight}px`;
+
+        // Draw the region from source image
+        try {
+            ctx.drawImage(
+                sourceImg,
+                region.x, region.y, region.width, region.height,
+                0, 0, region.width, region.height
+            );
+        } catch (e) {
+            console.error('Failed to render thumbnail:', e);
+        }
     }
 
     calculateDepths() {
@@ -1004,15 +1054,25 @@ class MacroBuilderApp {
                     <div class="space-y-4">
                         ${action.region ? `
                             <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="text-xs text-purple-900">선택된 영역</label>
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="text-xs text-purple-900 font-medium">선택된 영역</label>
                                     <button
-                                        class="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 hover:bg-purple-100 rounded h-6"
+                                        class="btn-ghost h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
                                         onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
                                     >
                                         초기화
                                     </button>
                                 </div>
+
+                                <!-- Image Thumbnail -->
+                                <div class="mb-3">
+                                    <canvas
+                                        id="thumbnail-${action.id}"
+                                        class="w-full h-32 bg-white rounded border border-purple-200 object-contain"
+                                        style="image-rendering: pixelated;"
+                                    ></canvas>
+                                </div>
+
                                 <div class="grid grid-cols-2 gap-2 text-xs">
                                     <div class="bg-white rounded p-2">
                                         <span class="text-slate-600">위치:</span> (${action.region.x}, ${action.region.y})
@@ -1041,16 +1101,27 @@ class MacroBuilderApp {
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <label class="text-xs">매칭 정확도</label>
-                                <span class="text-xs text-slate-600">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                                <span class="text-xs font-semibold text-purple-600">${Math.round((action.threshold || 0.9) * 100)}%</span>
                             </div>
-                            <input type="range"
-                                value="${Math.round((action.threshold || 0.9) * 100)}"
-                                min="50"
-                                max="100"
-                                step="1"
-                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                                oninput="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                            <div class="relative">
+                                <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-200"
+                                         style="width: ${(action.threshold || 0.9) * 100 - 50}%"></div>
+                                </div>
+                                <input type="range"
+                                    value="${Math.round((action.threshold || 0.9) * 100)}"
+                                    min="50"
+                                    max="100"
+                                    step="1"
+                                    class="absolute inset-0 w-full opacity-0 cursor-pointer"
+                                    oninput="
+                                        const percent = (this.value - 50);
+                                        this.previousElementSibling.firstElementChild.style.width = percent + '%';
+                                        this.nextElementSibling.nextElementSibling.querySelector('span').textContent = Math.round(this.value) + '%';
+                                        window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)
+                                    "
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                            </div>
                             <div class="flex justify-between mt-1">
                                 <span class="text-xs text-slate-400">50%</span>
                                 <span class="text-xs text-slate-400">100%</span>

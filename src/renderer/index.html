@@ -13,12 +13,16 @@
         <!-- Main Content - 3 Column Layout -->
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Panel - Screen Preview (flex-[5]) -->
-            <div class="flex-[5] bg-white border-r flex flex-col relative">
-                <!-- Device Status - Positioned at top right -->
-                <div class="absolute top-4 right-4 z-10 device-status-container" id="device-status">
-                    <!-- Device status will be rendered here when connected -->
+            <div class="flex-[5] bg-white border-r flex flex-col">
+                <div class="px-6 py-4 border-b flex items-center justify-between">
+                    <div>
+                        <h2 class="text-slate-900">스크린 프리뷰</h2>
+                        <p class="text-sm text-slate-600">화면을 클릭하여 좌표 설정</p>
+                    </div>
+                    <div class="device-status-container" id="device-status">
+                        <!-- Device status will be rendered here when connected -->
+                    </div>
                 </div>
-
                 <div class="flex-1 overflow-auto p-6" id="screen-preview-container">
                     <!-- Device Connection UI (shown when no device connected) -->
                     <div id="device-connection-ui" class="device-connection-container">
