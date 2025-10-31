@@ -1650,43 +1650,53 @@ class MacroBuilderApp {
                             </div>
                         </div>
 
-                        <!-- Time Slider with Ruler -->
+                        <!-- Time Input with Increment/Decrement -->
+                        <div>
+                            <label class="text-xs mb-2 block">시간 설정</label>
+                            <div class="flex items-center gap-2">
+                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                    </svg>
+                                </button>
+                                <input
+                                    type="number"
+                                    value="1000"
+                                    min="100"
+                                    max="10000"
+                                    step="100"
+                                    onclick="event.stopPropagation()"
+                                    class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                >
+                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                                <span class="text-xs text-slate-500">ms</span>
+                            </div>
+                        </div>
+
+                        <!-- Match Threshold Slider -->
                         <div>
                             <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs">시간 설정</label>
-                                <span class="text-xs text-slate-600 font-mono">1500ms</span>
+                                <label class="text-xs">이미지 매치 임계값</label>
+                                <span class="text-xs text-slate-600 font-mono">80%</span>
                             </div>
                             <input
                                 type="range"
-                                value="1500"
-                                min="100"
-                                max="3000"
-                                step="100"
-                                list="time-markers"
+                                value="80"
+                                min="0"
+                                max="100"
+                                step="5"
                                 class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600 border border-slate-300"
                             >
-                            <datalist id="time-markers">
-                                <option value="100" label="100"></option>
-                                <option value="200"></option>
-                                <option value="300"></option>
-                                <option value="400"></option>
-                                <option value="500" label="500"></option>
-                                <option value="600"></option>
-                                <option value="700"></option>
-                                <option value="800"></option>
-                                <option value="900"></option>
-                                <option value="1000" label="1000"></option>
-                                <option value="1500" label="1500"></option>
-                                <option value="2000" label="2000"></option>
-                                <option value="3000" label="3000"></option>
-                            </datalist>
                             <div class="flex justify-between text-xs text-slate-500 mt-1" style="font-size: 10px;">
-                                <span>100</span>
-                                <span>500</span>
-                                <span>1000</span>
-                                <span>1500</span>
-                                <span>2000</span>
-                                <span>3000</span>
+                                <span>0%</span>
+                                <span>25%</span>
+                                <span>50%</span>
+                                <span>75%</span>
+                                <span>100%</span>
                             </div>
                         </div>
 
