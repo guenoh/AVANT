@@ -1032,43 +1032,71 @@ class MacroBuilderApp {
 
     renderConditionCard(actionId, condition, index, totalConditions) {
         const isLast = index === totalConditions - 1;
+        const config = this.getActionConfig(condition.actionType);
+
+        // Generate description based on action type and params
+        let description = '';
+        switch (condition.actionType) {
+            case 'image-match':
+                const threshold = condition.params.threshold || 0.9;
+                description = `${condition.params.imagePath || 'image.png'} (${Math.round(threshold * 100)}%)`;
+                break;
+            case 'click':
+            case 'long-press':
+                description = `(${condition.params.x || 0}, ${condition.params.y || 0})`;
+                break;
+            case 'wait':
+                description = `${condition.params.duration || 1000}ms`;
+                break;
+        }
 
         return `
-            <div class="bg-white border-2 border-emerald-200 rounded-lg p-3" onclick="event.stopPropagation()">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-emerald-700">${this.getActionTypeLabel(condition.actionType)}</span>
-                        ${!isLast ? `
-                            <span class="text-xs px-2 py-0.5 rounded-full ${condition.operator === 'OR' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${condition.operator || 'AND'}</span>
-                        ` : ''}
-                    </div>
-                    <button
-                        class="btn-ghost h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')"
-                    >
-                        삭제
-                    </button>
-                </div>
-
-                <div class="space-y-2">
-                    <!-- Condition Parameters -->
-                    ${this.renderConditionParams(actionId, condition)}
-
-                    <!-- Operator (if not last) -->
-                    ${!isLast ? `
-                        <div>
-                            <label class="text-xs mb-1 block text-slate-600">다음 조건과의 관계</label>
-                            <select
-                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
-                                value="${condition.operator || 'AND'}"
-                                onclick="event.stopPropagation()"
-                                onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
-                            >
-                                <option value="AND">AND (그리고)</option>
-                                <option value="OR">OR (또는)</option>
-                            </select>
+            <div class="bg-white border-2 border-emerald-200 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                <div class="p-3">
+                    <div class="flex items-center gap-3">
+                        <!-- Icon -->
+                        <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2rem; height: 2rem;">
+                            <div style="width: 1rem; height: 1rem;">
+                                ${config.icon}
+                            </div>
                         </div>
-                    ` : ''}
+
+                        <!-- Content -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h4 class="font-semibold text-sm text-slate-900">${config.label}</h4>
+                                ${!isLast ? `
+                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${condition.operator === 'OR' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${condition.operator || 'AND'}</span>
+                                ` : ''}
+                            </div>
+                            <p class="text-xs text-slate-600 truncate">${description}</p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            ${!isLast ? `
+                                <select
+                                    class="px-2 py-1 border border-slate-300 rounded text-xs h-6 bg-white"
+                                    value="${condition.operator || 'AND'}"
+                                    onclick="event.stopPropagation()"
+                                    onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                                    title="다음 조건과의 관계"
+                                >
+                                    <option value="AND">AND</option>
+                                    <option value="OR">OR</option>
+                                </select>
+                            ` : ''}
+                            <button
+                                class="btn-ghost h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center"
+                                onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')"
+                                title="삭제"
+                            >
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1474,17 +1502,14 @@ class MacroBuilderApp {
 
                         <!-- Drop Zone -->
                         <div
-                            class="condition-drop-zone border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-lg p-2.5 text-center transition-all"
+                            class="condition-drop-zone border border-dashed border-emerald-300 bg-emerald-50 rounded-md p-2 text-center transition-all"
                             ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-emerald-500', 'bg-emerald-100')"
                             ondragleave="event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100')"
                             ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
                             onclick="event.stopPropagation()"
                         >
-                            <svg class="mx-auto mb-1 text-emerald-500" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
-                            </svg>
-                            <p class="text-xs text-emerald-700 font-medium">
-                                시나리오에서 액션을 드래그하여 조건으로 추가
+                            <p class="text-xs text-emerald-600">
+                                <span style="opacity: 0.6;">+</span> 액션을 드래그하여 추가
                             </p>
                         </div>
                     </div>
