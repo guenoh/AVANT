@@ -1193,14 +1193,14 @@ class MacroBuilderApp {
 
                 <div class="action-block ${config.bgClass} border-2 ${borderClass} ${ringClass} ${isSelected ? 'shadow-lg' : ''} ${isExpanded ? 'expanded' : ''}" style="border-radius: var(--radius); cursor: pointer; transition: all 0.2s; position: relative;">
                     <div class="p-4">
-                        <div class="flex items-start gap-3">
+                        <div class="flex items-center gap-3">
                             <!-- Drag Handle -->
                             <div class="drag-handle flex-shrink-0"
                                 draggable="true"
                                 onclick="event.stopPropagation()"
                                 ondragstart="window.macroApp.handleActionBlockDragStart(event, '${action.id}')"
                                 ondragend="window.macroApp.handleActionDragEnd(event)"
-                                style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s; margin-top: 0.125rem;"
+                                style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s;"
                                 onmouseenter="this.style.opacity='0.6'"
                                 onmouseleave="this.style.opacity='0.3'">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
