@@ -1561,475 +1561,207 @@ class MacroBuilderApp {
                 `;
             case 'test':
                 return `
-                    <!--
-                        Design System Reference
-                        See /DESIGN_SYSTEM.md for all rules
-                    -->
-                    <div class="space-y-7">
-                        <!-- Section: Text Inputs -->
+                    <!-- Design System Test - Copied from Reference Project -->
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                        <!-- Text Input -->
                         <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-blue-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">텍스트 입력</h3>
-                            </div>
-                            <div class="space-y-4">
+                            <label class="text-xs mb-2 block">입력 텍스트</label>
+                            <input
+                                type="text"
+                                value="Sample text"
+                                onclick="event.stopPropagation()"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                placeholder="입력할 텍스트를 입력하세요"
+                            >
+                        </div>
+
+                        <!-- Coordinates -->
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">좌표</label>
+                            <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">기본 텍스트</label>
+                                    <label class="text-xs">X</label>
                                     <input
-                                        type="text"
-                                        value="Sample text"
-                                        class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
-                                        placeholder="플레이스홀더"
+                                        type="number"
+                                        value="100"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
                                     >
                                 </div>
-                                <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-xs">Y</label>
+                                    <input
+                                        type="number"
+                                        value="200"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Start Point & End Point (Drag) -->
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-xs text-slate-600 mb-2 block">시작점</label>
+                                <div class="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label class="text-xs mb-2 block font-medium text-slate-700">숫자</label>
+                                        <label class="text-xs">X</label>
                                         <input
                                             type="number"
-                                            value="42"
-                                            class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
-                                            min="0"
-                                            max="100"
+                                            value="100"
+                                            onclick="event.stopPropagation()"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
                                         >
                                     </div>
                                     <div>
-                                        <label class="text-xs mb-2 block font-medium text-slate-700">비밀번호</label>
+                                        <label class="text-xs">Y</label>
                                         <input
-                                            type="password"
-                                            value="password"
-                                            class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                            type="number"
+                                            value="200"
+                                            onclick="event.stopPropagation()"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
                                         >
                                     </div>
                                 </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">텍스트 영역</label>
-                                    <textarea
-                                        class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300 resize-none"
-                                        rows="3"
-                                        placeholder="여러 줄 입력...">샘플 텍스트
-여러 줄 입력 가능</textarea>
-                                </div>
                             </div>
-                        </div>
-
-                        <!-- Section: Coordinate Inputs -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-indigo-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">좌표 입력</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-xs text-slate-600 mb-2 block font-medium">시작점</label>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="text-xs mb-1.5 block text-slate-500">X</label>
-                                            <input
-                                                type="number"
-                                                value="100"
-                                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 hover:border-slate-300"
-                                            >
-                                        </div>
-                                        <div>
-                                            <label class="text-xs mb-1.5 block text-slate-500">Y</label>
-                                            <input
-                                                type="number"
-                                                value="200"
-                                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 hover:border-slate-300"
-                                            >
-                                        </div>
+                            <div>
+                                <label class="text-xs text-slate-600 mb-2 block">종료점</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-xs">X</label>
+                                        <input
+                                            type="number"
+                                            value="300"
+                                            onclick="event.stopPropagation()"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                        >
                                     </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-600 mb-2 block font-medium">종료점</label>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="text-xs mb-1.5 block text-slate-500">X</label>
-                                            <input
-                                                type="number"
-                                                value="500"
-                                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 hover:border-slate-300"
-                                            >
-                                        </div>
-                                        <div>
-                                            <label class="text-xs mb-1.5 block text-slate-500">Y</label>
-                                            <input
-                                                type="number"
-                                                value="600"
-                                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 hover:border-slate-300"
-                                            >
-                                        </div>
+                                    <div>
+                                        <label class="text-xs">Y</label>
+                                        <input
+                                            type="number"
+                                            value="400"
+                                            onclick="event.stopPropagation()"
+                                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300"
+                                        >
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Section: Select & Checkbox & Radio -->
+                        <!-- Duration Slider -->
                         <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-purple-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">선택 컴포넌트</h3>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs">지속 시간</label>
+                                <span class="text-xs text-slate-600">1000ms</span>
                             </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">셀렉트 박스</label>
-                                    <select class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 hover:border-slate-300 cursor-pointer">
-                                        <option>옵션 1</option>
-                                        <option selected>옵션 2 (선택됨)</option>
-                                        <option>옵션 3</option>
-                                        <option>옵션 4</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">체크박스</label>
-                                    <div class="space-y-2.5">
-                                        <label class="flex items-center gap-2.5 cursor-pointer group">
-                                            <input type="checkbox" checked class="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-colors shadow-sm">
-                                            <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">체크됨</span>
-                                        </label>
-                                        <label class="flex items-center gap-2.5 cursor-pointer group">
-                                            <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-colors shadow-sm">
-                                            <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">체크 안됨</span>
-                                        </label>
-                                        <label class="flex items-center gap-2.5 cursor-not-allowed opacity-50">
-                                            <input type="checkbox" disabled class="w-4 h-4 rounded border-slate-300 shadow-sm">
-                                            <span class="text-sm text-slate-700">비활성화</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">라디오 버튼</label>
-                                    <div class="space-y-2.5">
-                                        <label class="flex items-center gap-2.5 cursor-pointer group">
-                                            <input type="radio" name="test-radio" checked class="w-4 h-4 border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-colors shadow-sm">
-                                            <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 A (선택됨)</span>
-                                        </label>
-                                        <label class="flex items-center gap-2.5 cursor-pointer group">
-                                            <input type="radio" name="test-radio" class="w-4 h-4 border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-colors shadow-sm">
-                                            <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 B</span>
-                                        </label>
-                                        <label class="flex items-center gap-2.5 cursor-pointer group">
-                                            <input type="radio" name="test-radio" class="w-4 h-4 border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-colors shadow-sm">
-                                            <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 C</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">토글 스위치</label>
-                                    <div class="space-y-2.5">
-                                        <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                                            <div class="flex items-center gap-2">
-                                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                                </svg>
-                                                <span class="text-sm text-slate-700">즉시 실행</span>
-                                            </div>
-                                            <label class="toggle-switch">
-                                                <input type="checkbox" checked>
-                                                <span class="toggle-slider"></span>
-                                            </label>
-                                        </div>
-                                        <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                                            <div class="flex items-center gap-2">
-                                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                                                </svg>
-                                                <span class="text-sm text-slate-700">알림 활성화</span>
-                                            </div>
-                                            <label class="toggle-switch">
-                                                <input type="checkbox">
-                                                <span class="toggle-slider"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
+                            <input
+                                type="range"
+                                value="1000"
+                                min="100"
+                                max="5000"
+                                step="100"
+                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-500 shadow-inner"
+                            >
+                        </div>
+
+                        <!-- Wait Duration -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs">대기 시간</label>
+                                <span class="text-xs text-slate-600">3000ms</span>
+                            </div>
+                            <input
+                                type="range"
+                                value="3000"
+                                min="100"
+                                max="10000"
+                                step="100"
+                                class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-slate-500 shadow-inner"
+                            >
+                        </div>
+
+                        <!-- Select Box -->
+                        <div>
+                            <label class="text-xs mb-2 block">선택 옵션</label>
+                            <select
+                                onclick="event.stopPropagation()"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 hover:border-slate-300 cursor-pointer"
+                            >
+                                <option>옵션 1</option>
+                                <option selected>옵션 2</option>
+                                <option>옵션 3</option>
+                            </select>
+                        </div>
+
+                        <!-- Checkboxes -->
+                        <div>
+                            <label class="text-xs mb-2 block">체크박스</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                    <input type="checkbox" checked onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 1</span>
+                                </label>
+                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                    <input type="checkbox" onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 2</span>
+                                </label>
                             </div>
                         </div>
 
-                        <!-- Section: Image/File Upload -->
+                        <!-- Radio Buttons -->
                         <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-violet-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">이미지 & 파일</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">이미지 영역 선택됨</label>
-                                    <div class="bg-violet-50 border border-violet-200 rounded-xl p-4 shadow-sm">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center gap-2">
-                                                <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                </svg>
-                                                <span class="text-xs text-violet-900 font-medium">선택된 영역</span>
-                                            </div>
-                                            <button class="text-xs text-violet-600 hover:text-violet-700 hover:underline font-medium transition-colors">
-                                                초기화
-                                            </button>
-                                        </div>
-                                        <div class="bg-white border border-violet-200 rounded-lg p-3 mb-2 flex items-center justify-center" style="height: 80px;">
-                                            <div class="text-center text-slate-400">
-                                                <svg class="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                </svg>
-                                                <p class="text-xs">이미지 미리보기</p>
-                                            </div>
-                                        </div>
-                                        <div class="text-xs text-slate-600 space-y-1">
-                                            <div class="flex justify-between">
-                                                <span class="text-slate-500">위치:</span>
-                                                <span class="font-medium">(100, 200)</span>
-                                            </div>
-                                            <div class="flex justify-between">
-                                                <span class="text-slate-500">크기:</span>
-                                                <span class="font-medium">150 × 100</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">파일 업로드</label>
-                                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-violet-400 hover:bg-violet-50/30 transition-all cursor-pointer">
-                                        <svg class="w-8 h-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                                        </svg>
-                                        <p class="text-sm text-slate-700 font-medium mb-1">파일 선택 또는 드래그</p>
-                                        <p class="text-xs text-slate-500">PNG, JPG (최대 10MB)</p>
-                                    </div>
-                                </div>
+                            <label class="text-xs mb-2 block">라디오 버튼</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                    <input type="radio" name="test-radio" checked onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 A</span>
+                                </label>
+                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                    <input type="radio" name="test-radio" onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm">
+                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 B</span>
+                                </label>
                             </div>
                         </div>
 
-                        <!-- Section: Drop Zones & Empty States -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-teal-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">드롭존 & 빈 상태</h3>
+                        <!-- Toggle Switch -->
+                        <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                <span class="text-sm text-slate-700">즉시 실행</span>
                             </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">조건 드롭존</label>
-                                    <div class="border border-dashed border-slate-300 bg-slate-50 rounded-lg p-4 text-center transition-all hover:border-teal-400 hover:bg-teal-50 cursor-pointer">
-                                        <p class="text-xs text-slate-500">
-                                            <span class="opacity-50 text-base">+</span> 액션을 드래그하여 조건 추가
-                                        </p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">빈 상태 메시지</label>
-                                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
-                                        <svg class="w-10 h-10 mx-auto text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                                        </svg>
-                                        <p class="text-sm font-medium text-slate-700 mb-1">아직 데이터가 없습니다</p>
-                                        <p class="text-xs text-slate-500">오른쪽에서 액션을 선택하세요</p>
-                                    </div>
-                                </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked onclick="event.stopPropagation()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs">프로그레스</label>
+                                <span class="text-xs text-slate-600">75%</span>
+                            </div>
+                            <div class="relative h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                <div class="absolute inset-y-0 left-0 w-3/4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300"></div>
                             </div>
                         </div>
 
-                        <!-- Section: Sliders & Progress -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-emerald-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">슬라이더 & 프로그레스</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <div class="flex items-center justify-between mb-2.5">
-                                        <label class="text-xs font-medium text-slate-700">슬라이더</label>
-                                        <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">50%</span>
-                                    </div>
-                                    <input type="range" value="50" min="0" max="100" class="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-500 shadow-inner">
-                                </div>
-                                <div>
-                                    <div class="flex items-center justify-between mb-2.5">
-                                        <label class="text-xs font-medium text-slate-700">프로그레스 바</label>
-                                        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">75%</span>
-                                    </div>
-                                    <div class="relative h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                        <div class="absolute inset-y-0 left-0 w-3/4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300 shadow-sm"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="flex items-center justify-between mb-2.5">
-                                        <label class="text-xs font-medium text-slate-700">스텝 프로그레스</label>
-                                        <span class="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">3/5</span>
-                                    </div>
-                                    <div class="flex gap-1.5">
-                                        <div class="flex-1 h-1.5 bg-purple-500 rounded-full shadow-sm"></div>
-                                        <div class="flex-1 h-1.5 bg-purple-500 rounded-full shadow-sm"></div>
-                                        <div class="flex-1 h-1.5 bg-purple-500 rounded-full shadow-sm"></div>
-                                        <div class="flex-1 h-1.5 bg-slate-200 rounded-full"></div>
-                                        <div class="flex-1 h-1.5 bg-slate-200 rounded-full"></div>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Info Card -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-900 leading-relaxed">
+                                이것은 정보 메시지입니다. 사용자에게 추가 정보를 제공할 때 사용합니다.
+                            </p>
                         </div>
 
-                        <!-- Section: Buttons -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-orange-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">버튼</h3>
-                            </div>
-                            <div class="space-y-3">
-                                <div class="flex gap-2 flex-wrap">
-                                    <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Primary</button>
-                                    <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 active:scale-95 transition-all duration-150 shadow-sm">Secondary</button>
-                                    <button class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Danger</button>
-                                    <button class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Success</button>
-                                </div>
-                                <div class="flex gap-2 flex-wrap">
-                                    <button class="px-4 py-2 border border-blue-500 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 active:scale-95 transition-all duration-150">Outline</button>
-                                    <button class="px-4 py-2 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 active:scale-95 transition-all duration-150">Ghost</button>
-                                    <button class="px-4 py-2 bg-slate-100 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed opacity-60 shadow-sm" disabled>Disabled</button>
-                                </div>
-                                <div class="flex gap-2 items-center">
-                                    <button class="h-9 w-9 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg active:scale-95 transition-all duration-150">${this.getIconSVG('settings')}</button>
-                                    <button class="h-9 w-9 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg active:scale-95 transition-all duration-150">${this.getIconSVG('trash')}</button>
-                                    <div class="w-px h-5 bg-slate-200"></div>
-                                    <button class="h-9 w-9 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg active:scale-95 transition-all duration-150">${this.getIconSVG('chevron-up')}</button>
-                                    <button class="h-9 w-9 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg active:scale-95 transition-all duration-150">${this.getIconSVG('chevron-down')}</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section: Badges & Tags -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-pink-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">뱃지 & 태그</h3>
-                            </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">상태 뱃지</label>
-                                    <div class="flex gap-2 flex-wrap">
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100 shadow-sm">Blue</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium border border-emerald-100 shadow-sm">Green</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-medium border border-red-100 shadow-sm">Red</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium border border-amber-100 shadow-sm">Yellow</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium border border-purple-100 shadow-sm">Purple</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">연산자 태그</label>
-                                    <div class="flex gap-2 flex-wrap">
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full text-xs font-bold shadow-sm">AND</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full text-xs font-bold shadow-sm">OR</span>
-                                        <span class="inline-flex items-center px-2.5 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full text-xs font-bold shadow-sm">NOT</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section: Alerts & Cards -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-cyan-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">알림 & 카드</h3>
-                            </div>
-                            <div class="space-y-2.5">
-                                <div class="bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-200 rounded-xl p-3.5 shadow-sm">
-                                    <div class="flex items-start gap-2">
-                                        <div class="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-blue-900 font-semibold">정보 알림</p>
-                                            <p class="text-xs text-blue-700 mt-0.5">이것은 정보성 메시지입니다.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gradient-to-r from-emerald-50 to-emerald-50/50 border border-emerald-200 rounded-xl p-3.5 shadow-sm">
-                                    <div class="flex items-start gap-2">
-                                        <div class="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-emerald-900 font-semibold">성공 알림</p>
-                                            <p class="text-xs text-emerald-700 mt-0.5">작업이 성공적으로 완료되었습니다.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gradient-to-r from-amber-50 to-amber-50/50 border border-amber-200 rounded-xl p-3.5 shadow-sm">
-                                    <div class="flex items-start gap-2">
-                                        <div class="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-amber-900 font-semibold">경고 알림</p>
-                                            <p class="text-xs text-amber-700 mt-0.5">주의가 필요한 사항입니다.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gradient-to-r from-red-50 to-red-50/50 border border-red-200 rounded-xl p-3.5 shadow-sm">
-                                    <div class="flex items-start gap-2">
-                                        <div class="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-red-900 font-semibold">오류 알림</p>
-                                            <p class="text-xs text-red-700 mt-0.5">오류가 발생했습니다.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section: Misc -->
-                        <div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <div class="w-1 h-4 bg-slate-500 rounded-full"></div>
-                                <h3 class="text-sm font-semibold text-slate-900">기타</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">정보 카드</label>
-                                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                                        <p class="text-xs text-slate-700 leading-relaxed">
-                                            이것은 설명 텍스트입니다. 사용자에게 추가 정보나 도움말을 제공할 때 사용합니다.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">구분선</label>
-                                    <div class="relative">
-                                        <div class="absolute inset-0 flex items-center">
-                                            <div class="w-full border-t border-slate-200"></div>
-                                        </div>
-                                        <div class="relative flex justify-center">
-                                            <span class="bg-white px-3 text-xs text-slate-500 font-medium">또는</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs mb-2 block font-medium text-slate-700">Grid 카드</label>
-                                    <div class="grid grid-cols-3 gap-2">
-                                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 text-center shadow-sm hover:shadow transition-shadow">
-                                            <div class="text-lg font-bold text-blue-600">1</div>
-                                            <div class="text-xs text-blue-600 mt-1">First</div>
-                                        </div>
-                                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 text-center shadow-sm hover:shadow transition-shadow">
-                                            <div class="text-lg font-bold text-purple-600">2</div>
-                                            <div class="text-xs text-purple-600 mt-1">Second</div>
-                                        </div>
-                                        <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-lg p-3 text-center shadow-sm hover:shadow transition-shadow">
-                                            <div class="text-lg font-bold text-emerald-600">3</div>
-                                            <div class="text-xs text-emerald-600 mt-1">Third</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Buttons -->
+                        <div class="flex gap-2 flex-wrap">
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Primary</button>
+                            <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 active:scale-95 transition-all duration-150">Secondary</button>
+                            <button class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-all duration-150 shadow-sm hover:shadow">Danger</button>
                         </div>
                     </div>
                 `;
