@@ -1739,7 +1739,7 @@ class MacroBuilderApp {
                 if (action.region) {
                     return `영역: ${action.region.width}×${action.region.height} • ${Math.round((action.threshold || 0.9) * 100)}%`;
                 }
-                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%)`;
+                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%`;
             case 'if':
             case 'else-if':
             case 'while':
