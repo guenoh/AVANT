@@ -881,7 +881,7 @@ class MacroBuilderApp {
 
     renderActionSettings(action) {
         return `
-            <div class="border-t bg-white px-4 py-3 space-y-3">
+            <div class="settings-panel border-t border-slate-200 bg-white px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${this.getSettingsHTML(action)}
             </div>
         `;
