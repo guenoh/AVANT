@@ -161,7 +161,7 @@ class MacroBuilderApp {
                 <!-- Screen Preview Display (80%) -->
                 <div class="screen-preview-display">
                     <div class="screen-preview" id="screen-preview-canvas">
-                        <img id="screen-stream-image" style="width: 100%; height: 100%; object-fit: contain; background: #1e293b;" />
+                        <img id="screen-stream-image" draggable="false" style="width: 100%; height: 100%; object-fit: contain; background: #1e293b; user-select: none; -webkit-user-drag: none;" />
                     </div>
                 </div>
 
@@ -268,6 +268,9 @@ class MacroBuilderApp {
             return;
         }
 
+        // Prevent default drag behavior
+        e.preventDefault();
+
         const coords = this.getScaledCoordinates(e);
         if (!coords) return;
 
@@ -285,6 +288,7 @@ class MacroBuilderApp {
 
         // Update selection rectangle if selecting region
         if (this.isSelectingRegion && this.selectionStart) {
+            e.preventDefault(); // Prevent default drag behavior during selection
             this.selectionEnd = coords;
             this.renderSelectionOverlay();
         }
