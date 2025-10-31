@@ -1003,11 +1003,11 @@ class MacroBuilderApp {
                 return `
                     <div class="space-y-4">
                         ${action.region ? `
-                            <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
                                 <div class="flex items-center justify-between mb-2">
-                                    <label class="text-xs font-medium text-purple-900">선택된 영역</label>
+                                    <label class="text-xs text-purple-900">선택된 영역</label>
                                     <button
-                                        class="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 hover:bg-purple-100 rounded"
+                                        class="text-xs text-purple-600 hover:text-purple-700 px-2 py-1 hover:bg-purple-100 rounded h-6"
                                         onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
                                     >
                                         초기화
@@ -1031,7 +1031,7 @@ class MacroBuilderApp {
                         `}
 
                         <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-2">이미지 이름</label>
+                            <label class="text-xs mb-2 block">이미지 이름</label>
                             <input type="text" value="${action.imagePath || 'image.png'}"
                                 class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
                                 placeholder="매칭할 이미지 이름"
@@ -1040,7 +1040,7 @@ class MacroBuilderApp {
 
                         <div>
                             <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs font-medium text-slate-700">매칭 정확도</label>
+                                <label class="text-xs">매칭 정확도</label>
                                 <span class="text-xs text-slate-600">${Math.round((action.threshold || 0.9) * 100)}%</span>
                             </div>
                             <input type="range"
