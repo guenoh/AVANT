@@ -1035,8 +1035,8 @@ class MacroBuilderApp {
         return `
             <div>
                 <!-- Condition Block -->
-                <div class="bg-white border-2 border-emerald-200 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
-                    <div class="p-4">
+                <div class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                    <div class="p-3">
                         <div class="flex items-center gap-3">
                             <!-- Icon -->
                             <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
@@ -1047,7 +1047,7 @@ class MacroBuilderApp {
 
                             <!-- Content -->
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-slate-900 mb-1">${config.label}</h3>
+                                <h3 class="text-slate-900 mb-1 font-medium">${config.label}</h3>
                                 ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
 
@@ -1077,13 +1077,14 @@ class MacroBuilderApp {
                 ${!isLast ? `
                     <div class="flex items-center justify-center my-2">
                         <select
-                            class="px-3 py-1 border-2 ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-semibold"
+                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
                             value="${condition.operator || 'AND'}"
                             onclick="event.stopPropagation()"
                             onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                            style="cursor: pointer;"
                         >
-                            <option value="AND">AND (그리고)</option>
-                            <option value="OR">OR (또는)</option>
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
                         </select>
                     </div>
                 ` : ''}
@@ -1109,7 +1110,7 @@ class MacroBuilderApp {
         );
 
         return `
-            <div class="settings-panel border-t border-emerald-200 bg-white px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
+            <div class="settings-panel border-t border-slate-200 bg-slate-50 px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${settingsHTML}
             </div>
         `;
@@ -1505,24 +1506,35 @@ class MacroBuilderApp {
             case 'while':
                 return `
                     <div class="space-y-3">
-                        <label class="text-xs font-medium text-slate-700">조건 목록</label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-slate-700">조건 목록</label>
+                            <span class="text-xs text-slate-500">${action.conditions?.length || 0}개</span>
+                        </div>
 
                         ${action.conditions && action.conditions.length > 0 ? `
                             <div class="space-y-2">
                                 ${action.conditions.map((cond, index) => this.renderConditionCard(action.id, cond, index, action.conditions.length)).join('')}
                             </div>
-                        ` : ''}
+                        ` : `
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
+                                <svg class="mx-auto mb-2 text-slate-400" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <p class="text-xs text-slate-600 mb-1">조건이 없습니다</p>
+                                <p class="text-xs text-slate-400">액션을 드래그하여 추가하세요</p>
+                            </div>
+                        `}
 
                         <!-- Drop Zone -->
                         <div
-                            class="condition-drop-zone border border-dashed border-emerald-300 bg-emerald-50 rounded-md p-2 text-center transition-all"
-                            ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-emerald-500', 'bg-emerald-100')"
-                            ondragleave="event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100')"
-                            ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
+                            class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-md p-2.5 text-center transition-all hover:border-blue-400 hover:bg-blue-50"
+                            ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-blue-400', 'bg-blue-50')"
+                            ondragleave="event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')"
+                            ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); window.macroApp.handleConditionDrop(event, '${action.id}')"
                             onclick="event.stopPropagation()"
                         >
-                            <p class="text-xs text-emerald-600">
-                                <span style="opacity: 0.6;">+</span> 액션을 드래그하여 추가
+                            <p class="text-xs text-slate-500">
+                                <span style="opacity: 0.5;">+</span> 액션을 드래그하여 조건 추가
                             </p>
                         </div>
                     </div>
