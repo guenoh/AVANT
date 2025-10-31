@@ -356,19 +356,14 @@ p {
 /* Action Settings Inputs */
 input[type="number"],
 input[type="text"] {
+    background-color: white !important;
     transition: all 0.2s ease;
 }
 
 input[type="number"]:focus,
 input[type="text"]:focus {
     outline: none;
-    border-color: var(--blue-500);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-input[type="number"]:hover,
-input[type="text"]:hover {
-    border-color: var(--slate-300);
 }
 
 /* Range Input Styling */
@@ -814,6 +809,30 @@ svg {
 
 .border-slate-300 {
     border-color: var(--slate-300);
+}
+
+.border-blue-300 {
+    border-color: #93c5fd;
+}
+
+.border-green-300 {
+    border-color: #86efac;
+}
+
+.border-cyan-300 {
+    border-color: #67e8f9;
+}
+
+.border-indigo-300 {
+    border-color: #a5b4fc;
+}
+
+.border-purple-300 {
+    border-color: #d8b4fe;
+}
+
+.border-orange-300 {
+    border-color: #fdba74;
 }
 
 /* Border utilities */
