@@ -35,7 +35,7 @@ async function createWindow() {
     minHeight: 900,
     title: 'Vision Auto v2',
     webPreferences: {
-      preload: path.join(__dirname, '../renderer/preload.js'),
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -352,7 +352,9 @@ function setupIpcHandlers() {
   ipcMain.handle('action:execute', async (event, action) => {
     try {
       // Use ccNC if connected
-      if (ccncService && ccncService.isConnected()) {
+      const isCcncConnected = ccncService && ccncService.isConnected();
+
+      if (isCcncConnected) {
         switch (action.type) {
           case 'tap':
             await ccncService.tap(action.x, action.y);

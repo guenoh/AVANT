@@ -1048,7 +1048,7 @@ class MacroBuilderApp {
                                 min="50"
                                 max="100"
                                 step="1"
-                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
                                 oninput="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)"
                                 onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
                             <div class="flex justify-between mt-1">
