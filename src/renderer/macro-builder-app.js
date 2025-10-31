@@ -8,6 +8,7 @@ class MacroBuilderApp {
         this.actions = [];
         this.selectedActionId = null;
         this.expandedActionId = null;
+        this.expandedConditionId = null;
         this.isRunning = false;
         this.macroName = '새 시나리오';
         this.currentCoordinate = null;
@@ -1032,72 +1033,81 @@ class MacroBuilderApp {
 
     renderConditionCard(actionId, condition, index, totalConditions) {
         const isLast = index === totalConditions - 1;
+        const isFirst = index === 0;
         const config = this.getActionConfig(condition.actionType);
 
-        // Generate description based on action type and params
-        let description = '';
-        switch (condition.actionType) {
-            case 'image-match':
-                const threshold = condition.params.threshold || 0.9;
-                description = `${condition.params.imagePath || 'image.png'} (${Math.round(threshold * 100)}%)`;
-                break;
-            case 'click':
-            case 'long-press':
-                description = `(${condition.params.x || 0}, ${condition.params.y || 0})`;
-                break;
-            case 'wait':
-                description = `${condition.params.duration || 1000}ms`;
-                break;
-        }
+        // Create temporary action object for description
+        const tempAction = {
+            type: condition.actionType,
+            ...condition.params
+        };
+        const description = this.getActionDescription(tempAction);
+
+        const isExpanded = this.expandedConditionId === condition.id;
 
         return `
-            <div class="bg-white border-2 border-emerald-200 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
-                <div class="p-3">
-                    <div class="flex items-center gap-3">
-                        <!-- Icon -->
-                        <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2rem; height: 2rem;">
-                            <div style="width: 1rem; height: 1rem;">
-                                ${config.icon}
+            <div>
+                <!-- Condition Block -->
+                <div class="bg-white border-2 border-emerald-200 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                    <div class="p-4">
+                        <div class="flex items-center gap-3">
+                            <!-- Icon -->
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
+                                <div style="width: 1.25rem; height: 1.25rem;">
+                                    ${config.icon}
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Content -->
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <h4 class="font-semibold text-sm text-slate-900">${config.label}</h4>
-                                ${!isLast ? `
-                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${condition.operator === 'OR' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${condition.operator || 'AND'}</span>
-                                ` : ''}
+                            <!-- Content -->
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-slate-900 mb-1">${config.label}</h3>
+                                ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
-                            <p class="text-xs text-slate-600 truncate">${description}</p>
-                        </div>
 
-                        <!-- Actions -->
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                            ${!isLast ? `
-                                <select
-                                    class="px-2 py-1 border border-slate-300 rounded text-xs h-6 bg-white"
-                                    value="${condition.operator || 'AND'}"
-                                    onclick="event.stopPropagation()"
-                                    onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
-                                    title="다음 조건과의 관계"
-                                >
-                                    <option value="AND">AND</option>
-                                    <option value="OR">OR</option>
-                                </select>
-                            ` : ''}
-                            <button
-                                class="btn-ghost h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center"
-                                onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')"
-                                title="삭제"
-                            >
-                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                            </button>
+                            <!-- Actions -->
+                            <div class="flex gap-1 flex-shrink-0">
+                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
+                                    ${this.getIconSVG('settings')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
+                                    ${this.getIconSVG('chevron-up')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
+                                    ${this.getIconSVG('chevron-down')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
+                                    ${this.getIconSVG('trash')}
+                                </button>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Expandable Settings -->
+                    ${isExpanded ? this.renderConditionSettings(actionId, condition) : ''}
                 </div>
+
+                <!-- AND/OR Connector -->
+                ${!isLast ? `
+                    <div class="flex items-center justify-center my-2">
+                        <select
+                            class="px-3 py-1 border-2 ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-semibold"
+                            value="${condition.operator || 'AND'}"
+                            onclick="event.stopPropagation()"
+                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                        >
+                            <option value="AND">AND (그리고)</option>
+                            <option value="OR">OR (또는)</option>
+                        </select>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    renderConditionSettings(actionId, condition) {
+        return `
+            <div class="settings-panel border-t border-emerald-200 bg-white px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
+                ${this.renderConditionParams(actionId, condition)}
             </div>
         `;
     }
@@ -1555,6 +1565,32 @@ class MacroBuilderApp {
         } else {
             this.expandedActionId = id;
         }
+        this.renderActionSequence();
+    }
+
+    toggleConditionSettings(conditionId) {
+        if (this.expandedConditionId === conditionId) {
+            this.expandedConditionId = null;
+        } else {
+            this.expandedConditionId = conditionId;
+        }
+        this.renderActionSequence();
+    }
+
+    moveCondition(actionId, conditionId, direction) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const index = action.conditions.findIndex(c => c.id === conditionId);
+        if (index === -1) return;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= action.conditions.length) return;
+
+        // Swap conditions
+        [action.conditions[index], action.conditions[newIndex]] =
+            [action.conditions[newIndex], action.conditions[index]];
+
         this.renderActionSequence();
     }
 
