@@ -699,17 +699,14 @@ class MacroBuilderApp {
             const regionWidth = (action.region.width / this.screenWidth) * actualImgWidth;
             const regionHeight = (action.region.height / this.screenHeight) * actualImgHeight;
 
-            // Convert to position relative to container
-            const containerOffset = imgRect.left - containerRect.left;
-            const containerOffsetY = imgRect.top - containerRect.top;
-            const markerX = containerOffset + offsetX + regionX;
-            const markerY = containerOffsetY + offsetY + regionY;
+            // Convert to position relative to container (same as green dot calculation)
+            const markerX = offsetX + regionX;
+            const markerY = offsetY + regionY;
 
             console.log('[Region Marker] Positioning:', {
                 deviceRegion: action.region,
                 imgSize: { w: actualImgWidth, h: actualImgHeight },
                 imgPosition: { x: regionX.toFixed(2), y: regionY.toFixed(2) },
-                containerOffset: { x: containerOffset.toFixed(2), y: containerOffsetY.toFixed(2) },
                 letterbox: { x: offsetX.toFixed(2), y: offsetY.toFixed(2) },
                 finalMarker: { x: markerX.toFixed(2), y: markerY.toFixed(2) }
             });
@@ -768,9 +765,9 @@ class MacroBuilderApp {
             const regionWidth = (selectionRegion.width / this.screenWidth) * actualImgWidth;
             const regionHeight = (selectionRegion.height / this.screenHeight) * actualImgHeight;
 
-            // Convert to position relative to container
-            const markerX = (imgRect.left - containerRect.left) + offsetX + regionX;
-            const markerY = (imgRect.top - containerRect.top) + offsetY + regionY;
+            // Convert to position relative to container (same as green dot calculation)
+            const markerX = offsetX + regionX;
+            const markerY = offsetY + regionY;
 
             // Create selection rectangle
             const selectionMarker = document.createElement('div');
