@@ -14,8 +14,12 @@ class MacroBuilderApp {
         this.currentCoordinate = null;
 
         // Device screen resolution
-        this.screenWidth = 1400; // Default, will be updated on device connect
-        this.screenHeight = 500; // Default, will be updated on device connect
+        this.screenWidth = 1080; // Default portrait width
+        this.screenHeight = 2400; // Default portrait height
+
+        // Coordinate System - Unified coordinate transformation
+        this.coordinateSystem = new CoordinateSystem();
+        this.coordinateSystem.init(this.screenWidth, this.screenHeight, 0);
 
         // Coordinate picking mode
         this.isPickingCoordinate = false;
@@ -155,6 +159,22 @@ class MacroBuilderApp {
         });
     }
 
+    /**
+     * Determine device orientation based on screen dimensions
+     * @returns {string} 'portrait' | 'landscape' | 'square'
+     */
+    getDeviceOrientation() {
+        const aspectRatio = this.screenWidth / this.screenHeight;
+
+        if (aspectRatio < 0.9) {
+            return 'portrait'; // Height is significantly larger than width
+        } else if (aspectRatio > 1.1) {
+            return 'landscape'; // Width is significantly larger than height
+        } else {
+            return 'square'; // Nearly equal dimensions
+        }
+    }
+
     renderScreenPreview() {
         // Don't render preview if device not connected
         if (!this.isDeviceConnected) {
@@ -164,11 +184,15 @@ class MacroBuilderApp {
         const container = document.getElementById('screen-preview-container');
         if (!container) return;
 
+        // Determine device orientation for adaptive container
+        const orientation = this.getDeviceOrientation();
+        console.log(`Device orientation: ${orientation} (${this.screenWidth}x${this.screenHeight})`);
+
         container.innerHTML = `
             <div class="screen-preview-with-log">
                 <!-- Screen Preview Display (80%) -->
                 <div class="screen-preview-display">
-                    <div class="screen-preview" id="screen-preview-canvas">
+                    <div class="screen-preview ${orientation}" id="screen-preview-canvas">
                         <img id="screen-stream-image" draggable="false" style="width: 100%; height: 100%; object-fit: contain; background: #1e293b; user-select: none; -webkit-user-drag: none;" />
                     </div>
                 </div>
@@ -215,27 +239,21 @@ class MacroBuilderApp {
     }
 
     handleScreenClick(e) {
-        // Get the actual img element bounds (not the container)
+        // Use the same coordinate calculation as getScaledCoordinates for consistency
+        const coords = this.getScaledCoordinates(e);
+        if (!coords) {
+            console.warn('[handleScreenClick] Could not get scaled coordinates');
+            return;
+        }
+
+        // Use the coordinates from getScaledCoordinates which properly handles letterbox
+        const x = coords.x;
+        const y = coords.y;
+
+        // Get image for debug info
         const img = document.getElementById('screen-stream-image');
-        if (!img) {
-            console.warn('[handleScreenClick] screen-stream-image not found');
-            return;
-        }
-
+        if (!img) return;
         const imgRect = img.getBoundingClientRect();
-
-        // Calculate click position relative to the actual image (not container)
-        const clickX = e.clientX - imgRect.left;
-        const clickY = e.clientY - imgRect.top;
-
-        // Check if click is within the actual image bounds
-        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
-            return;
-        }
-
-        // Convert to device coordinates
-        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
-        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
 
         // If in coordinate picking mode, create new action
         if (this.isPickingCoordinate) {
@@ -243,9 +261,23 @@ class MacroBuilderApp {
             return;
         }
 
-        // If no action selected, just show coordinates
+        // Always show debug coordinate info
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Calculate click position for debug
+        const clickX = e.clientX - imgRect.left;
+        const clickY = e.clientY - imgRect.top;
+        const rawClickX = e.clientX;
+        const rawClickY = e.clientY;
+
+        const debugInfo = `[DEBUG] 마우스: (${rawClickX}, ${rawClickY}) → 이미지상대: (${clickX.toFixed(1)}, ${clickY.toFixed(1)}) → 장치: (${x}, ${y})`;
+        const detailInfo = `[DEBUG] 이미지영역: ${imgRect.left.toFixed(0)},${imgRect.top.toFixed(0)} 크기: ${imgRect.width.toFixed(0)}×${imgRect.height.toFixed(0)}, 레터박스: (${offsetX.toFixed(0)}, ${offsetY.toFixed(0)})`;
+
+        this.addLog('debug', debugInfo);
+        this.addLog('debug', detailInfo);
+
+        // If no action selected, just return after showing coordinates
         if (!this.selectedActionId) {
-            this.addLog('info', `좌표: (${x}, ${y})`);
             return;
         }
 
@@ -350,25 +382,87 @@ class MacroBuilderApp {
         }
     }
 
+    // Helper function to calculate letterbox offset and actual image dimensions
+    getImageDisplayInfo(img, imgRect) {
+        // Use the image's natural dimensions as-is (no rotation)
+        const imgNaturalWidth = img.naturalWidth || this.screenWidth;
+        const imgNaturalHeight = img.naturalHeight || this.screenHeight;
+
+        const imgAspect = imgNaturalWidth / imgNaturalHeight;
+        const elementAspect = imgRect.width / imgRect.height;
+
+        let actualImgWidth, actualImgHeight, offsetX, offsetY;
+
+        if (elementAspect > imgAspect) {
+            // Element is wider than image - vertical letterboxing on sides
+            actualImgHeight = imgRect.height;
+            actualImgWidth = imgRect.height * imgAspect;
+            offsetX = (imgRect.width - actualImgWidth) / 2;
+            offsetY = 0;
+        } else {
+            // Element is taller than image - horizontal letterboxing on top/bottom
+            actualImgWidth = imgRect.width;
+            actualImgHeight = imgRect.width / imgAspect;
+            offsetX = 0;
+            offsetY = (imgRect.height - actualImgHeight) / 2;
+        }
+
+        // Round to minimize floating point errors
+        actualImgWidth = Math.round(actualImgWidth * 1000) / 1000;
+        actualImgHeight = Math.round(actualImgHeight * 1000) / 1000;
+        offsetX = Math.round(offsetX * 1000) / 1000;
+        offsetY = Math.round(offsetY * 1000) / 1000;
+
+        return { actualImgWidth, actualImgHeight, offsetX, offsetY };
+    }
+
     getScaledCoordinates(e) {
         const img = document.getElementById('screen-stream-image');
         if (!img) return null;
 
         const imgRect = img.getBoundingClientRect();
+
+        // Use high precision for click coordinates
         const clickX = e.clientX - imgRect.left;
         const clickY = e.clientY - imgRect.top;
 
-        // Check if click is within the actual image bounds
-        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
+        // Check if click is within reasonable bounds
+        if (clickX < -50 || clickX > imgRect.width + 50 || clickY < -50 || clickY > imgRect.height + 50) {
+            console.log('[getScaledCoordinates] Click way outside element bounds');
             return null;
         }
 
-        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
-        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
+        // Get display info with letterbox offset
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Adjust click coordinates to account for letterboxing with high precision
+        const actualClickX = clickX - offsetX;
+        const actualClickY = clickY - offsetY;
+
+        // Clamp to image bounds
+        const clampedX = Math.max(0, Math.min(actualImgWidth - 0.001, actualClickX));
+        const clampedY = Math.max(0, Math.min(actualImgHeight - 0.001, actualClickY));
+
+        // Scale to device coordinates with better precision
+        // Use floor to ensure we don't exceed device bounds due to rounding
+        const normalizedX = clampedX / actualImgWidth;
+        const normalizedY = clampedY / actualImgHeight;
+
+        const x = Math.floor(normalizedX * this.screenWidth);
+        const y = Math.floor(normalizedY * this.screenHeight);
+
+        // Only log on actual click events, not during mouse move
+        if (e.type === 'click') {
+            console.log('[Click] Coordinate transformation:', {
+                click: { x: clickX.toFixed(1), y: clickY.toFixed(1) },
+                device: { x, y },
+                offset: { x: offsetX.toFixed(1), y: offsetY.toFixed(1) }
+            });
+        }
 
         return {
-            x: Math.max(0, Math.min(this.screenWidth, x)),
-            y: Math.max(0, Math.min(this.screenHeight, y)),
+            x: Math.max(0, Math.min(this.screenWidth - 1, x)),
+            y: Math.max(0, Math.min(this.screenHeight - 1, y))
         };
     }
 
@@ -393,17 +487,34 @@ class MacroBuilderApp {
         existingMarkers.forEach(m => m.remove());
 
         if (action.x !== undefined && action.y !== undefined) {
-            // Get img bounds relative to container
+            // Get container and image bounds
             const containerRect = screenPreview.getBoundingClientRect();
             const imgRect = img.getBoundingClientRect();
 
-            // Calculate marker position in pixels relative to container
-            const imgX = (action.x / this.screenWidth) * imgRect.width;
-            const imgY = (action.y / this.screenHeight) * imgRect.height;
+            // Get display info with letterbox offset
+            const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
 
-            // Convert to position relative to container
-            const markerX = (imgRect.left - containerRect.left) + imgX;
-            const markerY = (imgRect.top - containerRect.top) + imgY;
+            // Reverse the same calculation used in getScaledCoordinates
+            // Normalize device coordinates to 0-1
+            const normalizedX = action.x / this.screenWidth;
+            const normalizedY = action.y / this.screenHeight;
+
+            // Scale to actual image dimensions
+            const imgX = normalizedX * actualImgWidth;
+            const imgY = normalizedY * actualImgHeight;
+
+            // Convert to position relative to container (accounting for letterbox)
+            const markerX = (imgRect.left - containerRect.left) + offsetX + imgX;
+            const markerY = (imgRect.top - containerRect.top) + offsetY + imgY;
+
+            console.log('[updateSelectedActionMarker] Coordinate conversion:', {
+                deviceCoords: { x: action.x, y: action.y },
+                screenResolution: { width: this.screenWidth, height: this.screenHeight },
+                letterbox: { offsetX, offsetY },
+                actual: { width: actualImgWidth, height: actualImgHeight },
+                imgPosition: { x: imgX, y: imgY },
+                finalMarker: { x: markerX, y: markerY }
+            });
 
             const marker = document.createElement('div');
             marker.className = 'action-marker';
@@ -414,11 +525,11 @@ class MacroBuilderApp {
 
             // For drag, show line and end marker
             if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
-                // Calculate end marker position in pixels
-                const endImgX = (action.endX / this.screenWidth) * imgRect.width;
-                const endImgY = (action.endY / this.screenHeight) * imgRect.height;
-                const endMarkerX = (imgRect.left - containerRect.left) + endImgX;
-                const endMarkerY = (imgRect.top - containerRect.top) + endImgY;
+                // Calculate end marker position
+                const endImgX = (action.endX / this.screenWidth) * actualImgWidth;
+                const endImgY = (action.endY / this.screenHeight) * actualImgHeight;
+                const endMarkerX = (imgRect.left - containerRect.left) + offsetX + endImgX;
+                const endMarkerY = (imgRect.top - containerRect.top) + offsetY + endImgY;
 
                 // SVG line
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -479,15 +590,18 @@ class MacroBuilderApp {
             const containerRect = screenPreview.getBoundingClientRect();
             const imgRect = img.getBoundingClientRect();
 
-            // Calculate region position and size
-            const regionX = (action.region.x / this.screenWidth) * imgRect.width;
-            const regionY = (action.region.y / this.screenHeight) * imgRect.height;
-            const regionWidth = (action.region.width / this.screenWidth) * imgRect.width;
-            const regionHeight = (action.region.height / this.screenHeight) * imgRect.height;
+            // Get display info with letterbox offset
+            const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+            // Calculate region position and size (accounting for letterbox)
+            const regionX = (action.region.x / this.screenWidth) * actualImgWidth;
+            const regionY = (action.region.y / this.screenHeight) * actualImgHeight;
+            const regionWidth = (action.region.width / this.screenWidth) * actualImgWidth;
+            const regionHeight = (action.region.height / this.screenHeight) * actualImgHeight;
 
             // Convert to position relative to container
-            const markerX = (imgRect.left - containerRect.left) + regionX;
-            const markerY = (imgRect.top - containerRect.top) + regionY;
+            const markerX = (imgRect.left - containerRect.left) + offsetX + regionX;
+            const markerY = (imgRect.top - containerRect.top) + offsetY + regionY;
 
             // Create region rectangle
             const regionMarker = document.createElement('div');
@@ -525,6 +639,9 @@ class MacroBuilderApp {
             const containerRect = screenPreview.getBoundingClientRect();
             const imgRect = img.getBoundingClientRect();
 
+            // Get display info with letterbox offset
+            const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
             // Calculate selection region
             const selectionRegion = {
                 x: Math.min(this.selectionStart.x, this.selectionEnd.x),
@@ -533,15 +650,15 @@ class MacroBuilderApp {
                 height: Math.abs(this.selectionEnd.y - this.selectionStart.y),
             };
 
-            // Calculate position and size in pixels
-            const regionX = (selectionRegion.x / this.screenWidth) * imgRect.width;
-            const regionY = (selectionRegion.y / this.screenHeight) * imgRect.height;
-            const regionWidth = (selectionRegion.width / this.screenWidth) * imgRect.width;
-            const regionHeight = (selectionRegion.height / this.screenHeight) * imgRect.height;
+            // Calculate position and size in pixels (accounting for letterbox)
+            const regionX = (selectionRegion.x / this.screenWidth) * actualImgWidth;
+            const regionY = (selectionRegion.y / this.screenHeight) * actualImgHeight;
+            const regionWidth = (selectionRegion.width / this.screenWidth) * actualImgWidth;
+            const regionHeight = (selectionRegion.height / this.screenHeight) * actualImgHeight;
 
             // Convert to position relative to container
-            const markerX = (imgRect.left - containerRect.left) + regionX;
-            const markerY = (imgRect.top - containerRect.top) + regionY;
+            const markerX = (imgRect.left - containerRect.left) + offsetX + regionX;
+            const markerY = (imgRect.top - containerRect.top) + offsetY + regionY;
 
             // Create selection rectangle
             const selectionMarker = document.createElement('div');
@@ -815,18 +932,41 @@ class MacroBuilderApp {
 
         const region = action.region;
 
+        // Get the actual image dimensions
+        const imgActualWidth = sourceImg.naturalWidth || sourceImg.width;
+        const imgActualHeight = sourceImg.naturalHeight || sourceImg.height;
+
+        // Calculate scaling factor between device coordinates and actual image size
+        const scaleX = imgActualWidth / this.screenWidth;
+        const scaleY = imgActualHeight / this.screenHeight;
+
+        // Convert region coordinates to actual image coordinates
+        const actualX = Math.round(region.x * scaleX);
+        const actualY = Math.round(region.y * scaleY);
+        const actualWidth = Math.round(region.width * scaleX);
+        const actualHeight = Math.round(region.height * scaleY);
+
+        // Debug info
+        console.log('[captureRegionImage] Debug Info:', {
+            deviceResolution: { width: this.screenWidth, height: this.screenHeight },
+            imageActualSize: { width: imgActualWidth, height: imgActualHeight },
+            scale: { x: scaleX, y: scaleY },
+            regionDevice: region,
+            regionActual: { x: actualX, y: actualY, width: actualWidth, height: actualHeight }
+        });
+
         // Create a temporary canvas to capture the region
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = region.width;
-        tempCanvas.height = region.height;
+        tempCanvas.width = actualWidth;
+        tempCanvas.height = actualHeight;
         const ctx = tempCanvas.getContext('2d');
 
         try {
-            // Draw the selected region from the source image
+            // Draw the selected region from the source image using actual coordinates
             ctx.drawImage(
                 sourceImg,
-                region.x, region.y, region.width, region.height,
-                0, 0, region.width, region.height
+                actualX, actualY, actualWidth, actualHeight,
+                0, 0, actualWidth, actualHeight
             );
 
             // Store the captured image as a data URL
@@ -1314,53 +1454,64 @@ class MacroBuilderApp {
             case 'click':
             case 'long-press':
                 return `
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
                         <div>
-                            <label class="text-xs mb-2 block">X</label>
-                            <input type="number" value="${action.x || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                            <label class="text-xs text-slate-600 mb-2 block">좌표</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs">X</label>
+                                    <input type="number" value="${action.x || 0}"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
+                                </div>
+                                <div>
+                                    <label class="text-xs">Y</label>
+                                    <input type="number" value="${action.y || 0}"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                                </div>
+                            </div>
                         </div>
+                        ${action.type === 'long-press' ? `
                         <div>
-                            <label class="text-xs mb-2 block">Y</label>
-                            <input type="number" value="${action.y || 0}"
-                                class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
+                            <label class="text-xs mb-2 block">지속 시간</label>
+                            <div class="flex items-center gap-2">
+                                <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.max(100, val - 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                </button>
+                                <input type="number" value="${action.duration || 1000}" min="100" max="5000" step="100"
+                                    onclick="event.stopPropagation()"
+                                    class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                                <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.min(5000, val + 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                </button>
+                                <span class="text-xs text-slate-500">ms</span>
+                            </div>
                         </div>
+                        ` : ''}
                     </div>
-                    ${action.type === 'long-press' ? `
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">지속 시간</label>
-                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
-                        </div>
-                        <input type="range"
-                            value="${action.duration || 1000}"
-                            min="100"
-                            max="5000"
-                            step="100"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                            oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
-                    </div>
-                    ` : ''}
                 `;
             case 'drag':
                 return `
-                    <div class="space-y-3">
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
                         <div>
                             <label class="text-xs text-slate-600 mb-2 block">시작점</label>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-xs mb-2 block">X</label>
+                                    <label class="text-xs">X</label>
                                     <input type="number" value="${action.x || 0}"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
                                 </div>
                                 <div>
-                                    <label class="text-xs mb-2 block">Y</label>
+                                    <label class="text-xs">Y</label>
                                     <input type="number" value="${action.y || 0}"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
                                 </div>
                             </div>
@@ -1369,15 +1520,17 @@ class MacroBuilderApp {
                             <label class="text-xs text-slate-600 mb-2 block">종료점</label>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-xs mb-2 block">X</label>
+                                    <label class="text-xs">X</label>
                                     <input type="number" value="${action.endX || 0}"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
                                 </div>
                                 <div>
-                                    <label class="text-xs mb-2 block">Y</label>
+                                    <label class="text-xs">Y</label>
                                     <input type="number" value="${action.endY || 0}"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                                         onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
                                 </div>
                             </div>
@@ -1386,60 +1539,67 @@ class MacroBuilderApp {
                 `;
             case 'keyboard':
                 return `
-                    <div>
+                    <div class="bg-slate-50/50 px-4 py-4">
                         <label class="text-xs mb-2 block">입력 텍스트</label>
                         <input type="text" value="${action.text || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                             placeholder="입력할 텍스트를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'text', this.value)">
                     </div>
                 `;
             case 'wait':
                 return `
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">대기 시간</label>
-                            <span class="text-xs text-slate-600">${action.duration || 1000}ms</span>
+                    <div class="bg-slate-50/50 px-4 py-4">
+                        <label class="text-xs mb-2 block">대기 시간</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.max(100, val - 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                            </button>
+                            <input type="number" value="${action.duration || 1000}" min="100" max="10000" step="100"
+                                onclick="event.stopPropagation()"
+                                class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
+                            <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.min(10000, val + 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                            <span class="text-xs text-slate-500">ms</span>
                         </div>
-                        <input type="range"
-                            value="${action.duration || 1000}"
-                            min="100"
-                            max="10000"
-                            step="100"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500"
-                            oninput="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
                     </div>
                 `;
             case 'screenshot':
                 return `
-                    <div>
+                    <div class="bg-slate-50/50 px-4 py-4">
                         <label class="text-xs mb-2 block">파일 이름</label>
                         <input type="text" value="${action.filename || 'screenshot.png'}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                             placeholder="스크린샷 파일 이름"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'filename', this.value)">
                     </div>
                 `;
             case 'image-match':
                 return `
-                    <div class="space-y-4">
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
                         ${action.region ? `
-                            <div class="grid grid-cols-2 gap-3">
-                                <!-- Left: Selected Region -->
-                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <label class="text-xs text-purple-900 font-medium">선택된 영역</label>
-                                        <button
-                                            class="btn-ghost h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
-                                            onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', undefined)"
-                                        >
+                            <!-- Selected Region -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-xs">선택된 영역</label>
+                                    <div class="flex gap-1">
+                                        <button onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', null); window.macroApp.render();" class="btn-tertiary">
                                             초기화
                                         </button>
+                                        <button onclick="event.stopPropagation(); window.macroApp.autoCropRegion('${action.id}');" class="btn-tertiary">
+                                            자동 자르기
+                                        </button>
                                     </div>
+                                </div>
 
+                                <!-- Image Thumbnail Card -->
+                                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                     <!-- Image Thumbnail -->
-                                    <div class="mb-2 flex items-center justify-center bg-white rounded border border-purple-200 p-2">
+                                    <div class="mb-2 flex items-center justify-center bg-white rounded border border-slate-200 p-2">
                                         <canvas
                                             id="thumbnail-${action.id}"
                                             class="max-w-full"
@@ -1447,55 +1607,71 @@ class MacroBuilderApp {
                                         ></canvas>
                                     </div>
 
-                                    <div class="text-xs text-slate-600">
-                                        <div>위치: (${action.region.x}, ${action.region.y})</div>
-                                        <div>크기: ${action.region.width} × ${action.region.height}</div>
-                                    </div>
-                                </div>
-
-                                <!-- Right: Settings -->
-                                <div class="space-y-3">
-                                    <div>
-                                        <label class="text-xs mb-2 block">이미지 이름</label>
-                                        <input type="text" value="${action.imagePath || 'image.png'}"
-                                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
-                                            placeholder="매칭할 이미지 이름"
-                                            onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
-                                    </div>
-
-                                    <div>
-                                        <div class="flex items-center justify-between mb-2">
-                                            <label class="text-xs">매칭 정확도</label>
-                                            <span class="text-xs font-semibold text-purple-600" id="threshold-value-${action.id}">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                                    <!-- Editable Region Info -->
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="text-xs">X</label>
+                                            <input type="number" value="${action.region.x}"
+                                                onclick="event.stopPropagation()"
+                                                class="w-full h-7 px-2 text-center border border-slate-200 rounded text-xs bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                                onchange="window.macroApp.updateRegionProperty('${action.id}', 'x', parseInt(this.value))">
                                         </div>
-                                        <div style="position: relative; height: 8px;">
-                                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; border-radius: 9999px;"></div>
-                                            <div
-                                                id="threshold-bar-${action.id}"
-                                                style="position: absolute; top: 0; left: 0; bottom: 0; width: ${((action.threshold || 0.9) * 100 - 50) * 2}%; background: linear-gradient(to right, #c084fc, #9333ea); border-radius: 9999px; transition: all 0.2s;"></div>
-                                            <input type="range"
-                                                value="${Math.round((action.threshold || 0.9) * 100)}"
-                                                min="50"
-                                                max="100"
-                                                step="1"
-                                                style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; opacity: 0; cursor: pointer; z-index: 10;"
-                                                oninput="
-                                                    const percent = (this.value - 50) * 2;
-                                                    document.getElementById('threshold-bar-${action.id}').style.width = percent + '%';
-                                                    document.getElementById('threshold-value-${action.id}').textContent = Math.round(this.value) + '%';
-                                                "
-                                                onchange="window.macroApp.updateActionValue('${action.id}', 'threshold', parseFloat(this.value) / 100)">
+                                        <div>
+                                            <label class="text-xs">Y</label>
+                                            <input type="number" value="${action.region.y}"
+                                                onclick="event.stopPropagation()"
+                                                class="w-full h-7 px-2 text-center border border-slate-200 rounded text-xs bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                                onchange="window.macroApp.updateRegionProperty('${action.id}', 'y', parseInt(this.value))">
                                         </div>
-                                        <div class="flex justify-between mt-1">
-                                            <span class="text-xs text-slate-400">50%</span>
-                                            <span class="text-xs text-slate-400">100%</span>
+                                        <div>
+                                            <label class="text-xs">Width</label>
+                                            <input type="number" value="${action.region.width}"
+                                                onclick="event.stopPropagation()"
+                                                class="w-full h-7 px-2 text-center border border-slate-200 rounded text-xs bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                                onchange="window.macroApp.updateRegionProperty('${action.id}', 'width', parseInt(this.value))">
+                                        </div>
+                                        <div>
+                                            <label class="text-xs">Height</label>
+                                            <input type="number" value="${action.region.height}"
+                                                onclick="event.stopPropagation()"
+                                                class="w-full h-7 px-2 text-center border border-slate-200 rounded text-xs bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                                onchange="window.macroApp.updateRegionProperty('${action.id}', 'height', parseInt(this.value))">
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Image Name -->
+                            <div>
+                                <label class="text-xs mb-2 block">이미지 이름</label>
+                                <input type="text" value="${action.imagePath || 'image.png'}"
+                                    onclick="event.stopPropagation()"
+                                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                    placeholder="매칭할 이미지 이름"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'imagePath', this.value)">
+                            </div>
+
+                            <!-- Matching Threshold -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-xs">매칭 정확도</label>
+                                    <span class="text-xs text-slate-600" id="threshold-value-${action.id}">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                                </div>
+                                <div id="progress-container-${action.id}" onclick="event.stopPropagation(); const rect = this.getBoundingClientRect(); const x = event.clientX - rect.left; const percent = Math.max(50, Math.min(100, Math.round((x / rect.width) * 50 + 50))); document.getElementById('threshold-value-${action.id}').textContent = percent + '%'; document.getElementById('threshold-bar-${action.id}').style.width = ((percent - 50) * 2) + '%'; const desc = percent >= 100 ? '완전 일치' : percent >= 95 ? '매우 일치' : percent >= 90 ? '높은 일치' : percent >= 85 ? '일치' : percent >= 80 ? '보통 일치' : percent >= 75 ? '낮은 일치' : '매우 낮은 일치'; document.getElementById('threshold-desc-${action.id}').textContent = desc; window.macroApp.updateActionValue('${action.id}', 'threshold', percent / 100);" class="relative h-4 rounded-lg overflow-hidden border border-slate-300 cursor-pointer" style="height: 16px; background-color: #E2E8F0;">
+                                    <div id="threshold-bar-${action.id}" class="absolute top-0 bottom-0 left-0 transition-all duration-300" style="width: ${((action.threshold || 0.9) * 100 - 50) * 2}%; height: 100%; background-color: #334155; pointer-events: none;"></div>
+                                </div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-slate-400">50%</span>
+                                    <span class="text-xs text-slate-500" id="threshold-desc-${action.id}">${(function() {
+                                        const p = Math.round((action.threshold || 0.9) * 100);
+                                        return p >= 100 ? '완전 일치' : p >= 95 ? '매우 일치' : p >= 90 ? '높은 일치' : p >= 85 ? '일치' : p >= 80 ? '보통 일치' : p >= 75 ? '낮은 일치' : '매우 낮은 일치';
+                                    })()}</span>
+                                    <span class="text-xs text-slate-400">100%</span>
+                                </div>
+                            </div>
                         ` : `
-                            <div class="bg-slate-100 border border-slate-200 rounded-lg p-3 text-center">
-                                <p class="text-xs text-slate-600">
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                                <p class="text-xs text-slate-700 leading-relaxed">
                                     스크린 프리뷰에서 드래그하여<br />매칭 영역을 선택하세요
                                 </p>
                             </div>
@@ -1506,9 +1682,9 @@ class MacroBuilderApp {
             case 'else-if':
             case 'while':
                 return `
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="text-xs font-medium text-slate-700">조건 목록</label>
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs">조건 목록</label>
                             <span class="text-xs text-slate-500">${action.conditions?.length || 0}개</span>
                         </div>
 
@@ -1520,10 +1696,10 @@ class MacroBuilderApp {
 
                         <!-- Drop Zone -->
                         <div
-                            class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-md p-2.5 text-center transition-all hover:border-blue-400 hover:bg-blue-50"
-                            ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-blue-400', 'bg-blue-50')"
-                            ondragleave="event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')"
-                            ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); window.macroApp.handleConditionDrop(event, '${action.id}')"
+                            class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
+                            ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-slate-400', 'bg-slate-100')"
+                            ondragleave="event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100')"
+                            ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
                             onclick="event.stopPropagation()"
                         >
                             <p class="text-xs text-slate-500">
@@ -1534,27 +1710,30 @@ class MacroBuilderApp {
                 `;
             case 'loop':
                 return `
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs">반복 횟수</label>
-                            <span class="text-xs text-slate-600">${action.loopCount || 1}회</span>
+                    <div class="bg-slate-50/50 px-4 py-4">
+                        <label class="text-xs mb-2 block">반복 횟수</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="event.stopPropagation(); const val = ${action.loopCount || 1}; const newVal = Math.max(1, val - 1); window.macroApp.updateActionValue('${action.id}', 'loopCount', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                            </button>
+                            <input type="number" value="${action.loopCount || 1}" min="1" max="100" step="1"
+                                onclick="event.stopPropagation()"
+                                class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
+                            <button onclick="event.stopPropagation(); const val = ${action.loopCount || 1}; const newVal = Math.min(100, val + 1); window.macroApp.updateActionValue('${action.id}', 'loopCount', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                            <span class="text-xs text-slate-500">회</span>
                         </div>
-                        <input type="range"
-                            value="${action.loopCount || 1}"
-                            min="1"
-                            max="100"
-                            step="1"
-                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
-                            oninput="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
                     </div>
                 `;
             case 'log':
                 return `
-                    <div>
+                    <div class="bg-slate-50/50 px-4 py-4">
                         <label class="text-xs mb-2 block">로그 메시지</label>
                         <input type="text" value="${action.message || ''}"
-                            class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm h-8"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                             placeholder="로그 메시지를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
                     </div>
@@ -1654,7 +1833,7 @@ class MacroBuilderApp {
                         <div>
                             <label class="text-xs mb-2 block">시간 설정</label>
                             <div class="flex items-center gap-2">
-                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <button onclick="event.stopPropagation(); const input = this.nextElementSibling; const newVal = Math.max(100, parseInt(input.value) - 100); input.value = newVal;" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
                                     <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                                     </svg>
@@ -1668,35 +1847,12 @@ class MacroBuilderApp {
                                     onclick="event.stopPropagation()"
                                     class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
                                 >
-                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
+                                <button onclick="event.stopPropagation(); const input = this.previousElementSibling; const newVal = Math.min(10000, parseInt(input.value) + 100); input.value = newVal;" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
                                     <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                     </svg>
                                 </button>
                                 <span class="text-xs text-slate-500">ms</span>
-                            </div>
-                        </div>
-
-                        <!-- Match Threshold Slider -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs">이미지 매치 임계값</label>
-                                <span class="text-xs text-slate-600 font-mono">80%</span>
-                            </div>
-                            <input
-                                type="range"
-                                value="80"
-                                min="0"
-                                max="100"
-                                step="5"
-                                class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600 border border-slate-300"
-                            >
-                            <div class="flex justify-between text-xs text-slate-500 mt-1" style="font-size: 10px;">
-                                <span>0%</span>
-                                <span>25%</span>
-                                <span>50%</span>
-                                <span>75%</span>
-                                <span>100%</span>
                             </div>
                         </div>
 
@@ -1717,13 +1873,13 @@ class MacroBuilderApp {
                         <div>
                             <label class="text-xs mb-2 block">체크박스</label>
                             <div class="space-y-2">
-                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                <label class="flex items-center cursor-pointer group">
                                     <input type="checkbox" checked onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
-                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 1</span>
+                                    <span class="text-xs text-slate-700 group-hover:text-slate-900 transition-colors" style="margin-left: 12px;">옵션 1</span>
                                 </label>
-                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                <label class="flex items-center cursor-pointer group">
                                     <input type="checkbox" onclick="event.stopPropagation()" class="w-4 h-4 rounded border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
-                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 2</span>
+                                    <span class="text-xs text-slate-700 group-hover:text-slate-900 transition-colors" style="margin-left: 12px;">옵션 2</span>
                                 </label>
                             </div>
                         </div>
@@ -1732,13 +1888,13 @@ class MacroBuilderApp {
                         <div>
                             <label class="text-xs mb-2 block">라디오 버튼</label>
                             <div class="space-y-2">
-                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                <label class="flex items-center cursor-pointer group">
                                     <input type="radio" name="test-radio" checked onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
-                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 A</span>
+                                    <span class="text-xs text-slate-700 group-hover:text-slate-900 transition-colors" style="margin-left: 12px;">옵션 A</span>
                                 </label>
-                                <label class="flex items-center gap-2.5 cursor-pointer group">
+                                <label class="flex items-center cursor-pointer group">
                                     <input type="radio" name="test-radio" onclick="event.stopPropagation()" class="w-4 h-4 border-slate-300 text-slate-600 focus:ring-2 focus:ring-slate-400/20 transition-colors shadow-sm">
-                                    <span class="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">옵션 B</span>
+                                    <span class="text-xs text-slate-700 group-hover:text-slate-900 transition-colors" style="margin-left: 12px;">옵션 B</span>
                                 </label>
                             </div>
                         </div>
@@ -1749,7 +1905,7 @@ class MacroBuilderApp {
                                 <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
-                                <span class="text-sm text-slate-700">즉시 실행</span>
+                                <span class="text-xs text-slate-700">즉시 실행</span>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" checked onclick="event.stopPropagation()">
@@ -1761,10 +1917,10 @@ class MacroBuilderApp {
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <label class="text-xs">프로그레스</label>
-                                <span class="text-xs text-slate-600">75%</span>
+                                <span id="progress-value" class="text-xs text-slate-600">75%</span>
                             </div>
-                            <div class="relative h-4 bg-slate-200 rounded-lg overflow-hidden border border-slate-300" style="height: 16px;">
-                                <div class="absolute top-0 bottom-0 left-0 bg-slate-700 transition-all duration-300" style="width: 75%; height: 100%;"></div>
+                            <div id="progress-container" onclick="event.stopPropagation(); const rect = this.getBoundingClientRect(); const x = event.clientX - rect.left; const percent = Math.round((x / rect.width) * 100); document.getElementById('progress-value').textContent = percent + '%'; document.getElementById('progress-fill').style.width = percent + '%';" class="relative h-4 rounded-lg overflow-hidden border border-slate-300 cursor-pointer" style="height: 16px; background-color: #E2E8F0;">
+                                <div id="progress-fill" class="absolute top-0 bottom-0 left-0 transition-all duration-300" style="width: 75%; height: 100%; background-color: #334155; pointer-events: none;"></div>
                             </div>
                         </div>
 
@@ -1776,7 +1932,7 @@ class MacroBuilderApp {
                         </div>
 
                         <!-- Buttons -->
-                        <div class="flex gap-2 flex-wrap">
+                        <div class="flex gap-3 flex-wrap">
                             <button class="btn-primary">Primary</button>
                             <button class="btn-secondary">Secondary</button>
                             <button class="btn-tertiary">Tertiary</button>
@@ -1877,7 +2033,7 @@ class MacroBuilderApp {
                 if (action.region) {
                     return `영역: ${action.region.width}×${action.region.height} • ${Math.round((action.threshold || 0.9) * 100)}%`;
                 }
-                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%)`;
+                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%`;
             case 'if':
             case 'else-if':
             case 'while':
@@ -2177,6 +2333,11 @@ class MacroBuilderApp {
 
     async executeAction(action) {
         try {
+            // Handle image-match action differently (frontend processing)
+            if (action.type === 'image-match') {
+                return await this.executeImageMatchAction(action);
+            }
+
             // Map frontend action format to backend format
             const backendAction = this.mapActionToBackend(action);
             console.log('[executeAction] Original action:', action);
@@ -2190,6 +2351,135 @@ class MacroBuilderApp {
         } catch (error) {
             console.error('[executeAction] Error:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    async executeImageMatchAction(action) {
+        try {
+            console.log('[executeImageMatchAction] Starting with action:', action);
+
+            if (!action.region) {
+                const msg = 'No region defined';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            if (!window.imageMatcher) {
+                const msg = 'Image matcher not available';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            // Get current screen image and convert to canvas
+            const screenImg = document.getElementById('screen-stream-image');
+            if (!screenImg) {
+                const msg = 'Screen image element not found';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            if (!screenImg.complete) {
+                const msg = 'Screen image not loaded yet';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            console.log('[executeImageMatchAction] Screen image:', screenImg.width, 'x', screenImg.height);
+
+            // Create temporary canvas from screen image
+            const screenCanvas = document.createElement('canvas');
+            screenCanvas.width = screenImg.naturalWidth || screenImg.width;
+            screenCanvas.height = screenImg.naturalHeight || screenImg.height;
+            const screenCtx = screenCanvas.getContext('2d');
+
+            if (!screenCtx) {
+                const msg = 'Failed to get screen canvas 2d context';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            screenCtx.drawImage(screenImg, 0, 0);
+            console.log('[executeImageMatchAction] Screen canvas created:', screenCanvas.width, 'x', screenCanvas.height);
+
+            // Extract template image directly from the region (don't use saved thumbnail)
+            // Calculate scaling factor between device coordinates and actual image size
+            const scaleX = screenCanvas.width / this.screenWidth;
+            const scaleY = screenCanvas.height / this.screenHeight;
+
+            // Convert region coordinates to actual image coordinates
+            const actualX = Math.round(action.region.x * scaleX);
+            const actualY = Math.round(action.region.y * scaleY);
+            const actualWidth = Math.round(action.region.width * scaleX);
+            const actualHeight = Math.round(action.region.height * scaleY);
+
+            console.log('[executeImageMatchAction] Template extraction:', {
+                deviceRegion: action.region,
+                scale: { x: scaleX, y: scaleY },
+                actualRegion: { x: actualX, y: actualY, width: actualWidth, height: actualHeight }
+            });
+
+            // Create template canvas from the region
+            const templateCanvas = document.createElement('canvas');
+            templateCanvas.width = actualWidth;
+            templateCanvas.height = actualHeight;
+            const templateCtx = templateCanvas.getContext('2d');
+
+            if (!templateCtx) {
+                const msg = 'Failed to get template canvas 2d context';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
+
+            // Draw the region from screen canvas to template canvas
+            templateCtx.drawImage(
+                screenImg,
+                actualX, actualY, actualWidth, actualHeight,
+                0, 0, actualWidth, actualHeight
+            );
+
+            console.log('[executeImageMatchAction] Template canvas created:', templateCanvas.width, 'x', templateCanvas.height);
+
+            const sourceImageData = screenCtx.getImageData(0, 0, screenCanvas.width, screenCanvas.height);
+            const templateImageData = templateCtx.getImageData(0, 0, templateCanvas.width, templateCanvas.height);
+
+            console.log('[executeImageMatchAction] ImageData created, source:', sourceImageData.width, 'x', sourceImageData.height, 'template:', templateImageData.width, 'x', templateImageData.height);
+            console.log('[executeImageMatchAction] Device resolution:', this.screenWidth, 'x', this.screenHeight);
+            console.log('[executeImageMatchAction] Region (device coordinates):', action.region);
+
+            const threshold = action.threshold || 0.9;
+            console.log('[executeImageMatchAction] Calling findTemplate with threshold:', threshold);
+
+            const result = await window.imageMatcher.findTemplate(sourceImageData, templateImageData, {
+                threshold: threshold,
+                cropLocation: {
+                    x: actualX,
+                    y: actualY
+                },
+                useCache: false
+            });
+
+            console.log('[executeImageMatchAction] findTemplate result:', result);
+
+            if (result.found) {
+                this.addLog('success', `이미지 매칭 성공: (${result.x}, ${result.y}), 정확도: ${(result.score * 100).toFixed(1)}%`);
+                return { success: true, found: true, x: result.x, y: result.y, score: result.score };
+            } else {
+                const errorMsg = `이미지를 찾지 못했습니다 (최고 점수: ${(result.score * 100).toFixed(1)}%)`;
+                this.addLog('warning', errorMsg);
+                return { success: false, found: false, score: result.score, error: errorMsg };
+            }
+        } catch (error) {
+            const errorMsg = error && error.message ? error.message : String(error);
+            console.error('[executeImageMatchAction] Error:', error);
+            console.error('[executeImageMatchAction] Error stack:', error && error.stack);
+            this.addLog('error', `이미지 매칭 에러: ${errorMsg}`);
+            return { success: false, error: errorMsg };
         }
     }
 
@@ -2367,26 +2657,15 @@ class MacroBuilderApp {
     }
 
     handleScreenPreviewClick(e) {
-        // Get the actual img element bounds (not the container)
-        const img = document.getElementById('screen-stream-image');
-        if (!img) {
-            console.warn('[handleScreenPreviewClick] screen-stream-image not found');
+        // Use the same coordinate calculation as handleScreenClick for consistency
+        const coords = this.getScaledCoordinates(e);
+        if (!coords) {
+            console.warn('[handleScreenPreviewClick] Could not get scaled coordinates');
             return;
         }
 
-        // Calculate coordinates relative to the actual image and convert to device coordinates
-        const imgRect = img.getBoundingClientRect();
-        const clickX = e.clientX - imgRect.left;
-        const clickY = e.clientY - imgRect.top;
-
-        // Check if click is within the actual image bounds
-        if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
-            console.warn('[handleScreenPreviewClick] Click outside image bounds');
-            return;
-        }
-
-        const x = Math.round((clickX / imgRect.width) * this.screenWidth);
-        const y = Math.round((clickY / imgRect.height) * this.screenHeight);
+        const x = coords.x;
+        const y = coords.y;
 
         // Handle drag action (requires two clicks)
         if (this.pendingActionType === 'drag') {
@@ -2505,7 +2784,15 @@ class MacroBuilderApp {
 
     // Log management methods
     addLog(level, message) {
-        const timestamp = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
         const logEntry = {
             timestamp,
             level,
@@ -2881,6 +3168,13 @@ class MacroBuilderApp {
                         if (deviceInfo.screen) {
                             this.screenWidth = deviceInfo.screen.width;
                             this.screenHeight = deviceInfo.screen.height;
+
+                            // Update coordinate system with new device dimensions
+                            this.coordinateSystem.init(this.screenWidth, this.screenHeight, 0);
+                            console.log('Coordinate system updated with device dimensions:', {
+                                width: this.screenWidth,
+                                height: this.screenHeight
+                            });
                         }
 
                         // Hide device connection UI and show screen preview
@@ -3025,6 +3319,214 @@ class MacroBuilderApp {
         this.logs = [];
         this.renderLogs();
         this.addLog('info', '로그가 초기화되었습니다');
+    }
+
+    // Update region property (x, y, width, height)
+    updateRegionProperty(actionId, property, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.region) return;
+
+        action.region[property] = value;
+
+        // Recapture the image with the new region coordinates
+        this.captureRegionImage(action);
+
+        this.saveMacro();
+        this.render();
+    }
+
+    // Auto crop region - removes uniform background from captured image
+    async autoCropRegion(actionId) {
+        try {
+            const action = this.actions.find(a => a.id === actionId);
+            if (!action || !action.region) {
+                this.addLog('error', '영역을 찾을 수 없습니다');
+                return;
+            }
+
+            // Get the thumbnail canvas
+            const thumbnailCanvas = document.getElementById(`thumbnail-${actionId}`);
+            if (!thumbnailCanvas) {
+                this.addLog('error', '썸네일 캔버스를 찾을 수 없습니다');
+                return;
+            }
+
+            const ctx = thumbnailCanvas.getContext('2d');
+            const width = thumbnailCanvas.width;
+            const height = thumbnailCanvas.height;
+
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Sample corner pixels to determine background color
+            const cornerSamples = [
+                { x: 0, y: 0 },
+                { x: width - 1, y: 0 },
+                { x: 0, y: height - 1 },
+                { x: width - 1, y: height - 1 }
+            ];
+
+            // Calculate average background color from corners
+            let bgR = 0, bgG = 0, bgB = 0, bgA = 0;
+            cornerSamples.forEach(sample => {
+                const idx = (sample.y * width + sample.x) * 4;
+                bgR += data[idx];
+                bgG += data[idx + 1];
+                bgB += data[idx + 2];
+                bgA += data[idx + 3];
+            });
+            bgR = Math.round(bgR / 4);
+            bgG = Math.round(bgG / 4);
+            bgB = Math.round(bgB / 4);
+            bgA = Math.round(bgA / 4);
+
+            // Tolerance for background matching
+            const tolerance = 30;
+
+            // Find the bounding box of non-background pixels
+            let minX = width, minY = height, maxX = 0, maxY = 0;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    const a = data[idx + 3];
+
+                    // Check if pixel is significantly different from background
+                    const diffR = Math.abs(r - bgR);
+                    const diffG = Math.abs(g - bgG);
+                    const diffB = Math.abs(b - bgB);
+                    const diffA = Math.abs(a - bgA);
+
+                    if (diffR > tolerance || diffG > tolerance || diffB > tolerance || diffA > tolerance) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            // Check if we found any content
+            if (maxX === 0 && maxY === 0) {
+                this.addLog('warning', '자동 크롭할 영역을 찾을 수 없습니다');
+                return;
+            }
+
+            // Add small padding
+            const padding = 2;
+            minX = Math.max(0, minX - padding);
+            minY = Math.max(0, minY - padding);
+            maxX = Math.min(width - 1, maxX + padding);
+            maxY = Math.min(height - 1, maxY + padding);
+
+            // Calculate cropped dimensions
+            const cropWidth = maxX - minX + 1;
+            const cropHeight = maxY - minY + 1;
+
+            // Check if crop area is valid
+            if (cropWidth < 10 || cropHeight < 10) {
+                this.addLog('warning', '크롭 영역이 너무 작습니다');
+                return;
+            }
+
+            // Calculate the original region coordinates (in screen space)
+            const originalRegion = action.region;
+            const scaleX = originalRegion.width / width;
+            const scaleY = originalRegion.height / height;
+
+            // Update the region to the cropped area (in screen coordinates)
+            action.region = {
+                x: Math.round(originalRegion.x + minX * scaleX),
+                y: Math.round(originalRegion.y + minY * scaleY),
+                width: Math.round(cropWidth * scaleX),
+                height: Math.round(cropHeight * scaleY)
+            };
+
+            this.addLog('success', `자동 크롭 완료: ${cropWidth}×${cropHeight}`);
+            this.saveMacro();
+            this.render();
+
+        } catch (error) {
+            this.addLog('error', `자동 크롭 실패: ${error.message}`);
+        }
+    }
+
+    // Test image matching - checks if current screen matches the template
+    async testImageMatch(actionId) {
+        try {
+            const action = this.actions.find(a => a.id === actionId);
+            if (!action || !action.region) {
+                this.addLog('error', '영역을 찾을 수 없습니다');
+                return;
+            }
+
+            // Check if imageMatcher is available
+            if (!window.imageMatcher) {
+                this.addLog('error', '이미지 매칭 엔진을 찾을 수 없습니다');
+                return;
+            }
+
+            // Get the current screen image and convert to canvas
+            const screenImg = document.getElementById('screen-stream-image');
+            if (!screenImg || !screenImg.complete) {
+                this.addLog('error', '스크린 이미지를 찾을 수 없습니다');
+                return;
+            }
+
+            // Create temporary canvas from screen image
+            const screenCanvas = document.createElement('canvas');
+            screenCanvas.width = screenImg.naturalWidth || screenImg.width;
+            screenCanvas.height = screenImg.naturalHeight || screenImg.height;
+            const screenCtx = screenCanvas.getContext('2d');
+            screenCtx.drawImage(screenImg, 0, 0);
+
+            // Get the template canvas (thumbnail)
+            const templateCanvas = document.getElementById(`thumbnail-${actionId}`);
+            if (!templateCanvas) {
+                this.addLog('error', '템플릿 이미지를 찾을 수 없습니다');
+                return;
+            }
+
+            this.addLog('info', '이미지 매칭 테스트 시작...');
+
+            // Get image data from both canvases
+            const templateCtx = templateCanvas.getContext('2d');
+
+            const sourceImageData = screenCtx.getImageData(0, 0, screenCanvas.width, screenCanvas.height);
+            const templateImageData = templateCtx.getImageData(0, 0, templateCanvas.width, templateCanvas.height);
+
+            // Perform template matching
+            const threshold = action.threshold || 0.9;
+            const result = await window.imageMatcher.findTemplate(sourceImageData, templateImageData, {
+                threshold: threshold,
+                cropLocation: {
+                    x: action.region.x,
+                    y: action.region.y
+                },
+                useCache: false
+            });
+
+            if (result.found) {
+                this.addLog('success', `매칭 성공! 위치: (${result.x}, ${result.y}), 정확도: ${(result.score * 100).toFixed(1)}%`);
+
+                // TODO: Draw match location on screen (needs overlay canvas implementation)
+                // For now, just log the result
+
+                // Clear the log highlight after 2 seconds
+                setTimeout(() => {
+                    // Future: clear visual indicator
+                }, 2000);
+            } else {
+                this.addLog('warning', `매칭 실패. 최고 점수: ${(result.score * 100).toFixed(1)}% (임계값: ${(threshold * 100).toFixed(0)}%)`);
+            }
+
+        } catch (error) {
+            this.addLog('error', `이미지 매칭 테스트 실패: ${error.message}`);
+        }
     }
 }
 

@@ -848,7 +848,37 @@ svg {
     border: 4px solid var(--slate-800);
     width: 100%;
     max-width: 100%;
-    aspect-ratio: 2 / 1;
+    aspect-ratio: 2 / 1; /* Default landscape */
+}
+
+/* Adaptive orientations for screen preview */
+.screen-preview.portrait {
+    aspect-ratio: 9 / 20 !important; /* Force exact portrait aspect ratio */
+    width: auto !important;
+    height: 85% !important; /* Use most of the container height */
+    max-width: none !important;
+    max-height: 85% !important;
+}
+
+.screen-preview.landscape {
+    aspect-ratio: 16 / 9; /* Standard landscape aspect */
+    max-width: 95%;
+    max-height: 90%;
+}
+
+.screen-preview.square {
+    aspect-ratio: 1 / 1; /* Square aspect */
+    max-width: 75%;
+    max-height: 90%;
+}
+
+/* Image inside screen preview - fills container completely */
+#screen-stream-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #000;
 }
 
 .screen-preview-content {
@@ -943,15 +973,16 @@ svg {
 /* Action Marker */
 .action-marker {
     position: absolute;
-    width: 2rem;
-    height: 2rem;
-    margin-left: -1rem;
-    margin-top: -1rem;
-    border-radius: 9999px;
-    border: 4px solid var(--blue-500);
-    background: rgba(59, 130, 246, 0.2);
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    margin-top: -12px;
+    border-radius: 50%;
+    border: 2px solid #2563eb;
+    background: rgba(37, 99, 235, 0.2);
     pointer-events: none;
     z-index: 10;
+    box-sizing: border-box;
 }
 
 .action-marker-pulse {
@@ -2267,6 +2298,12 @@ svg {
     color: #ef4444;
 }
 
+.log-level-debug {
+    color: #8b5cf6;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
 .log-message {
     flex: 1;
     word-break: break-word;
@@ -2295,13 +2332,13 @@ svg {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 400;
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s ease;
-    border: 2px solid;
+    border: 1px solid;
 }
 
 .btn-primary {
@@ -2357,4 +2394,16 @@ svg {
 .btn-tertiary:active {
     transform: translateY(0);
     box-shadow: none;
+}
+
+/* Hide number input spinner buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
