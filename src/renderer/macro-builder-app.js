@@ -1135,11 +1135,6 @@ class MacroBuilderApp {
         delete params.id;
         delete params.type;
 
-        // Add default clickOnFound for image-match
-        if (sourceAction.type === 'image-match' && params.clickOnFound === undefined) {
-            params.clickOnFound = false;
-        }
-
         const newCondition = {
             id: `cond-${Date.now()}`,
             actionType: sourceAction.type,
@@ -1188,7 +1183,7 @@ class MacroBuilderApp {
         // Reset params based on action type
         switch (actionType) {
             case 'image-match':
-                condition.params = { imagePath: 'image.png', threshold: 0.9, clickOnFound: false };
+                condition.params = { imagePath: 'image.png', threshold: 0.9 };
                 break;
             case 'click':
             case 'long-press':
@@ -1324,9 +1319,27 @@ class MacroBuilderApp {
             `window.macroApp.updateConditionParam('${actionId}', '${condition.id}', '$2',`
         );
 
+        // Add auto-click option for image-match conditions
+        let autoClickHTML = '';
+        if (condition.actionType === 'image-match') {
+            autoClickHTML = `
+                <div class="bg-slate-50/50 px-4 py-3 border-t border-slate-200">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox"
+                            ${condition.autoClick ? 'checked' : ''}
+                            onclick="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'autoClick', this.checked)"
+                            class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm text-slate-700">찾은 좌표 터치</span>
+                        <span class="text-xs text-slate-500">(이미지 찾으면 자동으로 클릭)</span>
+                    </label>
+                </div>
+            `;
+        }
+
         return `
             <div class="settings-panel border-t border-slate-200 bg-slate-50 px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${settingsHTML}
+                ${autoClickHTML}
             </div>
         `;
     }
@@ -1742,17 +1755,6 @@ class MacroBuilderApp {
                                     })()}</span>
                                     <span class="text-xs text-slate-400">100%</span>
                                 </div>
-                            </div>
-
-                            <!-- Click on Found Option -->
-                            <div>
-                                <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
-                                    <input type="checkbox" ${action.clickOnFound ? 'checked' : ''}
-                                        class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        onchange="window.macroApp.updateActionValue('${action.id}', 'clickOnFound', this.checked)">
-                                    <span class="text-xs text-slate-700">찾은 좌표 터치</span>
-                                </label>
-                                <p class="text-xs text-slate-500 mt-1 ml-6">이미지 매칭 성공 시 자동으로 해당 위치를 터치합니다</p>
                             </div>
                         ` : `
                             <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
@@ -2399,21 +2401,18 @@ class MacroBuilderApp {
 
                 this.addLog('info', `조건 평가: ${condition.actionType} = ${result.success ? 'true' : 'false'}`);
 
-                // If image-match succeeded and clickOnFound is enabled, click on the found position
-                if (result.success && condition.actionType === 'image-match' && condition.params.clickOnFound && result.x !== undefined && result.y !== undefined) {
+                // If image-match succeeded and autoClick is enabled, click the found position
+                if (condition.actionType === 'image-match' && result.success && result.found && condition.autoClick) {
                     const clickAction = {
-                        type: 'tap',
+                        type: 'click',
                         x: result.x,
-                        y: result.y,
-                        duration: 100
+                        y: result.y
                     };
-
-                    const clickResult = await window.api.action.execute(clickAction);
-
+                    const clickResult = await this.executeAction(clickAction);
                     if (clickResult.success) {
-                        this.addLog('success', `찾은 좌표 터치: (${result.x}, ${result.y})`);
+                        this.addLog('success', `자동 클릭: (${result.x}, ${result.y})`);
                     } else {
-                        this.addLog('error', `찾은 좌표 터치 실패: ${clickResult.error}`);
+                        this.addLog('error', `자동 클릭 실패: ${clickResult.error}`);
                     }
                 }
 
