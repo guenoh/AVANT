@@ -975,8 +975,7 @@ svg {
     position: absolute;
     width: 24px;
     height: 24px;
-    margin-left: -12px;
-    margin-top: -12px;
+    transform: translate(-50%, -50%);
     border-radius: 50%;
     border: 2px solid #2563eb;
     background: rgba(37, 99, 235, 0.2);

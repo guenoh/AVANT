@@ -276,6 +276,39 @@ class MacroBuilderApp {
         this.addLog('debug', debugInfo);
         this.addLog('debug', detailInfo);
 
+        // Show click position temporarily as a green dot
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (screenPreview) {
+            const containerRect = screenPreview.getBoundingClientRect();
+            // 클릭 위치를 컨테이너 기준으로 정확히 계산
+            const clickDotX = e.clientX - containerRect.left;
+            const clickDotY = e.clientY - containerRect.top;
+
+            const clickDot = document.createElement('div');
+            clickDot.style.position = 'absolute';
+            clickDot.style.width = '10px';
+            clickDot.style.height = '10px';
+            clickDot.style.backgroundColor = 'lime';
+            clickDot.style.border = '1px solid darkgreen';
+            clickDot.style.borderRadius = '50%';
+            // transform을 사용해서 정확히 중심에 배치
+            clickDot.style.transform = 'translate(-50%, -50%)';
+            clickDot.style.left = `${clickDotX}px`;
+            clickDot.style.top = `${clickDotY}px`;
+            clickDot.style.zIndex = '12';
+            clickDot.style.pointerEvents = 'none';
+            screenPreview.appendChild(clickDot);
+
+            // Remove after 2 seconds
+            setTimeout(() => clickDot.remove(), 2000);
+
+            console.log('Green dot placed at:', {
+                mouse: { x: e.clientX, y: e.clientY },
+                imgRelative: { x: clickX, y: clickY },
+                containerRelative: { x: clickDotX, y: clickDotY }
+            });
+        }
+
         // If no action selected, just return after showing coordinates
         if (!this.selectedActionId) {
             return;
@@ -504,16 +537,24 @@ class MacroBuilderApp {
             const imgY = normalizedY * actualImgHeight;
 
             // Convert to position relative to container (accounting for letterbox)
-            const markerX = (imgRect.left - containerRect.left) + offsetX + imgX;
-            const markerY = (imgRect.top - containerRect.top) + offsetY + imgY;
+            // Since the marker is added to the same container as the image,
+            // we just need the letterbox offset plus the image position
+            const markerX = offsetX + imgX;
+            const markerY = offsetY + imgY;
 
-            console.log('[updateSelectedActionMarker] Coordinate conversion:', {
+            console.log('[updateSelectedActionMarker] Placing marker at center of click:', {
                 deviceCoords: { x: action.x, y: action.y },
                 screenResolution: { width: this.screenWidth, height: this.screenHeight },
-                letterbox: { offsetX, offsetY },
-                actual: { width: actualImgWidth, height: actualImgHeight },
-                imgPosition: { x: imgX, y: imgY },
-                finalMarker: { x: markerX, y: markerY }
+                normalized: { x: normalizedX.toFixed(4), y: normalizedY.toFixed(4) },
+                letterbox: { offsetX: offsetX.toFixed(2), offsetY: offsetY.toFixed(2) },
+                actualImg: { width: actualImgWidth.toFixed(2), height: actualImgHeight.toFixed(2) },
+                imgPosition: { x: imgX.toFixed(2), y: imgY.toFixed(2) },
+                containerOffset: {
+                    x: (imgRect.left - containerRect.left).toFixed(2),
+                    y: (imgRect.top - containerRect.top).toFixed(2)
+                },
+                finalMarker: { x: markerX.toFixed(2), y: markerY.toFixed(2) },
+                markerSize: '24x24px with -12px margins to center'
             });
 
             const marker = document.createElement('div');
@@ -522,6 +563,20 @@ class MacroBuilderApp {
             marker.style.top = `${markerY}px`;
             marker.innerHTML = '<div class="action-marker-pulse"></div>';
             screenPreview.appendChild(marker);
+
+            // Add a debug dot at the exact center (for debugging)
+            const debugDot = document.createElement('div');
+            debugDot.style.position = 'absolute';
+            debugDot.style.width = '4px';
+            debugDot.style.height = '4px';
+            debugDot.style.backgroundColor = 'red';
+            debugDot.style.borderRadius = '50%';
+            debugDot.style.transform = 'translate(-50%, -50%)';
+            debugDot.style.left = `${markerX}px`;
+            debugDot.style.top = `${markerY}px`;
+            debugDot.style.zIndex = '11';
+            debugDot.style.pointerEvents = 'none';
+            screenPreview.appendChild(debugDot);
 
             // For drag, show line and end marker
             if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
@@ -2757,13 +2812,22 @@ class MacroBuilderApp {
         existingMarkers.forEach(m => m.remove());
 
         // Calculate position in pixels relative to container
-        const containerRect = screenPreview.getBoundingClientRect();
         const imgRect = img.getBoundingClientRect();
 
-        const imgX = (x / this.screenWidth) * imgRect.width;
-        const imgY = (y / this.screenHeight) * imgRect.height;
-        const markerX = (imgRect.left - containerRect.left) + imgX;
-        const markerY = (imgRect.top - containerRect.top) + imgY;
+        // Get display info with letterbox offset
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Normalize device coordinates to 0-1
+        const normalizedX = x / this.screenWidth;
+        const normalizedY = y / this.screenHeight;
+
+        // Scale to actual image dimensions
+        const imgX = normalizedX * actualImgWidth;
+        const imgY = normalizedY * actualImgHeight;
+
+        // Position relative to container (accounting for letterbox)
+        const markerX = offsetX + imgX;
+        const markerY = offsetY + imgY;
 
         // Create start point marker
         const marker = document.createElement('div');
