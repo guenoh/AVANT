@@ -278,11 +278,25 @@ class MacroBuilderApp {
 
         // Show click position temporarily as a green dot
         const screenPreview = document.getElementById('screen-preview-canvas');
-        if (screenPreview) {
-            const containerRect = screenPreview.getBoundingClientRect();
-            // 클릭 위치를 컨테이너 기준으로 정확히 계산
-            const clickDotX = e.clientX - containerRect.left;
-            const clickDotY = e.clientY - containerRect.top;
+        if (screenPreview && img) {
+            const imgRect = img.getBoundingClientRect();
+
+            // Get display info with letterbox offset
+            const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+            // Calculate the actual click position relative to the image (accounting for letterbox)
+            const clickRelativeToImg = {
+                x: e.clientX - imgRect.left,
+                y: e.clientY - imgRect.top
+            };
+
+            // Adjust for letterbox
+            const actualClickX = clickRelativeToImg.x - offsetX;
+            const actualClickY = clickRelativeToImg.y - offsetY;
+
+            // Convert back to container coordinates for display
+            const clickDotX = offsetX + actualClickX;
+            const clickDotY = offsetY + actualClickY;
 
             const clickDot = document.createElement('div');
             clickDot.style.position = 'absolute';
