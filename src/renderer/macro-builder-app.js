@@ -556,7 +556,7 @@ class MacroBuilderApp {
         }
 
         // Remove existing markers
-        const existingMarkers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+        const existingMarkers = screenPreview.querySelectorAll('.action-marker, .action-marker-line, .region-marker');
         existingMarkers.forEach(m => m.remove());
 
         if (action.x !== undefined && action.y !== undefined) {
@@ -700,7 +700,8 @@ class MacroBuilderApp {
 
             // Create region rectangle
             const regionMarker = document.createElement('div');
-            regionMarker.className = 'action-marker';
+            regionMarker.className = 'region-marker';
+            regionMarker.style.position = 'absolute';
             regionMarker.style.left = `${markerX}px`;
             regionMarker.style.top = `${markerY}px`;
             regionMarker.style.width = `${regionWidth}px`;
@@ -708,9 +709,9 @@ class MacroBuilderApp {
             regionMarker.style.border = '2px solid #6366f1';
             regionMarker.style.background = 'rgba(99, 102, 241, 0.2)';
             regionMarker.style.borderRadius = '4px';
-            regionMarker.style.marginLeft = '0';
-            regionMarker.style.marginTop = '0';
-            regionMarker.style.transform = 'none';
+            regionMarker.style.pointerEvents = 'none';
+            regionMarker.style.zIndex = '10';
+            regionMarker.style.boxSizing = 'border-box';
 
             // Create size label
             const sizeLabel = document.createElement('div');
@@ -757,7 +758,8 @@ class MacroBuilderApp {
 
             // Create selection rectangle
             const selectionMarker = document.createElement('div');
-            selectionMarker.className = 'action-marker';
+            selectionMarker.className = 'region-marker';
+            selectionMarker.style.position = 'absolute';
             selectionMarker.style.left = `${markerX}px`;
             selectionMarker.style.top = `${markerY}px`;
             selectionMarker.style.width = `${regionWidth}px`;
@@ -765,9 +767,9 @@ class MacroBuilderApp {
             selectionMarker.style.border = '2px solid #6366f1';
             selectionMarker.style.background = 'rgba(99, 102, 241, 0.2)';
             selectionMarker.style.borderRadius = '4px';
-            selectionMarker.style.marginLeft = '0';
-            selectionMarker.style.marginTop = '0';
-            selectionMarker.style.transform = 'none';
+            selectionMarker.style.pointerEvents = 'none';
+            selectionMarker.style.zIndex = '10';
+            selectionMarker.style.boxSizing = 'border-box';
 
             // Create size label
             const sizeLabel = document.createElement('div');
