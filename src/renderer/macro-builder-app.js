@@ -387,6 +387,11 @@ class MacroBuilderApp {
         const coords = this.getScaledCoordinates(e);
         if (!coords) return;
 
+        console.log('[handleMouseDown] Drag start coordinates:', {
+            mouse: { x: e.clientX, y: e.clientY },
+            device: coords
+        });
+
         // Clear existing region when starting new selection
         if (selectedAction.region) {
             selectedAction.region = undefined;
@@ -695,8 +700,19 @@ class MacroBuilderApp {
             const regionHeight = (action.region.height / this.screenHeight) * actualImgHeight;
 
             // Convert to position relative to container
-            const markerX = (imgRect.left - containerRect.left) + offsetX + regionX;
-            const markerY = (imgRect.top - containerRect.top) + offsetY + regionY;
+            const containerOffset = imgRect.left - containerRect.left;
+            const containerOffsetY = imgRect.top - containerRect.top;
+            const markerX = containerOffset + offsetX + regionX;
+            const markerY = containerOffsetY + offsetY + regionY;
+
+            console.log('[Region Marker] Positioning:', {
+                deviceRegion: action.region,
+                imgSize: { w: actualImgWidth, h: actualImgHeight },
+                imgPosition: { x: regionX.toFixed(2), y: regionY.toFixed(2) },
+                containerOffset: { x: containerOffset.toFixed(2), y: containerOffsetY.toFixed(2) },
+                letterbox: { x: offsetX.toFixed(2), y: offsetY.toFixed(2) },
+                finalMarker: { x: markerX.toFixed(2), y: markerY.toFixed(2) }
+            });
 
             // Create region rectangle
             const regionMarker = document.createElement('div');
