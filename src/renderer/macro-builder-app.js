@@ -238,7 +238,7 @@ class MacroBuilderApp {
         this.addLog('info', '매크로 빌더 준비 완료');
     }
 
-    handleScreenClick(e) {
+    async handleScreenClick(e) {
         // Use the same coordinate calculation as getScaledCoordinates for consistency
         const coords = this.getScaledCoordinates(e);
         if (!coords) {
@@ -2750,21 +2750,21 @@ class MacroBuilderApp {
                 this.updatePickingTooltipMessage();
             } else {
                 // Second click - create drag action with start and end points
-                this.createDragAction(this.dragStartPoint.x, this.dragStartPoint.y, x, y);
+                await this.createDragAction(this.dragStartPoint.x, this.dragStartPoint.y, x, y);
 
-                // Exit picking mode
+                // Exit picking mode after action completes
                 this.cancelCoordinatePicking();
             }
         } else {
             // Handle click and long-press (single click)
-            this.createActionWithCoordinate(this.pendingActionType, x, y);
+            await this.createActionWithCoordinate(this.pendingActionType, x, y);
 
-            // Exit picking mode
+            // Exit picking mode after action completes
             this.cancelCoordinatePicking();
         }
     }
 
-    createActionWithCoordinate(type, x, y) {
+    async createActionWithCoordinate(type, x, y) {
         const newAction = {
             id: `action-${Date.now()}`,
             type,
@@ -2782,9 +2782,32 @@ class MacroBuilderApp {
         // Log the action creation
         const actionName = type === 'click' ? '클릭' : '롱프레스';
         this.addLog('success', `${actionName} 액션 추가: (${x}, ${y})`);
+
+        // Execute immediately if instant execute is enabled
+        const instantExecute = document.getElementById('option-instant-execute')?.checked;
+        if (instantExecute) {
+            // Get delay option
+            const delaySelect = document.getElementById('option-delay');
+            const delay = parseInt(delaySelect?.value || '300');
+
+            // Execute the action on device
+            this.addLog('info', `즉시 실행: ${actionName}`);
+            const result = await this.executeAction(newAction);
+
+            if (result.success) {
+                this.addLog('success', `${actionName} 실행 완료`);
+            } else {
+                this.addLog('error', `${actionName} 실행 실패: ${result.error}`);
+            }
+
+            // Apply delay after execution
+            if (delay > 0) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
 
-    createDragAction(startX, startY, endX, endY) {
+    async createDragAction(startX, startY, endX, endY) {
         const newAction = {
             id: `action-${Date.now()}`,
             type: 'drag',
@@ -2802,6 +2825,29 @@ class MacroBuilderApp {
 
         // Log the action creation
         this.addLog('success', `드래그 액션 추가: (${startX}, ${startY}) → (${endX}, ${endY})`);
+
+        // Execute immediately if instant execute is enabled
+        const instantExecute = document.getElementById('option-instant-execute')?.checked;
+        if (instantExecute) {
+            // Get delay option
+            const delaySelect = document.getElementById('option-delay');
+            const delay = parseInt(delaySelect?.value || '300');
+
+            // Execute the action on device
+            this.addLog('info', `즉시 실행: 드래그`);
+            const result = await this.executeAction(newAction);
+
+            if (result.success) {
+                this.addLog('success', `드래그 실행 완료`);
+            } else {
+                this.addLog('error', `드래그 실행 실패: ${result.error}`);
+            }
+
+            // Apply delay after execution
+            if (delay > 0) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
 
     updatePickingTooltipMessage() {
