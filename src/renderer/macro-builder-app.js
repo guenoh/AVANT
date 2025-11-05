@@ -517,12 +517,12 @@ class MacroBuilderApp {
         const clampedY = Math.max(0, Math.min(actualImgHeight - 0.001, actualClickY));
 
         // Scale to device coordinates with better precision
-        // Use floor to ensure we don't exceed device bounds due to rounding
+        // Use round for more accurate coordinate mapping
         const normalizedX = clampedX / actualImgWidth;
         const normalizedY = clampedY / actualImgHeight;
 
-        const x = Math.floor(normalizedX * this.screenWidth);
-        const y = Math.floor(normalizedY * this.screenHeight);
+        const x = Math.round(normalizedX * this.screenWidth);
+        const y = Math.round(normalizedY * this.screenHeight);
 
         // Only log on actual click events, not during mouse move
         if (e.type === 'click') {
