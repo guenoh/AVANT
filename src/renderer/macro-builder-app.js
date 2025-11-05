@@ -1738,6 +1738,17 @@ class MacroBuilderApp {
                                     <span class="text-xs text-slate-400">100%</span>
                                 </div>
                             </div>
+
+                            <!-- Click on Found Option -->
+                            <div>
+                                <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
+                                    <input type="checkbox" ${action.clickOnFound ? 'checked' : ''}
+                                        class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        onchange="window.macroApp.updateActionValue('${action.id}', 'clickOnFound', this.checked)">
+                                    <span class="text-xs text-slate-700">찾은 좌표 터치</span>
+                                </label>
+                                <p class="text-xs text-slate-500 mt-1 ml-6">이미지 매칭 성공 시 자동으로 해당 위치를 터치합니다</p>
+                            </div>
                         ` : `
                             <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
                                 <p class="text-xs text-slate-700 leading-relaxed">
@@ -2382,6 +2393,24 @@ class MacroBuilderApp {
                 const result = await this.executeAction(conditionAction);
 
                 this.addLog('info', `조건 평가: ${condition.actionType} = ${result.success ? 'true' : 'false'}`);
+
+                // If image-match succeeded and clickOnFound is enabled, click on the found position
+                if (result.success && condition.actionType === 'image-match' && condition.params.clickOnFound && result.x !== undefined && result.y !== undefined) {
+                    const clickAction = {
+                        type: 'tap',
+                        x: result.x,
+                        y: result.y,
+                        duration: 100
+                    };
+
+                    const clickResult = await window.api.action.execute(clickAction);
+
+                    if (clickResult.success) {
+                        this.addLog('success', `찾은 좌표 터치: (${result.x}, ${result.y})`);
+                    } else {
+                        this.addLog('error', `찾은 좌표 터치 실패: ${clickResult.error}`);
+                    }
+                }
 
                 // AND operation
                 groupResult = groupResult && result.success;
