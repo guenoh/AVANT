@@ -2604,10 +2604,16 @@ class MacroBuilderApp {
             console.log('[executeImageMatchAction] findTemplate result:', result);
 
             if (result.found) {
-                // Store the matched coordinate for tap-matched-image action
-                this.lastMatchedCoordinate = { x: result.x, y: result.y };
-                this.addLog('success', `이미지 매칭 성공: (${result.x}, ${result.y}), 정확도: ${(result.score * 100).toFixed(1)}%`);
-                return { success: true, found: true, x: result.x, y: result.y, score: result.score };
+                // Calculate center of matched region
+                // result.x, result.y is the top-left corner of the matched region
+                // We need to add half of the template dimensions to get the center
+                const centerX = result.x + Math.round(action.region.width / 2);
+                const centerY = result.y + Math.round(action.region.height / 2);
+
+                // Store the center coordinate for tap-matched-image action
+                this.lastMatchedCoordinate = { x: centerX, y: centerY };
+                this.addLog('success', `이미지 매칭 성공: (${result.x}, ${result.y}) -> 중심: (${centerX}, ${centerY}), 정확도: ${(result.score * 100).toFixed(1)}%`);
+                return { success: true, found: true, x: centerX, y: centerY, score: result.score };
             } else {
                 // Clear last matched coordinate on failure
                 this.lastMatchedCoordinate = null;
