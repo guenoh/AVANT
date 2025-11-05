@@ -1135,6 +1135,11 @@ class MacroBuilderApp {
         delete params.id;
         delete params.type;
 
+        // Add default clickOnFound for image-match
+        if (sourceAction.type === 'image-match' && params.clickOnFound === undefined) {
+            params.clickOnFound = false;
+        }
+
         const newCondition = {
             id: `cond-${Date.now()}`,
             actionType: sourceAction.type,
@@ -1183,7 +1188,7 @@ class MacroBuilderApp {
         // Reset params based on action type
         switch (actionType) {
             case 'image-match':
-                condition.params = { imagePath: 'image.png', threshold: 0.9 };
+                condition.params = { imagePath: 'image.png', threshold: 0.9, clickOnFound: false };
                 break;
             case 'click':
             case 'long-press':
