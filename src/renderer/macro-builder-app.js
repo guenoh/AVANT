@@ -143,6 +143,16 @@ class MacroBuilderApp {
                 this.updatePickingTooltip(e);
             }
         });
+
+        // Window resize - update markers when window size changes
+        window.addEventListener('resize', () => {
+            if (this.selectedActionId) {
+                const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+                if (selectedAction) {
+                    this.updateSelectedActionMarker(selectedAction);
+                }
+            }
+        });
     }
 
     switchTab(tabName) {
@@ -235,6 +245,19 @@ class MacroBuilderApp {
         const clearLogsBtn = document.getElementById('btn-clear-logs');
         if (clearLogsBtn) {
             clearLogsBtn.addEventListener('click', () => this.clearLogs());
+        }
+
+        // Add image load handler to update markers when image size changes
+        const screenImg = document.getElementById('screen-stream-image');
+        if (screenImg) {
+            screenImg.addEventListener('load', () => {
+                if (this.selectedActionId) {
+                    const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
+                    if (selectedAction) {
+                        this.updateSelectedActionMarker(selectedAction);
+                    }
+                }
+            });
         }
 
         // Initialize with welcome log
