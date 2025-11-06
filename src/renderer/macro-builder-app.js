@@ -3697,7 +3697,7 @@ class MacroBuilderApp {
         this.updateSelectedActionMarker(action);
 
         // Re-render without showing save alert
-        this.render();
+        this.renderActionSequence();
     }
 
     updateRegionProperty(actionId, property, value) {
