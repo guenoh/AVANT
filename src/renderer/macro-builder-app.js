@@ -894,6 +894,166 @@ class MacroBuilderApp {
         }
     }
 
+    drawCoordinateMarker(x, y, color = '#3b82f6') {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        const img = document.getElementById('screen-stream-image');
+
+        if (!screenPreview || !img) return;
+
+        const containerRect = screenPreview.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Convert device coordinates to viewport coordinates
+        const normalizedX = x / this.screenWidth;
+        const normalizedY = y / this.screenHeight;
+        const imgX = normalizedX * actualImgWidth;
+        const imgY = normalizedY * actualImgHeight;
+        const markerX = offsetX + imgX;
+        const markerY = offsetY + imgY;
+
+        // Create marker
+        const marker = document.createElement('div');
+        marker.className = 'action-marker';
+        marker.style.left = `${markerX}px`;
+        marker.style.top = `${markerY}px`;
+        marker.style.borderColor = color;
+        marker.innerHTML = '<div class="action-marker-pulse"></div>';
+        screenPreview.appendChild(marker);
+    }
+
+    drawDragMarker(startX, startY, endX, endY) {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        const img = document.getElementById('screen-stream-image');
+
+        if (!screenPreview || !img) return;
+
+        const containerRect = screenPreview.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Start marker
+        const startImgX = (startX / this.screenWidth) * actualImgWidth;
+        const startImgY = (startY / this.screenHeight) * actualImgHeight;
+        const startMarkerX = offsetX + startImgX;
+        const startMarkerY = offsetY + startImgY;
+
+        const startMarker = document.createElement('div');
+        startMarker.className = 'action-marker';
+        startMarker.style.left = `${startMarkerX}px`;
+        startMarker.style.top = `${startMarkerY}px`;
+        startMarker.innerHTML = '<div class="action-marker-pulse"></div>';
+        screenPreview.appendChild(startMarker);
+
+        // End marker
+        const endImgX = (endX / this.screenWidth) * actualImgWidth;
+        const endImgY = (endY / this.screenHeight) * actualImgHeight;
+        const endMarkerX = offsetX + endImgX;
+        const endMarkerY = offsetY + endImgY;
+
+        // SVG line
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'action-marker-line');
+        svg.style.position = 'absolute';
+        svg.style.inset = '0';
+        svg.style.pointerEvents = 'none';
+        svg.style.zIndex = '10';
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'arrowhead');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '3.5');
+        marker.setAttribute('orient', 'auto');
+
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+        polygon.setAttribute('fill', '#3b82f6');
+
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', `${startMarkerX}`);
+        line.setAttribute('y1', `${startMarkerY}`);
+        line.setAttribute('x2', `${endMarkerX}`);
+        line.setAttribute('y2', `${endMarkerY}`);
+        line.setAttribute('stroke', '#3b82f6');
+        line.setAttribute('stroke-width', '3');
+        line.setAttribute('marker-end', 'url(#arrowhead)');
+
+        svg.appendChild(line);
+        screenPreview.appendChild(svg);
+
+        // End point marker
+        const endMarker = document.createElement('div');
+        endMarker.className = 'action-marker';
+        endMarker.style.left = `${endMarkerX}px`;
+        endMarker.style.top = `${endMarkerY}px`;
+        endMarker.style.width = '1.5rem';
+        endMarker.style.height = '1.5rem';
+        endMarker.style.marginLeft = '-0.75rem';
+        endMarker.style.marginTop = '-0.75rem';
+        endMarker.style.borderColor = '#22c55e';
+        endMarker.style.background = 'rgba(34, 197, 94, 0.2)';
+        screenPreview.appendChild(endMarker);
+    }
+
+    drawRegionMarker(region, color = '#6366f1') {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        const img = document.getElementById('screen-stream-image');
+
+        if (!screenPreview || !img) return;
+
+        const imgRect = img.getBoundingClientRect();
+        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
+
+        // Calculate region position and size
+        const regionX = (region.x / this.screenWidth) * actualImgWidth;
+        const regionY = (region.y / this.screenHeight) * actualImgHeight;
+        const regionWidth = (region.width / this.screenWidth) * actualImgWidth;
+        const regionHeight = (region.height / this.screenHeight) * actualImgHeight;
+
+        const markerX = offsetX + regionX;
+        const markerY = offsetY + regionY;
+
+        // Create region rectangle
+        const regionMarker = document.createElement('div');
+        regionMarker.className = 'region-marker';
+        regionMarker.style.position = 'absolute';
+        regionMarker.style.left = `${markerX}px`;
+        regionMarker.style.top = `${markerY}px`;
+        regionMarker.style.width = `${regionWidth}px`;
+        regionMarker.style.height = `${regionHeight}px`;
+        regionMarker.style.border = `2px solid ${color}`;
+        regionMarker.style.background = `${color}33`; // 20% opacity
+        regionMarker.style.borderRadius = '4px';
+        regionMarker.style.pointerEvents = 'none';
+        regionMarker.style.zIndex = '10';
+        regionMarker.style.boxSizing = 'border-box';
+
+        // Create size label
+        const sizeLabel = document.createElement('div');
+        sizeLabel.style.position = 'absolute';
+        sizeLabel.style.top = '-24px';
+        sizeLabel.style.left = '0';
+        sizeLabel.style.background = color;
+        sizeLabel.style.color = 'white';
+        sizeLabel.style.fontSize = '11px';
+        sizeLabel.style.padding = '2px 8px';
+        sizeLabel.style.borderRadius = '4px';
+        sizeLabel.style.whiteSpace = 'nowrap';
+        sizeLabel.textContent = `${region.width} × ${region.height}`;
+
+        regionMarker.appendChild(sizeLabel);
+        screenPreview.appendChild(regionMarker);
+    }
+
     renderActionList() {
         const actionTypes = {
             basic: [
