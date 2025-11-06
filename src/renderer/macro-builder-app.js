@@ -3664,6 +3664,7 @@ class MacroBuilderApp {
                 return {
                     success,
                     message,
+                    error: success ? undefined : message, // Add error property for consistency
                     data: {
                         average: avgDb,
                         max: maxDb,
