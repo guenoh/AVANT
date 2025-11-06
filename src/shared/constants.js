@@ -38,7 +38,16 @@ const IPC = {
   // System
   LOG: 'system:log',
   ERROR: 'system:error',
-  READY: 'system:ready'
+  READY: 'system:ready',
+
+  // Audio channels
+  AUDIO_CHECK: 'audio:check',
+  AUDIO_CALIBRATE: 'audio:calibrate',
+  AUDIO_START: 'audio:start',
+  AUDIO_STOP: 'audio:stop',
+  AUDIO_STATUS: 'audio:status',
+  AUDIO_RESULT: 'audio:result',
+  AUDIO_REALTIME: 'audio:realtime'
 };
 
 // Action Types
@@ -55,7 +64,8 @@ const ACTION_TYPES = {
   SMART_WAIT: 'smart_wait',
   SCREENSHOT: 'screenshot',
   LOG_CLEAR: 'log_clear',
-  LOG_SAVE: 'log_save'
+  LOG_SAVE: 'log_save',
+  SOUND_CHECK: 'sound_check'
 };
 
 // Device States

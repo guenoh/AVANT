@@ -1129,6 +1129,7 @@ class MacroBuilderApp {
             system: [
                 { type: 'home', icon: this.getIconSVG('home'), label: '홈', description: '홈 버튼', color: 'bg-cyan-500' },
                 { type: 'back', icon: this.getIconSVG('arrow-left'), label: '뒤로', description: '뒤로가기', color: 'bg-pink-500' },
+                { type: 'sound-check', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>', label: '사운드 체크', description: '데시벨 측정', color: 'bg-indigo-600' },
             ],
             image: [
                 { type: 'screenshot', icon: this.getIconSVG('camera'), label: '스크린샷', description: '화면 저장', color: 'bg-violet-500' },
@@ -1145,9 +1146,9 @@ class MacroBuilderApp {
                 { type: 'while', icon: this.getIconSVG('rotate-cw'), label: 'While', description: '조건 반복', color: 'bg-cyan-500' },
                 { type: 'end-while', icon: this.getIconSVG('x'), label: 'End While', description: 'While 종료', color: 'bg-red-500' },
                 { type: 'log', icon: this.getIconSVG('file-text'), label: '로그', description: '로그 저장', color: 'bg-amber-500' },
-                { type: 'success', icon: this.getIconSVG('check-circle'), label: 'Success', description: '성공 종료', color: 'bg-green-500' },
-                { type: 'skip', icon: this.getIconSVG('skip-forward'), label: 'Skip', description: '시나리오 스킵', color: 'bg-yellow-500' },
-                { type: 'fail', icon: this.getIconSVG('x-circle'), label: 'Fail', description: '실패 종료', color: 'bg-red-600' },
+                { type: 'success', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', label: 'Success', description: '성공 종료', color: 'bg-green-500' },
+                { type: 'skip', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>', label: 'Skip', description: '시나리오 스킵', color: 'bg-yellow-500' },
+                { type: 'fail', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', label: 'Fail', description: '실패 종료', color: 'bg-red-600' },
                 { type: 'test', icon: this.getIconSVG('settings'), label: '테스트', description: 'UI 컴포넌트', color: 'bg-fuchsia-500' },
             ]
         };
@@ -3697,7 +3698,9 @@ class MacroBuilderApp {
             'target': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke-width="2"/><circle cx="12" cy="12" r="2" stroke-width="2"/></svg>',
             'check-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
             'x-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'alert-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
             'skip-forward': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>',
+            'fast-forward': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>',
         };
         return icons[name] || icons['click'];
     }
