@@ -926,7 +926,7 @@ class MacroBuilderApp {
             ...(type === 'log' && { message: 'Log message' }),
             ...(type === 'if' && { conditions: [] }),
             ...(type === 'else-if' && { conditions: [] }),
-            ...(type === 'image-match' && { imagePath: 'image.png', threshold: 0.9 }),
+            ...(type === 'image-match' && { imagePath: 'image.png', threshold: 0.95 }),
             ...(type === 'loop' && { loopCount: 1 }),
             ...(type === 'while' && { conditions: [] }),
         };
@@ -1262,7 +1262,7 @@ class MacroBuilderApp {
         // Reset params based on action type
         switch (actionType) {
             case 'image-match':
-                condition.params = { imagePath: 'image.png', threshold: 0.9 };
+                condition.params = { imagePath: 'image.png', threshold: 0.95 };
                 break;
             case 'click':
             case 'long-press':
@@ -1295,6 +1295,139 @@ class MacroBuilderApp {
 
         condition.operator = operator;
         this.renderActionSequence();
+    }
+
+    updateConditionRegionProperty(actionId, conditionId, property, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition || !condition.params.region) return;
+
+        condition.params.region[property] = value;
+
+        // Recapture the image with the new region coordinates
+        this.captureConditionRegionImage(action, condition);
+
+        this.saveMacro();
+        this.render();
+    }
+
+    async autoCropConditionRegion(actionId, conditionId) {
+        try {
+            const action = this.actions.find(a => a.id === actionId);
+            if (!action || !action.conditions) return;
+
+            const condition = action.conditions.find(c => c.id === conditionId);
+            if (!condition || !condition.params.region) {
+                this.addLog('error', '영역을 찾을 수 없습니다');
+                return;
+            }
+
+            // Get the thumbnail canvas
+            const thumbnailCanvas = document.getElementById(`thumbnail-${conditionId}`);
+            if (!thumbnailCanvas) {
+                this.addLog('error', '썸네일 캔버스를 찾을 수 없습니다');
+                return;
+            }
+
+            const ctx = thumbnailCanvas.getContext('2d');
+            const width = thumbnailCanvas.width;
+            const height = thumbnailCanvas.height;
+
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Find content bounds (non-background pixels)
+            const threshold = 30; // Color difference threshold
+            let minX = width, minY = height, maxX = 0, maxY = 0;
+            let foundContent = false;
+
+            // Sample background color from corners
+            const bgR = data[0], bgG = data[1], bgB = data[2];
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+                    const diff = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
+
+                    if (diff > threshold) {
+                        foundContent = true;
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+
+            if (!foundContent || maxX <= minX || maxY <= minY) {
+                this.addLog('error', '자동 자르기할 콘텐츠를 찾을 수 없습니다');
+                return;
+            }
+
+            // Calculate new region based on crop bounds
+            const region = condition.params.region;
+            const scaleX = region.width / width;
+            const scaleY = region.height / height;
+
+            const newRegion = {
+                x: Math.round(region.x + minX * scaleX),
+                y: Math.round(region.y + minY * scaleY),
+                width: Math.round((maxX - minX + 1) * scaleX),
+                height: Math.round((maxY - minY + 1) * scaleY)
+            };
+
+            condition.params.region = newRegion;
+            this.captureConditionRegionImage(action, condition);
+            this.saveMacro();
+            this.render();
+
+            this.addLog('success', `자동 자르기 완료: ${newRegion.width}×${newRegion.height}`);
+        } catch (error) {
+            console.error('Auto crop failed:', error);
+            this.addLog('error', `자동 자르기 실패: ${error.message}`);
+        }
+    }
+
+    captureConditionRegionImage(action, condition) {
+        if (!condition.params.region) return;
+
+        const img = document.getElementById('screen-stream-image');
+        if (!img) return;
+
+        const canvas = document.getElementById(`thumbnail-${condition.id}`);
+        if (!canvas) return;
+
+        const region = condition.params.region;
+        canvas.width = region.width;
+        canvas.height = region.height;
+
+        const ctx = canvas.getContext('2d');
+
+        // Get the image display info
+        const imgRect = img.getBoundingClientRect();
+        const { actualImgWidth, actualImgHeight } = this.getImageDisplayInfo(img, imgRect);
+
+        // Calculate scale
+        const scaleX = img.naturalWidth / actualImgWidth;
+        const scaleY = img.naturalHeight / actualImgHeight;
+
+        // Draw the region from the source image
+        ctx.drawImage(
+            img,
+            region.x * scaleX,
+            region.y * scaleY,
+            region.width * scaleX,
+            region.height * scaleY,
+            0,
+            0,
+            region.width,
+            region.height
+        );
     }
 
     getActionTypeLabel(type) {
@@ -1398,6 +1531,18 @@ class MacroBuilderApp {
             `window.macroApp.updateConditionParam('${actionId}', '${condition.id}', '$2',`
         );
 
+        // Replace updateRegionProperty calls with updateConditionRegionProperty calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateRegionProperty\('([^']+)',/g,
+            `window.macroApp.updateConditionRegionProperty('${actionId}', '${condition.id}',`
+        );
+
+        // Replace autoCropRegion calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.autoCropRegion\('([^']+)'\)/g,
+            `window.macroApp.autoCropConditionRegion('${actionId}', '${condition.id}')`
+        );
+
         return `
             <div class="settings-panel border-t border-slate-200 bg-slate-50 px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${settingsHTML}
@@ -1418,9 +1563,9 @@ class MacroBuilderApp {
                             onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'imagePath', this.value)">
                     </div>
                     <div>
-                        <label class="text-xs mb-1 block text-slate-600">매칭 정확도: ${Math.round((condition.params.threshold || 0.9) * 100)}%</label>
+                        <label class="text-xs mb-1 block text-slate-600">매칭 정확도: ${Math.round((condition.params.threshold || 0.955) * 100)}%</label>
                         <input type="range"
-                            value="${Math.round((condition.params.threshold || 0.9) * 100)}"
+                            value="${Math.round((condition.params.threshold || 0.955) * 100)}"
                             min="50"
                             max="100"
                             step="1"
@@ -1803,15 +1948,15 @@ class MacroBuilderApp {
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="text-xs">매칭 정확도</label>
-                                    <span class="text-xs text-slate-600" id="threshold-value-${action.id}">${Math.round((action.threshold || 0.9) * 100)}%</span>
+                                    <span class="text-xs text-slate-600" id="threshold-value-${action.id}">${Math.round((action.threshold || 0.95) * 100)}%</span>
                                 </div>
                                 <div id="progress-container-${action.id}" onclick="event.stopPropagation(); const rect = this.getBoundingClientRect(); const x = event.clientX - rect.left; const percent = Math.max(50, Math.min(100, Math.round((x / rect.width) * 50 + 50))); document.getElementById('threshold-value-${action.id}').textContent = percent + '%'; document.getElementById('threshold-bar-${action.id}').style.width = ((percent - 50) * 2) + '%'; const desc = percent >= 100 ? '완전 일치' : percent >= 95 ? '매우 일치' : percent >= 90 ? '높은 일치' : percent >= 85 ? '일치' : percent >= 80 ? '보통 일치' : percent >= 75 ? '낮은 일치' : '매우 낮은 일치'; document.getElementById('threshold-desc-${action.id}').textContent = desc; window.macroApp.updateActionValue('${action.id}', 'threshold', percent / 100);" class="relative h-4 rounded-lg overflow-hidden border border-slate-300 cursor-pointer" style="height: 16px; background-color: #E2E8F0;">
-                                    <div id="threshold-bar-${action.id}" class="absolute top-0 bottom-0 left-0 transition-all duration-300" style="width: ${((action.threshold || 0.9) * 100 - 50) * 2}%; height: 100%; background-color: #334155; pointer-events: none;"></div>
+                                    <div id="threshold-bar-${action.id}" class="absolute top-0 bottom-0 left-0 transition-all duration-300" style="width: ${((action.threshold || 0.95) * 100 - 50) * 2}%; height: 100%; background-color: #334155; pointer-events: none;"></div>
                                 </div>
                                 <div class="flex justify-between items-center mt-1">
                                     <span class="text-xs text-slate-400">50%</span>
                                     <span class="text-xs text-slate-500" id="threshold-desc-${action.id}">${(function() {
-                                        const p = Math.round((action.threshold || 0.9) * 100);
+                                        const p = Math.round((action.threshold || 0.95) * 100);
                                         return p >= 100 ? '완전 일치' : p >= 95 ? '매우 일치' : p >= 90 ? '높은 일치' : p >= 85 ? '일치' : p >= 80 ? '보통 일치' : p >= 75 ? '낮은 일치' : '매우 낮은 일치';
                                     })()}</span>
                                     <span class="text-xs text-slate-400">100%</span>
@@ -2180,9 +2325,9 @@ class MacroBuilderApp {
                 return action.filename || 'screenshot.png';
             case 'image-match':
                 if (action.region) {
-                    return `영역: ${action.region.width}×${action.region.height} • ${Math.round((action.threshold || 0.9) * 100)}%`;
+                    return `영역: ${action.region.width}×${action.region.height} • ${Math.round((action.threshold || 0.95) * 100)}%`;
                 }
-                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.9) * 100)}%`;
+                return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.95) * 100)}%`;
             case 'tap-matched-image':
                 return '마지막으로 찾은 이미지 위치';
             case 'if':
@@ -2627,7 +2772,7 @@ class MacroBuilderApp {
             console.log('[executeImageMatchAction] Device resolution:', this.screenWidth, 'x', this.screenHeight);
             console.log('[executeImageMatchAction] Region (device coordinates):', action.region);
 
-            const threshold = action.threshold || 0.9;
+            const threshold = action.threshold || 0.95;
             console.log('[executeImageMatchAction] Calling findTemplate with threshold:', threshold);
 
             const result = await window.imageMatcher.findTemplate(sourceImageData, templateImageData, {
@@ -3720,7 +3865,7 @@ class MacroBuilderApp {
             const templateImageData = templateCtx.getImageData(0, 0, templateCanvas.width, templateCanvas.height);
 
             // Perform template matching
-            const threshold = action.threshold || 0.9;
+            const threshold = action.threshold || 0.95;
             const result = await window.imageMatcher.findTemplate(sourceImageData, templateImageData, {
                 threshold: threshold,
                 cropLocation: {
