@@ -3509,7 +3509,7 @@ class MacroBuilderApp {
     clearScreenMarkers() {
         const screenPreview = document.getElementById('screen-preview-canvas');
         if (screenPreview) {
-            const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+            const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line, .region-marker');
             markers.forEach(m => m.remove());
         }
     }
