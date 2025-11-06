@@ -1077,7 +1077,7 @@ class MacroBuilderApp {
         // Restore scroll position
         container.scrollTop = scrollTop;
 
-        // Update marker for selected action (if any)
+        // Update marker for selected action or condition (if any)
         if (this.selectedActionId) {
             const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
             if (selectedAction) {
@@ -1085,6 +1085,17 @@ class MacroBuilderApp {
                 requestAnimationFrame(() => {
                     this.updateSelectedActionMarker(selectedAction);
                 });
+            }
+        } else if (this.selectedCondition) {
+            // Show marker for selected condition
+            const action = this.actions.find(a => a.id === this.selectedCondition.actionId);
+            if (action && action.conditions) {
+                const condition = action.conditions.find(c => c.id === this.selectedCondition.conditionId);
+                if (condition && condition.params.region) {
+                    requestAnimationFrame(() => {
+                        this.drawRegionMarker(condition.params.region);
+                    });
+                }
             }
         }
 
@@ -1470,38 +1481,44 @@ class MacroBuilderApp {
     captureConditionRegionImage(action, condition) {
         if (!condition.params.region) return;
 
-        const img = document.getElementById('screen-stream-image');
-        if (!img) return;
+        const sourceImg = document.getElementById('screen-stream-image');
+        if (!sourceImg || !sourceImg.complete) return;
 
         const canvas = document.getElementById(`thumbnail-${condition.id}`);
         if (!canvas) return;
 
         const region = condition.params.region;
-        canvas.width = region.width;
-        canvas.height = region.height;
+
+        // Get the actual image dimensions
+        const imgActualWidth = sourceImg.naturalWidth || sourceImg.width;
+        const imgActualHeight = sourceImg.naturalHeight || sourceImg.height;
+
+        // Calculate scaling factor between device coordinates and actual image size
+        const scaleX = imgActualWidth / this.screenWidth;
+        const scaleY = imgActualHeight / this.screenHeight;
+
+        // Convert region coordinates to actual image coordinates
+        const actualX = Math.round(region.x * scaleX);
+        const actualY = Math.round(region.y * scaleY);
+        const actualWidth = Math.round(region.width * scaleX);
+        const actualHeight = Math.round(region.height * scaleY);
+
+        // Set canvas size to actual region size
+        canvas.width = actualWidth;
+        canvas.height = actualHeight;
 
         const ctx = canvas.getContext('2d');
 
-        // Get the image display info
-        const imgRect = img.getBoundingClientRect();
-        const { actualImgWidth, actualImgHeight } = this.getImageDisplayInfo(img, imgRect);
-
-        // Calculate scale
-        const scaleX = img.naturalWidth / actualImgWidth;
-        const scaleY = img.naturalHeight / actualImgHeight;
-
-        // Draw the region from the source image
-        ctx.drawImage(
-            img,
-            region.x * scaleX,
-            region.y * scaleY,
-            region.width * scaleX,
-            region.height * scaleY,
-            0,
-            0,
-            region.width,
-            region.height
-        );
+        try {
+            // Draw the selected region from the source image using actual coordinates
+            ctx.drawImage(
+                sourceImg,
+                actualX, actualY, actualWidth, actualHeight,
+                0, 0, actualWidth, actualHeight
+            );
+        } catch (e) {
+            console.error('Failed to capture condition region image:', e);
+        }
     }
 
     getActionTypeLabel(type) {
@@ -2333,6 +2350,9 @@ class MacroBuilderApp {
         if (this.expandedConditionId === conditionId) {
             this.expandedConditionId = null;
             this.selectedCondition = null;
+
+            // Clear markers from screen
+            this.clearScreenMarkers();
         } else {
             this.expandedConditionId = conditionId;
 
