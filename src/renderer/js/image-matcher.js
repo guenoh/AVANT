@@ -362,27 +362,39 @@ class ImageMatcher {
   }
 
   /**
-   * Full screen grid search (fallback when no crop location)
+   * Full screen multi-phase search (fallback when no crop location)
+   * Phase 1: Vertical priority (scrolled content) - 8px step
+   * Phase 2: Horizontal priority (side-scrolled) - 8px step
+   * Phase 3: Fine grid search - 2px step
    */
   searchFullScreen(srcGray, tmpGray, threshold, startTime, timeout) {
-    const step = 8;
-
     let bestMatch = {
       found: false,
       x: 0,
       y: 0,
       width: tmpGray.width,
       height: tmpGray.height,
-      score: 0
+      score: 0,
+      searchPhase: 'none'
     };
 
-    // Grid search entire screen
-    for (let y = 0; y <= srcGray.height - tmpGray.height; y += step) {
-      for (let x = 0; x <= srcGray.width - tmpGray.width; x += step) {
+    const maxX = srcGray.width - tmpGray.width;
+    const maxY = srcGray.height - tmpGray.height;
+
+    console.log('[ImageMatcher] Phase 1: Vertical priority search (8px step)');
+    let searchCount = 0;
+
+    // Phase 1: Vertical priority - scan columns top to bottom
+    const verticalStep = 8;
+    for (let x = 0; x <= maxX; x += verticalStep) {
+      for (let y = 0; y <= maxY; y += verticalStep) {
         if (Date.now() - startTime > timeout) {
+          console.log(`[ImageMatcher] Phase 1 timeout after ${searchCount} attempts`);
+          bestMatch.searchPhase = 'phase1-timeout';
           return bestMatch;
         }
 
+        searchCount++;
         const score = this.matchTemplateAt(srcGray, tmpGray, x, y);
 
         if (score > bestMatch.score) {
@@ -392,12 +404,92 @@ class ImageMatcher {
 
           if (score >= threshold) {
             bestMatch.found = true;
+            bestMatch.searchPhase = 'phase1';
+            console.log(`[ImageMatcher] Match found in Phase 1 at (${x}, ${y}) - Score: ${(score * 100).toFixed(1)}% after ${searchCount} attempts`);
             return bestMatch;
           }
         }
       }
     }
 
+    console.log(`[ImageMatcher] Phase 1 completed. ${searchCount} attempts, Best: ${(bestMatch.score * 100).toFixed(1)}% at (${bestMatch.x}, ${bestMatch.y})`);
+
+    // Phase 2: Horizontal priority - scan rows left to right
+    if (bestMatch.score < threshold) {
+      console.log('[ImageMatcher] Phase 2: Horizontal priority search (8px step)');
+      const horizontalStep = 8;
+
+      for (let y = 0; y <= maxY; y += horizontalStep) {
+        for (let x = 0; x <= maxX; x += horizontalStep) {
+          if (Date.now() - startTime > timeout) {
+            console.log(`[ImageMatcher] Phase 2 timeout after ${searchCount} total attempts`);
+            bestMatch.searchPhase = 'phase2-timeout';
+            return bestMatch;
+          }
+
+          searchCount++;
+          const score = this.matchTemplateAt(srcGray, tmpGray, x, y);
+
+          if (score > bestMatch.score) {
+            bestMatch.score = score;
+            bestMatch.x = x;
+            bestMatch.y = y;
+
+            if (score >= threshold) {
+              bestMatch.found = true;
+              bestMatch.searchPhase = 'phase2';
+              console.log(`[ImageMatcher] Match found in Phase 2 at (${x}, ${y}) - Score: ${(score * 100).toFixed(1)}% after ${searchCount} attempts`);
+              return bestMatch;
+            }
+          }
+        }
+      }
+
+      console.log(`[ImageMatcher] Phase 2 completed. ${searchCount} total attempts, Best: ${(bestMatch.score * 100).toFixed(1)}% at (${bestMatch.x}, ${bestMatch.y})`);
+    }
+
+    // Phase 3: Fine grid search around best match location
+    if (bestMatch.score > 0.7 && bestMatch.score < threshold) {
+      console.log(`[ImageMatcher] Phase 3: Fine search around (${bestMatch.x}, ${bestMatch.y}) with 2px step`);
+      const fineStep = 2;
+      const searchRadius = 16; // Search ±16px around best match
+
+      const minX = Math.max(0, bestMatch.x - searchRadius);
+      const maxSearchX = Math.min(maxX, bestMatch.x + searchRadius);
+      const minY = Math.max(0, bestMatch.y - searchRadius);
+      const maxSearchY = Math.min(maxY, bestMatch.y + searchRadius);
+
+      for (let y = minY; y <= maxSearchY; y += fineStep) {
+        for (let x = minX; x <= maxSearchX; x += fineStep) {
+          if (Date.now() - startTime > timeout) {
+            console.log(`[ImageMatcher] Phase 3 timeout after ${searchCount} total attempts`);
+            bestMatch.searchPhase = 'phase3-timeout';
+            return bestMatch;
+          }
+
+          searchCount++;
+          const score = this.matchTemplateAt(srcGray, tmpGray, x, y);
+
+          if (score > bestMatch.score) {
+            bestMatch.score = score;
+            bestMatch.x = x;
+            bestMatch.y = y;
+
+            if (score >= threshold) {
+              bestMatch.found = true;
+              bestMatch.searchPhase = 'phase3';
+              console.log(`[ImageMatcher] Match found in Phase 3 at (${x}, ${y}) - Score: ${(score * 100).toFixed(1)}% after ${searchCount} attempts`);
+              return bestMatch;
+            }
+          }
+        }
+      }
+
+      console.log(`[ImageMatcher] Phase 3 completed. ${searchCount} total attempts, Final score: ${(bestMatch.score * 100).toFixed(1)}%`);
+    }
+
+    bestMatch.searchPhase = bestMatch.score >= threshold ? 'found' : 'not-found';
+    console.log(`[ImageMatcher] Full screen search completed. Total: ${searchCount} attempts, Best: ${(bestMatch.score * 100).toFixed(1)}% at (${bestMatch.x}, ${bestMatch.y})`);
     return bestMatch;
   }
 
