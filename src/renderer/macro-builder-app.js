@@ -4226,9 +4226,12 @@ class MacroBuilderApp {
                 height: Math.round(cropHeight * scaleY)
             };
 
+            // Re-capture the region image with new dimensions
+            this.captureRegionImage(action);
+
             this.addLog('success', `자동 크롭 완료: ${cropWidth}×${cropHeight}`);
             this.saveMacro();
-            this.render();
+            this.renderActionSequence();
 
         } catch (error) {
             this.addLog('error', `자동 크롭 실패: ${error.message}`);
