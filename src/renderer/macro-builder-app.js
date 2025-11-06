@@ -2969,6 +2969,12 @@ class MacroBuilderApp {
             this.selectedActionId = action.id;
             this.renderActionSequence();
 
+            // Handle image-match action differently (frontend processing)
+            // Don't draw initial marker for image-match - let executeImageMatchAction draw the matched location
+            if (action.type === 'image-match') {
+                return await this.executeImageMatchAction(action);
+            }
+
             // Show marker for actions with coordinates
             if (action.x !== undefined && action.y !== undefined) {
                 if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
@@ -2978,14 +2984,6 @@ class MacroBuilderApp {
                     // Draw single point marker
                     this.drawCoordinateMarker(action.x, action.y);
                 }
-            } else if (action.region) {
-                // Draw region marker for image-match
-                this.drawRegionMarker(action.region);
-            }
-
-            // Handle image-match action differently (frontend processing)
-            if (action.type === 'image-match') {
-                return await this.executeImageMatchAction(action);
             }
 
             // Handle tap-matched-image action
@@ -3034,6 +3032,9 @@ class MacroBuilderApp {
     async executeImageMatchAction(action) {
         try {
             console.log('[executeImageMatchAction] Starting with action:', action);
+
+            // Clear any existing markers first
+            this.clearScreenMarkers();
 
             if (!action.region) {
                 const msg = 'No region defined';
