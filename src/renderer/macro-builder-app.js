@@ -3685,6 +3685,35 @@ class MacroBuilderApp {
         }
     }
 
+    openSoundCheckModal(actionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) {
+            console.error('Action not found:', actionId);
+            return;
+        }
+
+        // Check if SoundCheckModal component is available
+        if (!window.SoundCheckModal) {
+            console.error('SoundCheckModal component not available');
+            this.addLog('error', 'Sound check modal component not loaded');
+            return;
+        }
+
+        // Create and show the modal
+        const modal = new window.SoundCheckModal(action);
+
+        // Listen for configuration updates
+        modal.on('update', (updatedConfig) => {
+            // Update the action with new configuration
+            Object.assign(action, updatedConfig);
+            this.renderActionSequence();
+            this.addLog('info', 'Sound check configuration updated');
+        });
+
+        // Show the modal
+        modal.show();
+    }
+
     mapActionToBackend(action) {
         const mapped = { type: action.type };
 
