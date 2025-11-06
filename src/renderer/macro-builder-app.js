@@ -1880,7 +1880,7 @@ class MacroBuilderApp {
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="text-xs">선택된 영역</label>
                                     <div class="flex gap-1">
-                                        <button onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'region', null); window.macroApp.render();" class="btn-tertiary">
+                                        <button onclick="event.stopPropagation(); window.macroApp.resetActionRegion('${action.id}');" class="btn-tertiary">
                                             초기화
                                         </button>
                                         <button onclick="event.stopPropagation(); window.macroApp.autoCropRegion('${action.id}');" class="btn-tertiary">
@@ -3687,6 +3687,19 @@ class MacroBuilderApp {
     }
 
     // Update region property (x, y, width, height)
+    resetActionRegion(actionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        action.region = null;
+
+        // Clear the marker immediately
+        this.updateSelectedActionMarker(action);
+
+        this.saveMacro();
+        this.render();
+    }
+
     updateRegionProperty(actionId, property, value) {
         const action = this.actions.find(a => a.id === actionId);
         if (!action || !action.region) return;
