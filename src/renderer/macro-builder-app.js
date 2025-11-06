@@ -932,6 +932,17 @@ class MacroBuilderApp {
         };
 
         this.actions.push(newAction);
+
+        // Auto-add END block for control flow structures
+        if (type === 'if' || type === 'while' || type === 'loop') {
+            const endType = type === 'if' ? 'end-if' : type === 'while' ? 'end-while' : 'end-loop';
+            const endAction = {
+                id: `action-${Date.now() + 1}`,
+                type: endType
+            };
+            this.actions.push(endAction);
+        }
+
         this.selectedActionId = newAction.id;
         this.renderActionSequence();
     }
