@@ -3634,19 +3634,25 @@ class MacroBuilderApp {
                 let message = '';
 
                 if (expectation === 'present') {
-                    // Sound should be present (above 35dB)
-                    success = avgDb > 35;
-                    message = success ? '소리가 감지되었습니다' : '소리가 감지되지 않았습니다';
+                    // Sound should be present - check if max exceeds threshold (default 30dB)
+                    const soundThreshold = threshold.min || 30;
+                    success = maxDb > soundThreshold;
+                    message = success ?
+                        `소리가 감지되었습니다 (최대: ${maxDb.toFixed(1)}dB)` :
+                        `소리가 감지되지 않았습니다 (최대: ${maxDb.toFixed(1)}dB < ${soundThreshold}dB)`;
                 } else if (expectation === 'silent') {
-                    // Should be silent (below 35dB)
-                    success = avgDb < 35;
-                    message = success ? '무음 상태 확인' : '예상치 않은 소리가 감지되었습니다';
+                    // Should be silent - check if max is below threshold (default 30dB)
+                    const silenceThreshold = threshold.max || 30;
+                    success = maxDb < silenceThreshold;
+                    message = success ?
+                        `무음 상태 확인 (최대: ${maxDb.toFixed(1)}dB)` :
+                        `예상치 않은 소리가 감지되었습니다 (최대: ${maxDb.toFixed(1)}dB > ${silenceThreshold}dB)`;
                 } else if (expectation === 'level') {
-                    // Should be within range
+                    // Should be within range - check average
                     success = avgDb >= threshold.min && avgDb <= threshold.max;
                     message = success ?
-                        `데시벨이 범위 내입니다 (${threshold.min}-${threshold.max}dB)` :
-                        `데시벨이 범위를 벗어났습니다 (측정: ${avgDb.toFixed(1)}dB, 예상: ${threshold.min}-${threshold.max}dB)`;
+                        `데시벨이 범위 내입니다 (평균: ${avgDb.toFixed(1)}dB, 범위: ${threshold.min}-${threshold.max}dB)` :
+                        `데시벨이 범위를 벗어났습니다 (평균: ${avgDb.toFixed(1)}dB, 예상: ${threshold.min}-${threshold.max}dB)`;
                 }
 
                 if (success) {
