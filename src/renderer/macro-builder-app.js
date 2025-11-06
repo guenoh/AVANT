@@ -1221,6 +1221,11 @@ class MacroBuilderApp {
             ...(type === 'image-match' && { imagePath: 'image.png', threshold: 0.95 }),
             ...(type === 'loop' && { loopCount: 1 }),
             ...(type === 'while' && { conditions: [] }),
+            ...(type === 'sound-check' && {
+                duration: 5000,
+                expectation: 'present',
+                threshold: { min: 40, max: 80 }
+            }),
         };
 
         this.actions.push(newAction);
