@@ -9,6 +9,7 @@ class MacroBuilderApp {
         this.selectedActionId = null;
         this.expandedActionId = null;
         this.expandedConditionId = null;
+        this.selectedCondition = null; // { actionId, conditionId }
         this.isRunning = false;
         this.macroName = '새 매크로';
         this.currentCoordinate = null;
@@ -376,8 +377,19 @@ class MacroBuilderApp {
     }
 
     handleMouseDown(e) {
+        // Check if we're selecting a region for an action
         const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
-        if (!selectedAction || selectedAction.type !== 'image-match') {
+        const isActionImageMatch = selectedAction && selectedAction.type === 'image-match';
+
+        // Check if we're selecting a region for a condition
+        const isConditionImageMatch = this.selectedCondition && (() => {
+            const action = this.actions.find(a => a.id === this.selectedCondition.actionId);
+            if (!action || !action.conditions) return false;
+            const condition = action.conditions.find(c => c.id === this.selectedCondition.conditionId);
+            return condition && condition.actionType === 'image-match';
+        })();
+
+        if (!isActionImageMatch && !isConditionImageMatch) {
             return;
         }
 
@@ -393,9 +405,16 @@ class MacroBuilderApp {
         });
 
         // Clear existing region when starting new selection
-        if (selectedAction.region) {
+        if (isActionImageMatch && selectedAction.region) {
             selectedAction.region = undefined;
             this.renderActionSequence();
+        } else if (isConditionImageMatch) {
+            const action = this.actions.find(a => a.id === this.selectedCondition.actionId);
+            const condition = action.conditions.find(c => c.id === this.selectedCondition.conditionId);
+            if (condition.params.region) {
+                condition.params.region = undefined;
+                this.renderActionSequence();
+            }
         }
 
         this.isSelectingRegion = true;
@@ -424,6 +443,7 @@ class MacroBuilderApp {
 
         const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
 
+        // Handle action image-match region selection
         if (selectedAction && selectedAction.type === 'image-match' && this.isSelectingRegion && this.selectionStart) {
             const region = {
                 x: Math.min(this.selectionStart.x, coords.x),
@@ -447,6 +467,39 @@ class MacroBuilderApp {
             this.selectionStart = null;
             this.selectionEnd = null;
             this.renderSelectionOverlay();
+        }
+
+        // Handle condition image-match region selection
+        if (this.selectedCondition && this.isSelectingRegion && this.selectionStart) {
+            const action = this.actions.find(a => a.id === this.selectedCondition.actionId);
+            if (action && action.conditions) {
+                const condition = action.conditions.find(c => c.id === this.selectedCondition.conditionId);
+                if (condition && condition.actionType === 'image-match') {
+                    const region = {
+                        x: Math.min(this.selectionStart.x, coords.x),
+                        y: Math.min(this.selectionStart.y, coords.y),
+                        width: Math.abs(coords.x - this.selectionStart.x),
+                        height: Math.abs(coords.y - this.selectionStart.y),
+                    };
+
+                    // Only update if region is at least 10x10 pixels
+                    if (region.width >= 10 && region.height >= 10) {
+                        condition.params.region = region;
+
+                        // Capture the region image immediately
+                        this.captureConditionRegionImage(action, condition);
+
+                        this.saveMacro();
+                        this.renderActionSequence();
+                        this.addLog('success', `조건 영역 선택: ${region.width}×${region.height}`);
+                    }
+
+                    this.isSelectingRegion = false;
+                    this.selectionStart = null;
+                    this.selectionEnd = null;
+                    this.renderSelectionOverlay();
+                }
+            }
         }
     }
 
@@ -1035,11 +1088,21 @@ class MacroBuilderApp {
             }
         }
 
-        // Render thumbnails for image-match actions
+        // Render thumbnails for image-match actions and conditions
         requestAnimationFrame(() => {
             this.actions.forEach(action => {
+                // Render action thumbnails
                 if (action.type === 'image-match' && action.region) {
                     this.renderImageThumbnail(action);
+                }
+
+                // Render condition thumbnails
+                if (action.conditions && action.conditions.length > 0) {
+                    action.conditions.forEach(condition => {
+                        if (condition.actionType === 'image-match' && condition.params.region) {
+                            this.captureConditionRegionImage(action, condition);
+                        }
+                    });
                 }
             });
         });
@@ -1552,6 +1615,12 @@ class MacroBuilderApp {
         settingsHTML = settingsHTML.replace(
             /window\.macroApp\.autoCropRegion\('([^']+)'\)/g,
             `window.macroApp.autoCropConditionRegion('${actionId}', '${condition.id}')`
+        );
+
+        // Replace resetActionRegion calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.resetActionRegion\('([^']+)'\)/g,
+            `window.macroApp.resetConditionRegion('${actionId}', '${condition.id}')`
         );
 
         return `
@@ -2263,8 +2332,33 @@ class MacroBuilderApp {
     toggleConditionSettings(conditionId) {
         if (this.expandedConditionId === conditionId) {
             this.expandedConditionId = null;
+            this.selectedCondition = null;
         } else {
             this.expandedConditionId = conditionId;
+
+            // Find the action and condition
+            let foundAction = null;
+            let foundCondition = null;
+            for (const action of this.actions) {
+                if (action.conditions) {
+                    const condition = action.conditions.find(c => c.id === conditionId);
+                    if (condition) {
+                        foundAction = action;
+                        foundCondition = condition;
+                        break;
+                    }
+                }
+            }
+
+            // If image-match condition, enable region selection
+            if (foundCondition && foundCondition.actionType === 'image-match') {
+                this.selectedCondition = {
+                    actionId: foundAction.id,
+                    conditionId: conditionId
+                };
+            } else {
+                this.selectedCondition = null;
+            }
         }
         this.renderActionSequence();
     }
@@ -3708,6 +3802,26 @@ class MacroBuilderApp {
         this.updateSelectedActionMarker(action);
 
         // Re-render without showing save alert
+        this.renderActionSequence();
+    }
+
+    resetConditionRegion(actionId, conditionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.params.region = null;
+
+        // Clear markers
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (screenPreview) {
+            const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line');
+            markers.forEach(m => m.remove());
+        }
+
+        this.saveMacro();
         this.renderActionSequence();
     }
 
