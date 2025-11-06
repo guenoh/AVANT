@@ -3083,27 +3083,28 @@ class MacroBuilderApp {
             screenCtx.drawImage(screenImg, 0, 0);
             console.log('[executeImageMatchAction] Screen canvas created:', screenCanvas.width, 'x', screenCanvas.height);
 
-            // Extract template image directly from the region (don't use saved thumbnail)
-            // Calculate scaling factor between device coordinates and actual image size
-            const scaleX = screenCanvas.width / this.screenWidth;
-            const scaleY = screenCanvas.height / this.screenHeight;
+            // Use saved regionImage (captured at the time of selection)
+            if (!action.regionImage) {
+                const msg = 'No saved region image found';
+                console.error('[executeImageMatchAction]', msg);
+                this.addLog('error', `이미지 매칭 실패: ${msg}`);
+                return { success: false, error: msg };
+            }
 
-            // Convert region coordinates to actual image coordinates
-            const actualX = Math.round(action.region.x * scaleX);
-            const actualY = Math.round(action.region.y * scaleY);
-            const actualWidth = Math.round(action.region.width * scaleX);
-            const actualHeight = Math.round(action.region.height * scaleY);
-
-            console.log('[executeImageMatchAction] Template extraction:', {
-                deviceRegion: action.region,
-                scale: { x: scaleX, y: scaleY },
-                actualRegion: { x: actualX, y: actualY, width: actualWidth, height: actualHeight }
+            // Load the saved template image
+            const templateImg = new Image();
+            await new Promise((resolve, reject) => {
+                templateImg.onload = resolve;
+                templateImg.onerror = reject;
+                templateImg.src = action.regionImage;
             });
 
-            // Create template canvas from the region
+            console.log('[executeImageMatchAction] Template image loaded:', templateImg.width, 'x', templateImg.height);
+
+            // Create template canvas from saved image
             const templateCanvas = document.createElement('canvas');
-            templateCanvas.width = actualWidth;
-            templateCanvas.height = actualHeight;
+            templateCanvas.width = templateImg.width;
+            templateCanvas.height = templateImg.height;
             const templateCtx = templateCanvas.getContext('2d');
 
             if (!templateCtx) {
@@ -3113,14 +3114,22 @@ class MacroBuilderApp {
                 return { success: false, error: msg };
             }
 
-            // Draw the region from screen canvas to template canvas
-            templateCtx.drawImage(
-                screenImg,
-                actualX, actualY, actualWidth, actualHeight,
-                0, 0, actualWidth, actualHeight
-            );
+            templateCtx.drawImage(templateImg, 0, 0);
 
-            console.log('[executeImageMatchAction] Template canvas created:', templateCanvas.width, 'x', templateCanvas.height);
+            // Calculate scaling factor between device coordinates and actual image size
+            const scaleX = screenCanvas.width / this.screenWidth;
+            const scaleY = screenCanvas.height / this.screenHeight;
+
+            // Convert region coordinates to actual image coordinates (for crop hint)
+            const actualX = Math.round(action.region.x * scaleX);
+            const actualY = Math.round(action.region.y * scaleY);
+
+            console.log('[executeImageMatchAction] Search parameters:', {
+                deviceRegion: action.region,
+                scale: { x: scaleX, y: scaleY },
+                cropHint: { x: actualX, y: actualY },
+                templateSize: { width: templateImg.width, height: templateImg.height }
+            });
 
             const sourceImageData = screenCtx.getImageData(0, 0, screenCanvas.width, screenCanvas.height);
             const templateImageData = templateCtx.getImageData(0, 0, templateCanvas.width, templateCanvas.height);
