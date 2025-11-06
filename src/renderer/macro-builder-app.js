@@ -3696,7 +3696,7 @@ class MacroBuilderApp {
         // Clear the marker immediately
         this.updateSelectedActionMarker(action);
 
-        this.saveMacro();
+        // Re-render without showing save alert
         this.render();
     }
 
