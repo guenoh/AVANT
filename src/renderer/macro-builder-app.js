@@ -2801,6 +2801,24 @@ class MacroBuilderApp {
 
     async executeAction(action) {
         try {
+            // Highlight the action being executed
+            this.selectedActionId = action.id;
+            this.renderActionSequence();
+
+            // Show marker for actions with coordinates
+            if (action.x !== undefined && action.y !== undefined) {
+                if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
+                    // Draw drag line
+                    this.drawDragMarker(action.x, action.y, action.endX, action.endY);
+                } else {
+                    // Draw single point marker
+                    this.drawCoordinateMarker(action.x, action.y);
+                }
+            } else if (action.region) {
+                // Draw region marker for image-match
+                this.drawRegionMarker(action.region);
+            }
+
             // Handle image-match action differently (frontend processing)
             if (action.type === 'image-match') {
                 return await this.executeImageMatchAction(action);
@@ -2812,6 +2830,9 @@ class MacroBuilderApp {
                     this.addLog('error', '찾은 이미지 좌표가 없습니다');
                     return { success: false, error: 'No matched coordinate available' };
                 }
+
+                // Draw marker at tap location
+                this.drawCoordinateMarker(this.lastMatchedCoordinate.x, this.lastMatchedCoordinate.y, '#8b5cf6'); // Purple color
 
                 // Create a click action with the last matched coordinate
                 const tapAction = {
@@ -2967,6 +2988,16 @@ class MacroBuilderApp {
 
                 // Store the center coordinate for tap-matched-image action
                 this.lastMatchedCoordinate = { x: centerX, y: centerY };
+
+                // Draw marker at the matched location
+                const matchedRegion = {
+                    x: result.x,
+                    y: result.y,
+                    width: action.region.width,
+                    height: action.region.height
+                };
+                this.drawRegionMarker(matchedRegion, '#10b981'); // Green color for successful match
+
                 this.addLog('success', `이미지 매칭 성공: (${result.x}, ${result.y}) -> 중심: (${centerX}, ${centerY}), 정확도: ${(result.score * 100).toFixed(1)}%`);
                 return { success: true, found: true, x: centerX, y: centerY, score: result.score };
             } else {
