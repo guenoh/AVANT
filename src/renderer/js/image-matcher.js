@@ -60,6 +60,9 @@ class ImageMatcher {
     const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
     const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 
+    // Edge threshold: ignore weak edges (noise reduction)
+    const edgeThreshold = 30; // Only keep edges with magnitude > 30
+
     // Apply Sobel operator (skip borders)
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
@@ -80,7 +83,10 @@ class ImageMatcher {
 
         // Gradient magnitude
         const magnitude = Math.sqrt(gx * gx + gy * gy);
-        edges[y * width + x] = Math.min(255, Math.round(magnitude));
+
+        // Apply threshold: suppress weak edges
+        const thresholdedMagnitude = magnitude > edgeThreshold ? magnitude : 0;
+        edges[y * width + x] = Math.min(255, Math.round(thresholdedMagnitude));
       }
     }
 
@@ -440,12 +446,11 @@ class ImageMatcher {
 
       // Convert to similarity score (0-1, where 1 is perfect match)
       // Max difference per pixel is 255 (white vs black)
-      // We use a threshold to be more lenient with small differences
       const similarity = 1.0 - (avgDiff / 255.0);
 
-      // Apply threshold curve to make matching less strict
-      // Small differences should still result in high scores
-      const score = Math.pow(similarity, 0.5); // Square root makes it more lenient
+      // Apply stricter scoring to reduce false positives
+      // Use square to penalize differences more heavily
+      const score = Math.pow(similarity, 2.0); // Square makes matching stricter
 
       return Math.max(0, Math.min(1, score));
 
