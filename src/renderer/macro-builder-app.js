@@ -11,7 +11,10 @@ class MacroBuilderApp {
         this.expandedConditionId = null;
         this.selectedCondition = null; // { actionId, conditionId }
         this.isRunning = false;
+        this.shouldStop = false;
+        this.scenarioResult = null; // { status: 'pass'|'skip'|'fail', message: string }
         this.macroName = '새 매크로';
+        this.currentFilePath = null; // Track the currently loaded file path for save
         this.currentCoordinate = null;
 
         // Device screen resolution
@@ -67,13 +70,25 @@ class MacroBuilderApp {
         }
 
         // Buttons
-        document.getElementById('btn-run-macro')?.addEventListener('click', () => this.runMacro());
-        document.getElementById('btn-export-macro')?.addEventListener('click', () => this.exportMacro());
+        document.getElementById('btn-run-macro')?.addEventListener('click', () => {
+            if (this.isRunning) {
+                this.stopMacro();
+            } else {
+                this.runMacro();
+            }
+        });
+        document.getElementById('btn-scenario-list')?.addEventListener('click', () => this.openScenarioListModal());
         document.getElementById('btn-import-macro')?.addEventListener('click', () => {
             document.getElementById('import-input-seq')?.click();
         });
         document.getElementById('import-input-seq')?.addEventListener('change', (e) => this.importMacro(e));
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
+        document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
+
+        // Scenario list modal buttons
+        document.getElementById('btn-close-scenario-list')?.addEventListener('click', () => this.closeScenarioListModal());
+        document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
+        document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
 
         // Device connection buttons
         document.getElementById('btn-connect-adb')?.addEventListener('click', () => this.connectDevice('adb'));
@@ -522,6 +537,66 @@ class MacroBuilderApp {
         }
     }
 
+    // Helper function to recursively collect all actions including nested ones
+    getAllActionsFlattened(actions = this.actions, result = []) {
+        for (const action of actions) {
+            result.push(action);
+
+            // Process conditions for if/while blocks (they contain actions too)
+            if (action.conditions && action.conditions.length > 0) {
+                for (const condition of action.conditions) {
+                    // Conditions are stored as { actionType, params } format
+                    // Create a pseudo-action object for consistency
+                    if (condition.actionType === 'image-match') {
+                        result.push({
+                            id: condition.id,
+                            type: 'image-match',
+                            isCondition: true, // Mark as condition for index calculation
+                            parentActionId: action.id,
+                            ...condition.params
+                        });
+                    }
+                }
+            }
+
+            // Recursively process children for control flow blocks
+            if (action.children && action.children.length > 0) {
+                this.getAllActionsFlattened(action.children, result);
+            }
+        }
+        return result;
+    }
+
+    // Helper function to get display index (excluding conditions)
+    getActionDisplayIndex(actionId) {
+        const allActions = this.getAllActionsFlattened();
+        // Filter out conditions for display index calculation
+        const visibleActions = allActions.filter(a => !a.isCondition);
+        const index = visibleActions.findIndex(a => a.id === actionId);
+        return index >= 0 ? index + 1 : -1;
+    }
+
+    // Helper function to get all image-match actions before a specific action
+    getImageMatchActionsBeforeAction(targetActionId) {
+        const allActions = this.getAllActionsFlattened();
+        const targetIndex = allActions.findIndex(a => a.id === targetActionId);
+
+        if (targetIndex === -1) return [];
+
+        // Debug: Log the structure
+        console.log('[getImageMatchActionsBeforeAction] All actions:', allActions.map((a, i) => `${i}: ${a.type} (${a.id})`));
+        console.log('[getImageMatchActionsBeforeAction] Target:', targetActionId, 'at index:', targetIndex);
+
+        // Get all actions before target and filter for image-match type
+        const result = allActions
+            .slice(0, targetIndex)
+            .filter(a => a.type === 'image-match')
+            .reverse(); // Most recent first
+
+        console.log('[getImageMatchActionsBeforeAction] Found image-match actions:', result.length);
+        return result;
+    }
+
     // Helper function to calculate letterbox offset and actual image dimensions
     getImageDisplayInfo(img, imgRect) {
         // Use the image's natural dimensions as-is (no rotation)
@@ -687,11 +762,11 @@ class MacroBuilderApp {
 
             // For drag, show line and end marker
             if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
-                // Calculate end marker position
+                // Calculate end marker position (same as start marker calculation)
                 const endImgX = (action.endX / this.screenWidth) * actualImgWidth;
                 const endImgY = (action.endY / this.screenHeight) * actualImgHeight;
-                const endMarkerX = (imgRect.left - containerRect.left) + offsetX + endImgX;
-                const endMarkerY = (imgRect.top - containerRect.top) + offsetY + endImgY;
+                const endMarkerX = offsetX + endImgX;
+                const endMarkerY = offsetY + endImgY;
 
                 // SVG line
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -731,19 +806,6 @@ class MacroBuilderApp {
 
                 svg.appendChild(line);
                 screenPreview.appendChild(svg);
-
-                // End marker
-                const endMarker = document.createElement('div');
-                endMarker.className = 'action-marker';
-                endMarker.style.left = `${endMarkerX}px`;
-                endMarker.style.top = `${endMarkerY}px`;
-                endMarker.style.width = '1.5rem';
-                endMarker.style.height = '1.5rem';
-                endMarker.style.marginLeft = '-0.75rem';
-                endMarker.style.marginTop = '-0.75rem';
-                endMarker.style.borderColor = 'var(--green-500)';
-                endMarker.style.background = 'rgba(34, 197, 94, 0.2)';
-                screenPreview.appendChild(endMarker);
             }
         }
 
@@ -951,6 +1013,20 @@ class MacroBuilderApp {
         const endMarkerX = offsetX + endImgX;
         const endMarkerY = offsetY + endImgY;
 
+        console.log('[drawDragMarker] Drawing drag end marker:', {
+            deviceCoords: { startX, startY, endX, endY },
+            screenResolution: { width: this.screenWidth, height: this.screenHeight },
+            imageRect: { width: imgRect.width, height: imgRect.height },
+            actualImageSize: { width: actualImgWidth, height: actualImgHeight },
+            letterbox: { offsetX, offsetY },
+            endPosition: {
+                imgX: endImgX.toFixed(2),
+                imgY: endImgY.toFixed(2),
+                markerX: endMarkerX.toFixed(2),
+                markerY: endMarkerY.toFixed(2)
+            }
+        });
+
         // SVG line
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('class', 'action-marker-line');
@@ -989,19 +1065,6 @@ class MacroBuilderApp {
 
         svg.appendChild(line);
         screenPreview.appendChild(svg);
-
-        // End point marker
-        const endMarker = document.createElement('div');
-        endMarker.className = 'action-marker';
-        endMarker.style.left = `${endMarkerX}px`;
-        endMarker.style.top = `${endMarkerY}px`;
-        endMarker.style.width = '1.5rem';
-        endMarker.style.height = '1.5rem';
-        endMarker.style.marginLeft = '-0.75rem';
-        endMarker.style.marginTop = '-0.75rem';
-        endMarker.style.borderColor = '#22c55e';
-        endMarker.style.background = 'rgba(34, 197, 94, 0.2)';
-        screenPreview.appendChild(endMarker);
     }
 
     drawRegionMarker(region, color = '#6366f1') {
@@ -1070,6 +1133,7 @@ class MacroBuilderApp {
             image: [
                 { type: 'screenshot', icon: this.getIconSVG('camera'), label: '스크린샷', description: '화면 저장', color: 'bg-violet-500' },
                 { type: 'image-match', icon: this.getIconSVG('image'), label: '이미지 매칭', description: '이미지 찾기', color: 'bg-indigo-500' },
+                { type: 'tap-matched-image', icon: this.getIconSVG('target'), label: '찾은 영역 클릭', description: '마지막 매칭 위치', color: 'bg-purple-500' },
             ],
             logic: [
                 { type: 'if', icon: this.getIconSVG('git-branch'), label: 'If', description: '조건문', color: 'bg-emerald-500' },
@@ -1081,6 +1145,9 @@ class MacroBuilderApp {
                 { type: 'while', icon: this.getIconSVG('rotate-cw'), label: 'While', description: '조건 반복', color: 'bg-cyan-500' },
                 { type: 'end-while', icon: this.getIconSVG('x'), label: 'End While', description: 'While 종료', color: 'bg-red-500' },
                 { type: 'log', icon: this.getIconSVG('file-text'), label: '로그', description: '로그 저장', color: 'bg-amber-500' },
+                { type: 'success', icon: this.getIconSVG('check-circle'), label: 'Success', description: '성공 종료', color: 'bg-green-500' },
+                { type: 'skip', icon: this.getIconSVG('skip-forward'), label: 'Skip', description: '시나리오 스킵', color: 'bg-yellow-500' },
+                { type: 'fail', icon: this.getIconSVG('x-circle'), label: 'Fail', description: '실패 종료', color: 'bg-red-600' },
                 { type: 'test', icon: this.getIconSVG('settings'), label: '테스트', description: 'UI 컴포넌트', color: 'bg-fuchsia-500' },
             ]
         };
@@ -1500,7 +1567,7 @@ class MacroBuilderApp {
 
                 // Insert tap-matched-image right after the IF/ELSE-IF/WHILE
                 this.actions.splice(targetIndex + 1, 0, tapAction);
-                this.addLog('info', '찾은 영역 터치 액션이 자동으로 추가되었습니다');
+                this.addLog('info', '찾은 영역 클릭 액션이 자동으로 추가되었습니다');
             }
         }
 
@@ -1534,7 +1601,7 @@ class MacroBuilderApp {
 
                 if (nextAction && nextAction.type === 'tap-matched-image' && nextAction.autoGenerated) {
                     this.actions.splice(actionIndex + 1, 1);
-                    this.addLog('info', '찾은 영역 터치 액션이 자동으로 제거되었습니다');
+                    this.addLog('info', '찾은 영역 클릭 액션이 자동으로 제거되었습니다');
                 }
             }
         }
@@ -1564,6 +1631,17 @@ class MacroBuilderApp {
                 condition.params = {};
         }
 
+        this.renderActionSequence();
+    }
+
+    toggleConditionNegate(actionId, conditionId, negate) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.negate = negate;
         this.renderActionSequence();
     }
 
@@ -1767,7 +1845,21 @@ class MacroBuilderApp {
 
                             <!-- Content -->
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-slate-900 mb-1 font-medium">${config.label}</h3>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="text-slate-900 font-medium">${config.label}</h3>
+                                    <!-- NOT Toggle -->
+                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
+                                        <input
+                                            type="checkbox"
+                                            ${condition.negate ? 'checked' : ''}
+                                            onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
+                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
+                                        />
+                                        <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
+                                            NOT
+                                        </span>
+                                    </label>
+                                </div>
                                 ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
 
@@ -2280,6 +2372,27 @@ class MacroBuilderApp {
             case 'while':
                 return `
                     <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                        <!-- Condition Operator Selection -->
+                        ${action.conditions && action.conditions.length > 1 ? `
+                            <div class="flex items-center gap-2 pb-2 border-b border-slate-200">
+                                <label class="text-xs text-slate-600">조건 연산:</label>
+                                <div class="flex gap-1">
+                                    <button
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'AND');"
+                                        class="px-2 py-1 text-xs rounded transition-colors ${(action.conditionOperator || 'AND') === 'AND' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
+                                    >
+                                        모든 조건 (AND)
+                                    </button>
+                                    <button
+                                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'OR');"
+                                        class="px-2 py-1 text-xs rounded transition-colors ${action.conditionOperator === 'OR' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
+                                    >
+                                        하나라도 (OR)
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <div class="flex items-center justify-between mb-2">
                             <label class="text-xs">조건 목록</label>
                             <span class="text-xs text-slate-500">${action.conditions?.length || 0}개</span>
@@ -2333,6 +2446,67 @@ class MacroBuilderApp {
                             class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
                             placeholder="로그 메시지를 입력하세요"
                             onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
+                    </div>
+                `;
+            case 'success':
+            case 'fail':
+            case 'skip':
+                return `
+                    <div class="bg-slate-50/50 px-4 py-4">
+                        <label class="text-xs mb-2 block">메시지</label>
+                        <input type="text" value="${action.message || ''}"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                            placeholder="${action.type === 'success' ? '성공 메시지' : action.type === 'skip' ? '스킵 사유' : '실패 사유'}"
+                            onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-3">
+                            <p class="text-xs text-slate-700 leading-relaxed">
+                                ${action.type === 'success'
+                                    ? '시나리오를 성공으로 종료하고 결과를 PASS로 저장합니다.'
+                                    : action.type === 'skip'
+                                        ? '시나리오를 스킵하고 다음 시나리오로 진행합니다.'
+                                        : '시나리오를 실패로 종료하고 결과를 FAIL로 저장합니다.'}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            case 'tap-matched-image':
+                // Find all image-match actions before this action (including nested ones)
+                const imageMatchActions = this.getImageMatchActionsBeforeAction(action.id);
+
+                return `
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                        <div>
+                            <label class="text-xs mb-2 block">링크할 이미지 매칭 액션</label>
+                            <select
+                                onclick="event.stopPropagation()"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'linkedImageMatchId', this.value)"
+                            >
+                                <option value="" ${!action.linkedImageMatchId ? 'selected' : ''}>마지막 찾은 이미지 (기본)</option>
+                                ${imageMatchActions.map((imgAction) => {
+                                    // Use parent action index if this is a condition
+                                    const displayId = imgAction.isCondition ? imgAction.parentActionId : imgAction.id;
+                                    const actionIndex = this.getActionDisplayIndex(displayId);
+                                    const label = imgAction.isCondition
+                                        ? `#${actionIndex} If 조건 (이미지 매칭)`
+                                        : imgAction.region
+                                            ? `#${actionIndex} 이미지 매칭 (영역: ${imgAction.region.width}×${imgAction.region.height})`
+                                            : `#${actionIndex} 이미지 매칭 (${imgAction.imagePath || 'image.png'})`;
+                                    return `<option value="${imgAction.id}" ${action.linkedImageMatchId === imgAction.id ? 'selected' : ''}>${label}</option>`;
+                                }).join('')}
+                            </select>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                            <p class="text-xs text-slate-700 leading-relaxed">
+                                ${action.linkedImageMatchId
+                                    ? '선택한 이미지 매칭 액션에서 찾은 위치를 클릭합니다.'
+                                    : imageMatchActions.length === 0
+                                        ? '이 액션 이전에 이미지 매칭 액션이 없습니다. 실행 시 가장 최근에 찾은 이미지 위치를 사용합니다.'
+                                        : '가장 최근에 성공한 이미지 매칭 위치를 클릭합니다.'}
+                            </p>
+                        </div>
                     </div>
                 `;
             case 'test':
@@ -2626,7 +2800,7 @@ class MacroBuilderApp {
             'back': { label: '뒤로가기', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('arrow-left') },
             'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderClass: 'border-violet-500', bgClass: 'bg-violet-50', icon: this.getIconSVG('camera') },
             'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderClass: 'border-indigo-500', bgClass: 'bg-indigo-50', icon: this.getIconSVG('image') },
-            'tap-matched-image': { label: '찾은 영역 터치', color: 'bg-rose-500', borderClass: 'border-rose-500', bgClass: 'bg-rose-50', icon: this.getIconSVG('target') },
+            'tap-matched-image': { label: '찾은 영역 클릭', color: 'bg-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-50', icon: this.getIconSVG('target') },
             'if': { label: 'If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('git-branch') },
             'else-if': { label: 'Else If', color: 'bg-teal-500', borderClass: 'border-teal-500', bgClass: 'bg-teal-50', icon: this.getIconSVG('code') },
             'else': { label: 'Else', color: 'bg-sky-500', borderClass: 'border-sky-500', bgClass: 'bg-sky-50', icon: this.getIconSVG('code') },
@@ -2636,6 +2810,9 @@ class MacroBuilderApp {
             'end-if': { label: 'End If', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
             'end-loop': { label: 'End Loop', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
             'end-while': { label: 'End While', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
+            'success': { label: 'Success', color: 'bg-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-50', icon: this.getIconSVG('check-circle') },
+            'skip': { label: 'Skip', color: 'bg-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-50', icon: this.getIconSVG('skip-forward') },
+            'fail': { label: 'Fail', color: 'bg-red-600', borderClass: 'border-red-600', bgClass: 'bg-red-50', icon: this.getIconSVG('x-circle') },
             'test': { label: '테스트', color: 'bg-fuchsia-500', borderClass: 'border-fuchsia-500', bgClass: 'bg-fuchsia-50', icon: this.getIconSVG('settings') },
         };
         return configs[type] || configs['click'];
@@ -2661,7 +2838,25 @@ class MacroBuilderApp {
                 }
                 return `${action.imagePath || 'image.png'} • ${Math.round((action.threshold || 0.95) * 100)}%`;
             case 'tap-matched-image':
-                return '마지막으로 찾은 이미지 위치';
+                if (action.linkedImageMatchId) {
+                    // Find the linked image-match action (including nested ones)
+                    const allActions = this.getAllActionsFlattened();
+                    const linkedAction = allActions.find(a => a.id === action.linkedImageMatchId);
+                    if (linkedAction) {
+                        // Use parent action index if this is a condition
+                        const displayId = linkedAction.isCondition ? linkedAction.parentActionId : linkedAction.id;
+                        const actionIndex = this.getActionDisplayIndex(displayId);
+
+                        if (linkedAction.isCondition) {
+                            return `#${actionIndex} If 조건`;
+                        } else if (linkedAction.region) {
+                            return `#${actionIndex} 이미지 매칭 결과`;
+                        } else {
+                            return `#${actionIndex} ${linkedAction.imagePath || 'image.png'}`;
+                        }
+                    }
+                }
+                return '마지막 매칭 위치';
             case 'if':
             case 'else-if':
             case 'while':
@@ -2678,6 +2873,12 @@ class MacroBuilderApp {
                 return action.message || '로그 메시지';
             case 'loop':
                 return `${action.loopCount || 1}회 반복`;
+            case 'success':
+                return action.message || '성공 종료';
+            case 'skip':
+                return action.message || '시나리오 스킵';
+            case 'fail':
+                return action.message || '실패 종료';
             case 'home':
             case 'back':
                 return '시스템 버튼';
@@ -2743,15 +2944,16 @@ class MacroBuilderApp {
         }
 
         this.isRunning = true;
+        this.shouldStop = false;
+        this.scenarioResult = null; // Reset result at start
         const runBtn = document.getElementById('btn-run-macro');
         if (runBtn) {
-            runBtn.disabled = true;
             runBtn.innerHTML = `
                 <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"></path>
                 </svg>
-                실행 중...
+                중단
             `;
         }
 
@@ -2759,15 +2961,42 @@ class MacroBuilderApp {
 
         await this.executeActionsRange(0, this.actions.length);
 
+        const wasStopped = this.shouldStop;
+
         this.isRunning = false;
+        this.shouldStop = false;
         this.selectedActionId = null;
         this.renderActionSequence();
         this.clearScreenMarkers();
 
-        this.addLog('success', '매크로 실행 완료');
+        // Log final result
+        let finalStatus = 'completed';
+        let finalMessage = '매크로 실행 완료';
+
+        if (this.scenarioResult) {
+            const { status, message } = this.scenarioResult;
+            finalStatus = status; // 'pass', 'skip', or 'fail'
+            finalMessage = message;
+
+            if (status === 'pass') {
+                this.addLog('success', `시나리오 완료 (PASS): ${message}`);
+            } else if (status === 'skip') {
+                this.addLog('info', `시나리오 스킵 (SKIP): ${message}`);
+            } else if (status === 'fail') {
+                this.addLog('error', `시나리오 실패 (FAIL): ${message}`);
+            }
+        } else if (wasStopped) {
+            finalStatus = 'stopped';
+            finalMessage = '매크로 실행이 중단되었습니다';
+            this.addLog('warning', finalMessage);
+        } else {
+            this.addLog('success', '매크로 실행 완료');
+        }
+
+        // Save execution result to scenario file metadata
+        await this.saveExecutionResult(finalStatus, finalMessage);
 
         if (runBtn) {
-            runBtn.disabled = false;
             runBtn.innerHTML = `
                 <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
@@ -2778,21 +3007,40 @@ class MacroBuilderApp {
         }
     }
 
+    stopMacro() {
+        if (this.isRunning) {
+            this.shouldStop = true;
+            this.addLog('info', '매크로 중단 요청...');
+        }
+    }
+
     async executeActionsRange(startIndex, endIndex) {
         let i = startIndex;
 
         while (i < endIndex) {
+            // Check if stop was requested
+            if (this.shouldStop) {
+                break;
+            }
+
             const action = this.actions[i];
 
             // Highlight current action
             this.selectedActionId = action.id;
-            this.renderActionSequence();
-            this.updateSelectedActionMarker(action);
+            this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
 
             try {
                 // Handle control flow actions
                 if (action.type === 'if' || action.type === 'else-if') {
-                    const conditionResult = await this.evaluateConditions(action.conditions);
+                    const conditionResult = await this.evaluateConditions(action);
+
+                    // Add delay and log for control flow action
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    this.addLog('info', `${this.getActionTypeName(action.type)} 조건: ${conditionResult ? '참' : '거짓'}`);
 
                     if (conditionResult) {
                         // Execute block until else-if/else/end-if
@@ -2809,6 +3057,14 @@ class MacroBuilderApp {
                     }
                 } else if (action.type === 'else') {
                     // If we reach else, it means previous if/else-if were false
+                    // Add delay and log
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    this.addLog('info', `${this.getActionTypeName(action.type)} 실행`);
+
                     // Execute until end-if
                     const blockEnd = this.findBlockEnd(i, ['end-if']);
                     await this.executeActionsRange(i + 1, blockEnd);
@@ -2822,7 +3078,7 @@ class MacroBuilderApp {
                     const maxIterations = 1000; // Safety limit
 
                     while (iterations < maxIterations) {
-                        const conditionResult = await this.evaluateConditions(action.conditions);
+                        const conditionResult = await this.evaluateConditions(action);
 
                         if (!conditionResult) break;
 
@@ -2845,8 +3101,32 @@ class MacroBuilderApp {
                     }
 
                     i = loopEnd + 1;
+                } else if (action.type === 'success') {
+                    // Scenario succeeded - terminate with success
+                    const message = action.message || '성공 종료';
+                    this.addLog('success', `Success: ${message}`);
+                    this.scenarioResult = { status: 'pass', message: message };
+                    break; // Exit execution
+                } else if (action.type === 'skip') {
+                    // Scenario skipped - terminate with skip
+                    const message = action.message || '시나리오 스킵';
+                    this.addLog('info', `Skip: ${message}`);
+                    this.scenarioResult = { status: 'skip', message: message };
+                    break; // Exit execution
+                } else if (action.type === 'fail') {
+                    // Scenario failed - terminate with failure
+                    const message = action.message || '실패 종료';
+                    this.addLog('error', `Fail: ${message}`);
+                    this.scenarioResult = { status: 'fail', message: message };
+                    break; // Exit execution
                 } else if (action.type === 'end-if' || action.type === 'end-loop' || action.type === 'end-while') {
-                    // Skip end markers
+                    // Add delay and log for end markers
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    this.addLog('info', `${this.getActionTypeName(action.type)} 완료`);
                     i++;
                 } else {
                     // Regular action - execute it
@@ -2909,56 +3189,46 @@ class MacroBuilderApp {
         return this.actions.length;
     }
 
-    async evaluateConditions(conditions) {
+    async evaluateConditions(action) {
+        const conditions = action.conditions;
+        const conditionOperator = action.conditionOperator || 'AND'; // Default to AND
+
         if (!conditions || conditions.length === 0) {
             return false;
         }
 
-        // Group conditions by AND operator
-        const andGroups = [];
-        let currentGroup = [];
-
+        // Evaluate all conditions
+        const conditionResults = [];
         for (const condition of conditions) {
-            currentGroup.push(condition);
+            // Create action object from condition
+            const conditionAction = {
+                id: condition.id,
+                type: condition.actionType,
+                ...condition.params
+            };
 
-            // If this is the last condition or next operator is OR, close the group
-            if (!condition.operator || condition.operator === 'OR') {
-                andGroups.push(currentGroup);
-                currentGroup = [];
-            }
+            // Execute condition action
+            const result = await this.executeAction(conditionAction);
+
+            // Apply negation if needed
+            const finalResult = condition.negate ? !result.success : result.success;
+
+            this.addLog('info', `조건 평가: ${condition.negate ? 'NOT ' : ''}${condition.actionType} = ${finalResult ? 'true' : 'false'}`);
+
+            conditionResults.push(finalResult);
         }
 
-        // Evaluate each AND group
-        const groupResults = [];
-        for (const group of andGroups) {
-            let groupResult = true;
-
-            for (const condition of group) {
-                // Create action object from condition
-                const conditionAction = {
-                    id: condition.id,
-                    type: condition.actionType,
-                    ...condition.params
-                };
-
-                // Execute condition action
-                const result = await this.executeAction(conditionAction);
-
-                this.addLog('info', `조건 평가: ${condition.actionType} = ${result.success ? 'true' : 'false'}`);
-
-                // AND operation
-                groupResult = groupResult && result.success;
-
-                // Short-circuit: if any condition in AND group is false, skip rest
-                if (!groupResult) break;
-            }
-
-            groupResults.push(groupResult);
+        // Apply global condition operator
+        let finalResult;
+        if (conditionOperator === 'OR') {
+            // OR: At least one condition must be true
+            finalResult = conditionResults.some(r => r);
+        } else {
+            // AND: All conditions must be true
+            finalResult = conditionResults.every(r => r);
         }
 
-        // OR all groups together
-        const finalResult = groupResults.some(r => r);
-        this.addLog('info', `최종 조건 결과: ${finalResult ? 'true' : 'false'}`);
+        this.addLog('info', `최종 조건 결과 (${conditionOperator}): ${finalResult ? 'true' : 'false'}`);
 
         return finalResult;
     }
@@ -3009,7 +3279,7 @@ class MacroBuilderApp {
                 const result = await window.api.action.execute(backendAction);
 
                 if (result.success) {
-                    this.addLog('success', `찾은 영역 터치 완료: (${this.lastMatchedCoordinate.x}, ${this.lastMatchedCoordinate.y})`);
+                    this.addLog('success', `찾은 영역 클릭 완료: (${this.lastMatchedCoordinate.x}, ${this.lastMatchedCoordinate.y})`);
                 }
 
                 return result;
@@ -3147,7 +3417,8 @@ class MacroBuilderApp {
                     x: actualX,
                     y: actualY
                 },
-                useCache: false
+                useCache: false,
+                colorInvariant: true  // Use edge-based matching for better accuracy
             });
 
             console.log('[executeImageMatchAction] findTemplate result:', result);
@@ -3189,6 +3460,21 @@ class MacroBuilderApp {
             } else {
                 // Clear last matched coordinate on failure
                 this.lastMatchedCoordinate = null;
+
+                // Draw red marker at the best match location (even though it failed threshold)
+                if (result.score > 0) {
+                    const deviceX = Math.round(result.x / scaleX);
+                    const deviceY = Math.round(result.y / scaleY);
+
+                    const bestMatchRegion = {
+                        x: deviceX,
+                        y: deviceY,
+                        width: action.region.width,
+                        height: action.region.height
+                    };
+                    this.drawRegionMarker(bestMatchRegion, '#ef4444'); // Red color for failed match
+                }
+
                 const errorMsg = `이미지를 찾지 못했습니다 (최고 점수: ${(result.score * 100).toFixed(1)}%)`;
                 this.addLog('warning', errorMsg);
                 return { success: false, found: false, score: result.score, error: errorMsg };
@@ -3237,20 +3523,67 @@ class MacroBuilderApp {
             'home': '홈 버튼',
             'back': '뒤로 버튼',
             'scroll': '스크롤',
-            'tap-matched-image': '찾은 영역 터치'
+            'tap-matched-image': '찾은 영역 클릭'
         };
         return names[type] || type;
     }
 
-    exportMacro() {
-        const data = JSON.stringify(this.actions, null, 2);
+    saveAsMacro() {
+        // Export to new file (Save As)
+        const macroData = {
+            name: this.macroName,
+            actions: this.actions,
+            createdAt: new Date().toISOString(),
+            version: '1.0'
+        };
+
+        const data = JSON.stringify(macroData, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'macro.json';
+
+        // Use macro name as filename (sanitized)
+        const sanitizedName = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
+        const filename = sanitizedName + '.json';
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
+
+        // Save to scenario registry AND store scenario data in localStorage
+        this.addScenarioToRegistry(sanitizedName, filename, macroData);
+
+        console.log(`Exported macro as: ${filename}`);
+    }
+
+    addScenarioToRegistry(key, filename, macroData) {
+        // Add scenario to registry for tracking
+        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+        registry[key] = {
+            name: this.macroName,
+            filename: filename,
+            savedAt: new Date().toISOString(),
+            actionsCount: this.actions.length
+        };
+        localStorage.setItem('scenario_registry', JSON.stringify(registry));
+
+        // Also save the actual scenario data to localStorage for easy loading
+        const scenariosData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+        scenariosData[key] = macroData;
+        localStorage.setItem('scenario_data', JSON.stringify(scenariosData));
+    }
+
+    loadScenarioFromRegistry(key) {
+        // Load scenario data from localStorage
+        const scenariosData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+        const scenarioData = scenariosData[key];
+
+        if (!scenarioData) {
+            console.error(`Scenario not found: ${key}`);
+            return null;
+        }
+
+        return scenarioData;
     }
 
     importMacro(event) {
@@ -3261,8 +3594,27 @@ class MacroBuilderApp {
         reader.onload = (e) => {
             try {
                 const imported = JSON.parse(e.target?.result);
-                this.actions = imported;
+
+                // Support both old format (just actions array) and new format (with metadata)
+                if (Array.isArray(imported)) {
+                    this.actions = imported;
+                    this.macroName = file.name.replace('.json', '');
+                } else {
+                    this.actions = imported.actions || [];
+                    this.macroName = imported.name || file.name.replace('.json', '');
+                }
+
+                // Store the file path for future saves
+                this.currentFilePath = file.path || null;
+
+                // Update UI
+                const nameInput = document.getElementById('macro-name-input');
+                if (nameInput) {
+                    nameInput.value = this.macroName;
+                }
+
                 this.renderActionSequence();
+                console.log(`Loaded macro: ${this.macroName} (${this.actions.length} actions)`);
             } catch (error) {
                 console.error('Failed to import macro:', error);
                 alert('매크로 파일을 불러오는데 실패했습니다.');
@@ -3272,8 +3624,53 @@ class MacroBuilderApp {
     }
 
     saveMacro() {
-        console.log('Saving macro:', this.macroName, this.actions);
-        alert(`매크로 "${this.macroName}"이(가) 저장되었습니다!`);
+        // Save to current file (overwrite if loaded from file, otherwise prompt for location)
+        if (this.currentFilePath) {
+            // Overwrite existing file
+            const macroData = {
+                name: this.macroName,
+                actions: this.actions,
+                updatedAt: new Date().toISOString(),
+                version: '1.0'
+            };
+
+            // For now, just use save-as since we can't directly write to files from browser
+            // In a real Electron app, this would use fs.writeFile
+            console.log('Saving to existing file:', this.currentFilePath);
+            this.saveAsMacro();
+        } else {
+            // No file loaded - use save as
+            this.saveAsMacro();
+        }
+    }
+
+    async saveExecutionResult(status, message) {
+        // Create execution result metadata
+        const executionResult = {
+            scenarioName: this.macroName,
+            status: status, // 'pass', 'fail', 'skip', 'stopped', 'completed'
+            message: message,
+            timestamp: new Date().toISOString(),
+            actionsCount: this.actions.length
+        };
+
+        // Store in localStorage for now (in real Electron app, save to file)
+        try {
+            // Get existing results
+            const resultsKey = 'scenario_execution_results';
+            const existingResults = JSON.parse(localStorage.getItem(resultsKey) || '{}');
+
+            // Use macro name as key, store latest result
+            const sanitizedName = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
+            existingResults[sanitizedName] = executionResult;
+
+            // Save back to localStorage
+            localStorage.setItem(resultsKey, JSON.stringify(existingResults));
+
+            console.log(`Saved execution result for "${this.macroName}":`, executionResult);
+        } catch (error) {
+            console.error('Failed to save execution result:', error);
+        }
     }
 
     getIconSVG(name) {
@@ -3298,6 +3695,9 @@ class MacroBuilderApp {
             'chevron-down': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>',
             'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>',
             'target': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke-width="2"/><circle cx="12" cy="12" r="2" stroke-width="2"/></svg>',
+            'check-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'x-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'skip-forward': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>',
         };
         return icons[name] || icons['click'];
     }
@@ -3388,6 +3788,14 @@ class MacroBuilderApp {
         const x = coords.x;
         const y = coords.y;
 
+        // Add debug logging for drag endpoint
+        console.log('[handleScreenPreviewClick] Click captured:', {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            deviceCoords: { x, y },
+            isDragEnd: !!this.dragStartPoint
+        });
+
         // Handle drag action (requires two clicks)
         if (this.pendingActionType === 'drag') {
             if (!this.dragStartPoint) {
@@ -3402,6 +3810,11 @@ class MacroBuilderApp {
                 this.updatePickingTooltipMessage();
             } else {
                 // Second click - create drag action with start and end points
+                console.log('[handleScreenPreviewClick] Creating drag action:', {
+                    start: this.dragStartPoint,
+                    end: { x, y }
+                });
+
                 this.createDragAction(this.dragStartPoint.x, this.dragStartPoint.y, x, y);
 
                 // Exit picking mode
@@ -4234,8 +4647,7 @@ class MacroBuilderApp {
             };
 
             this.addLog('success', `자동 크롭 완료: ${cropWidth}×${cropHeight}`);
-            this.saveMacro();
-            this.render();
+            this.renderActionSequence();
 
         } catch (error) {
             this.addLog('error', `자동 크롭 실패: ${error.message}`);
@@ -4314,6 +4726,246 @@ class MacroBuilderApp {
         } catch (error) {
             this.addLog('error', `이미지 매칭 테스트 실패: ${error.message}`);
         }
+    }
+
+    // Scenario List Modal Methods
+    openScenarioListModal() {
+        const modal = document.getElementById('scenario-list-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.renderScenarioList();
+        }
+    }
+
+    closeScenarioListModal() {
+        const modal = document.getElementById('scenario-list-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    renderScenarioList() {
+        const container = document.getElementById('scenario-list-container');
+        if (!container) return;
+
+        // Get both registry and execution results from localStorage
+        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+        const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+
+        // Merge registry with execution results
+        const scenarios = Object.entries(registry).map(([key, registryData]) => {
+            const executionResult = results[key];
+            return {
+                key,
+                name: registryData.name,
+                filename: registryData.filename,
+                savedAt: registryData.savedAt,
+                actionsCount: registryData.actionsCount,
+                status: executionResult ? executionResult.status : 'never_run',
+                message: executionResult ? executionResult.message : '미실행',
+                timestamp: executionResult ? executionResult.timestamp : registryData.savedAt
+            };
+        });
+
+        // Sort by most recently saved/executed
+        scenarios.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (scenarios.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 text-slate-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-lg font-medium">저장된 시나리오가 없습니다</p>
+                    <p class="text-sm mt-2">시나리오를 저장하면 여기에 표시됩니다</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render scenario list
+        container.innerHTML = scenarios.map(scenario => {
+            const statusIcon = this.getStatusIcon(scenario.status);
+            const statusColor = this.getStatusColor(scenario.status);
+            const statusText = this.getStatusText(scenario.status);
+            const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
+
+            return `
+                <div class="border rounded-lg p-4 mb-3 hover:bg-slate-50 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3 flex-1">
+                            <input type="checkbox" class="scenario-checkbox w-4 h-4 rounded border-slate-300" data-key="${scenario.key}" data-filename="${scenario.filename}">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-medium text-slate-900">${scenario.filename}</h3>
+                                    <span class="px-2 py-1 text-xs font-medium rounded ${statusColor}">
+                                        ${statusIcon} ${statusText}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-slate-600 mt-1">${scenario.message}</p>
+                                <p class="text-xs text-slate-500 mt-1">${timestamp} • ${scenario.actionsCount}개 액션</p>
+                            </div>
+                        </div>
+                        <button class="btn-outline btn-sm" onclick="window.macroApp.runSingleScenario('${scenario.key}')">
+                            실행
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Update selected count
+        this.updateSelectedCount();
+
+        // Add change listeners to checkboxes
+        container.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => this.updateSelectedCount());
+        });
+    }
+
+    getStatusIcon(status) {
+        switch (status) {
+            case 'pass': return '✓';
+            case 'fail': return '✗';
+            case 'skip': return '⊘';
+            case 'stopped': return '■';
+            case 'never_run': return '○';
+            case 'completed': return '✓';
+            default: return '○';
+        }
+    }
+
+    getStatusColor(status) {
+        switch (status) {
+            case 'pass': return 'bg-green-100 text-green-800';
+            case 'fail': return 'bg-red-100 text-red-800';
+            case 'skip': return 'bg-yellow-100 text-yellow-800';
+            case 'stopped': return 'bg-slate-100 text-slate-800';
+            case 'never_run': return 'bg-blue-100 text-blue-800';
+            case 'completed': return 'bg-green-100 text-green-800';
+            default: return 'bg-slate-100 text-slate-600';
+        }
+    }
+
+    getStatusText(status) {
+        switch (status) {
+            case 'pass': return 'PASS';
+            case 'fail': return 'FAIL';
+            case 'skip': return 'SKIP';
+            case 'stopped': return '중단됨';
+            case 'never_run': return '미실행';
+            case 'completed': return '완료';
+            default: return '미실행';
+        }
+    }
+
+    updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
+        const countEl = document.getElementById('selected-count');
+        if (countEl) {
+            countEl.textContent = checkboxes.length;
+        }
+    }
+
+    toggleSelectAll() {
+        const checkboxes = document.querySelectorAll('.scenario-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+        checkboxes.forEach(cb => {
+            cb.checked = !allChecked;
+        });
+
+        this.updateSelectedCount();
+    }
+
+    async runSelectedScenarios() {
+        const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
+        const selectedKeys = Array.from(checkboxes).map(cb => cb.dataset.key);
+
+        if (selectedKeys.length === 0) {
+            alert('실행할 시나리오를 선택해주세요');
+            return;
+        }
+
+        this.closeScenarioListModal();
+
+        this.addLog('info', `일괄 실행 시작: ${selectedKeys.length}개 시나리오`);
+
+        // Run scenarios sequentially
+        for (let i = 0; i < selectedKeys.length; i++) {
+            const key = selectedKeys[i];
+            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+            const scenarioInfo = registry[key];
+
+            if (!scenarioInfo) {
+                this.addLog('warning', `시나리오를 찾을 수 없음: ${key}`);
+                continue;
+            }
+
+            this.addLog('info', `[${i + 1}/${selectedKeys.length}] ${scenarioInfo.name} 실행 중...`);
+
+            // Load scenario data
+            const scenarioData = this.loadScenarioFromRegistry(key);
+            if (!scenarioData) {
+                this.addLog('error', `시나리오 로드 실패: ${scenarioInfo.name}`);
+                continue;
+            }
+
+            // Load the scenario into the current editor
+            this.actions = scenarioData.actions || [];
+            this.macroName = scenarioData.name || 'Unnamed';
+
+            // Update UI
+            const nameInput = document.getElementById('macro-name-input');
+            if (nameInput) {
+                nameInput.value = this.macroName;
+            }
+
+            // Render the action sequence
+            this.renderActionSequence();
+
+            // Run the scenario and wait for completion
+            await this.runMacro();
+
+            // Small delay between scenarios
+            if (i < selectedKeys.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
+    }
+
+    async runSingleScenario(key) {
+        console.log('Running single scenario:', key);
+
+        // Load scenario data from localStorage
+        const scenarioData = this.loadScenarioFromRegistry(key);
+        if (!scenarioData) {
+            alert('시나리오를 찾을 수 없습니다.');
+            return;
+        }
+
+        // Close the modal
+        this.closeScenarioListModal();
+
+        // Load the scenario into the current editor
+        this.actions = scenarioData.actions || [];
+        this.macroName = scenarioData.name || 'Unnamed';
+
+        // Update UI
+        const nameInput = document.getElementById('macro-name-input');
+        if (nameInput) {
+            nameInput.value = this.macroName;
+        }
+
+        // Render the action sequence
+        this.renderActionSequence();
+
+        this.addLog('info', `시나리오 로드됨: ${this.macroName} (${this.actions.length}개 액션)`);
+
+        // Auto-run the scenario
+        await this.runMacro();
     }
 }
 
