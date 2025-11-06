@@ -2969,12 +2969,6 @@ class MacroBuilderApp {
             this.selectedActionId = action.id;
             this.renderActionSequence();
 
-            // Handle image-match action differently (frontend processing)
-            // Don't draw initial marker for image-match - let executeImageMatchAction draw the matched location
-            if (action.type === 'image-match') {
-                return await this.executeImageMatchAction(action);
-            }
-
             // Show marker for actions with coordinates
             if (action.x !== undefined && action.y !== undefined) {
                 if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
@@ -2984,6 +2978,14 @@ class MacroBuilderApp {
                     // Draw single point marker
                     this.drawCoordinateMarker(action.x, action.y);
                 }
+            } else if (action.region) {
+                // Draw region marker for image-match
+                this.drawRegionMarker(action.region);
+            }
+
+            // Handle image-match action differently (frontend processing)
+            if (action.type === 'image-match') {
+                return await this.executeImageMatchAction(action);
             }
 
             // Handle tap-matched-image action
@@ -3033,9 +3035,6 @@ class MacroBuilderApp {
         try {
             console.log('[executeImageMatchAction] Starting with action:', action);
 
-            // Clear any existing markers first
-            this.clearScreenMarkers();
-
             if (!action.region) {
                 const msg = 'No region defined';
                 console.error('[executeImageMatchAction]', msg);
@@ -3084,28 +3083,27 @@ class MacroBuilderApp {
             screenCtx.drawImage(screenImg, 0, 0);
             console.log('[executeImageMatchAction] Screen canvas created:', screenCanvas.width, 'x', screenCanvas.height);
 
-            // Use saved regionImage as template (snapshot taken when region was selected)
-            if (!action.regionImage) {
-                const msg = 'No saved region image found';
-                console.error('[executeImageMatchAction]', msg);
-                this.addLog('error', `이미지 매칭 실패: ${msg}`);
-                return { success: false, error: msg };
-            }
+            // Extract template image directly from the region (don't use saved thumbnail)
+            // Calculate scaling factor between device coordinates and actual image size
+            const scaleX = screenCanvas.width / this.screenWidth;
+            const scaleY = screenCanvas.height / this.screenHeight;
 
-            // Load template image from saved snapshot
-            const templateImg = new Image();
-            await new Promise((resolve, reject) => {
-                templateImg.onload = resolve;
-                templateImg.onerror = reject;
-                templateImg.src = action.regionImage;
+            // Convert region coordinates to actual image coordinates
+            const actualX = Math.round(action.region.x * scaleX);
+            const actualY = Math.round(action.region.y * scaleY);
+            const actualWidth = Math.round(action.region.width * scaleX);
+            const actualHeight = Math.round(action.region.height * scaleY);
+
+            console.log('[executeImageMatchAction] Template extraction:', {
+                deviceRegion: action.region,
+                scale: { x: scaleX, y: scaleY },
+                actualRegion: { x: actualX, y: actualY, width: actualWidth, height: actualHeight }
             });
 
-            console.log('[executeImageMatchAction] Template image loaded:', templateImg.width, 'x', templateImg.height);
-
-            // Create template canvas from saved image
+            // Create template canvas from the region
             const templateCanvas = document.createElement('canvas');
-            templateCanvas.width = templateImg.width;
-            templateCanvas.height = templateImg.height;
+            templateCanvas.width = actualWidth;
+            templateCanvas.height = actualHeight;
             const templateCtx = templateCanvas.getContext('2d');
 
             if (!templateCtx) {
@@ -3115,7 +3113,13 @@ class MacroBuilderApp {
                 return { success: false, error: msg };
             }
 
-            templateCtx.drawImage(templateImg, 0, 0);
+            // Draw the region from screen canvas to template canvas
+            templateCtx.drawImage(
+                screenImg,
+                actualX, actualY, actualWidth, actualHeight,
+                0, 0, actualWidth, actualHeight
+            );
+
             console.log('[executeImageMatchAction] Template canvas created:', templateCanvas.width, 'x', templateCanvas.height);
 
             const sourceImageData = screenCtx.getImageData(0, 0, screenCanvas.width, screenCanvas.height);
@@ -3123,46 +3127,40 @@ class MacroBuilderApp {
 
             console.log('[executeImageMatchAction] ImageData created, source:', sourceImageData.width, 'x', sourceImageData.height, 'template:', templateImageData.width, 'x', templateImageData.height);
             console.log('[executeImageMatchAction] Device resolution:', this.screenWidth, 'x', this.screenHeight);
+            console.log('[executeImageMatchAction] Region (device coordinates):', action.region);
 
             const threshold = action.threshold || 0.95;
             console.log('[executeImageMatchAction] Calling findTemplate with threshold:', threshold);
 
-            // Search the entire screen for the template
             const result = await window.imageMatcher.findTemplate(sourceImageData, templateImageData, {
                 threshold: threshold,
+                cropLocation: {
+                    x: actualX,
+                    y: actualY
+                },
                 useCache: false
             });
 
             console.log('[executeImageMatchAction] findTemplate result:', result);
 
             if (result.found) {
-                // result.x, result.y is in actual image coordinates (e.g., 0-2400 x 0-1080 for rotated tablet)
-                // We need to convert to device coordinates (0-1080 x 0-2400)
+                // result.x, result.y are in actual image coordinates (naturalWidth x naturalHeight)
+                // We need to convert them back to device coordinates (screenWidth x screenHeight)
 
-                // Calculate scale factor
-                const scaleX = this.screenWidth / screenCanvas.width;
-                const scaleY = this.screenHeight / screenCanvas.height;
-
-                // Convert found position to device coordinates
-                const deviceX = Math.round(result.x * scaleX);
-                const deviceY = Math.round(result.y * scaleY);
-
-                // Template dimensions are in actual image coordinates, convert to device
-                const templateDeviceWidth = Math.round(templateCanvas.width * scaleX);
-                const templateDeviceHeight = Math.round(templateCanvas.height * scaleY);
+                // Convert matched position from actual image coordinates to device coordinates
+                const deviceX = Math.round(result.x / scaleX);
+                const deviceY = Math.round(result.y / scaleY);
 
                 // Calculate center of matched region in device coordinates
-                const centerX = deviceX + Math.round(templateDeviceWidth / 2);
-                const centerY = deviceY + Math.round(templateDeviceHeight / 2);
+                const centerX = deviceX + Math.round(action.region.width / 2);
+                const centerY = deviceY + Math.round(action.region.height / 2);
 
-                console.log('[executeImageMatchAction] Match found:', {
-                    actualCoords: { x: result.x, y: result.y },
+                console.log('[executeImageMatchAction] Coordinate conversion:', {
+                    actualImageCoords: { x: result.x, y: result.y },
+                    scale: { x: scaleX, y: scaleY },
                     deviceCoords: { x: deviceX, y: deviceY },
-                    center: { x: centerX, y: centerY },
-                    templateSize: {
-                        actual: { w: templateCanvas.width, h: templateCanvas.height },
-                        device: { w: templateDeviceWidth, h: templateDeviceHeight }
-                    }
+                    regionSize: { width: action.region.width, height: action.region.height },
+                    centerCoords: { x: centerX, y: centerY }
                 });
 
                 // Store the center coordinate for tap-matched-image action
@@ -3172,8 +3170,8 @@ class MacroBuilderApp {
                 const matchedRegion = {
                     x: deviceX,
                     y: deviceY,
-                    width: templateDeviceWidth,
-                    height: templateDeviceHeight
+                    width: action.region.width,
+                    height: action.region.height
                 };
                 this.drawRegionMarker(matchedRegion, '#10b981'); // Green color for successful match
 
@@ -4226,12 +4224,9 @@ class MacroBuilderApp {
                 height: Math.round(cropHeight * scaleY)
             };
 
-            // Re-capture the region image with new dimensions
-            this.captureRegionImage(action);
-
             this.addLog('success', `자동 크롭 완료: ${cropWidth}×${cropHeight}`);
             this.saveMacro();
-            this.renderActionSequence();
+            this.render();
 
         } catch (error) {
             this.addLog('error', `자동 크롭 실패: ${error.message}`);
