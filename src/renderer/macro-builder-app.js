@@ -1122,7 +1122,7 @@ class MacroBuilderApp {
                 if (action.conditions && action.conditions.length > 0) {
                     action.conditions.forEach(condition => {
                         if (condition.actionType === 'image-match' && condition.params.region) {
-                            this.captureConditionRegionImage(action, condition);
+                            this.renderConditionImageThumbnail(condition);
                         }
                     });
                 }
@@ -1215,6 +1215,42 @@ class MacroBuilderApp {
                 ctx.drawImage(img, 0, 0);
             };
             img.src = action.regionImage;
+        }
+    }
+
+    renderConditionImageThumbnail(condition) {
+        const canvas = document.getElementById(`thumbnail-${condition.id}`);
+        if (!canvas || !condition.params.region) return;
+
+        // If we have a stored region image, use it
+        if (condition.params.regionImage) {
+            const img = new Image();
+            img.onload = () => {
+                const ctx = canvas.getContext('2d');
+                const region = condition.params.region;
+
+                // Set canvas size to region size (maintain aspect ratio)
+                const maxHeight = 80; // max-height: 80px from CSS
+                const aspectRatio = region.width / region.height;
+
+                let displayWidth = region.width;
+                let displayHeight = region.height;
+
+                // Scale down if too tall
+                if (displayHeight > maxHeight) {
+                    displayHeight = maxHeight;
+                    displayWidth = maxHeight * aspectRatio;
+                }
+
+                canvas.width = region.width;
+                canvas.height = region.height;
+                canvas.style.width = `${displayWidth}px`;
+                canvas.style.height = `${displayHeight}px`;
+
+                // Draw the stored image
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = condition.params.regionImage;
         }
     }
 
@@ -1495,9 +1531,6 @@ class MacroBuilderApp {
         const sourceImg = document.getElementById('screen-stream-image');
         if (!sourceImg || !sourceImg.complete) return;
 
-        const canvas = document.getElementById(`thumbnail-${condition.id}`);
-        if (!canvas) return;
-
         const region = condition.params.region;
 
         // Get the actual image dimensions
@@ -1514,11 +1547,11 @@ class MacroBuilderApp {
         const actualWidth = Math.round(region.width * scaleX);
         const actualHeight = Math.round(region.height * scaleY);
 
-        // Set canvas size to actual region size
-        canvas.width = actualWidth;
-        canvas.height = actualHeight;
-
-        const ctx = canvas.getContext('2d');
+        // Create a temporary canvas to capture the region
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = actualWidth;
+        tempCanvas.height = actualHeight;
+        const ctx = tempCanvas.getContext('2d');
 
         try {
             // Draw the selected region from the source image using actual coordinates
@@ -1527,6 +1560,9 @@ class MacroBuilderApp {
                 actualX, actualY, actualWidth, actualHeight,
                 0, 0, actualWidth, actualHeight
             );
+
+            // Store the captured image as a data URL
+            condition.params.regionImage = tempCanvas.toDataURL('image/png');
         } catch (e) {
             console.error('Failed to capture condition region image:', e);
         }
