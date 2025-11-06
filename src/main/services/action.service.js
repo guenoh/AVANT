@@ -606,6 +606,11 @@ class ActionService extends EventEmitter {
       case 'wait':
         await new Promise(resolve => setTimeout(resolve, action.delay || 1000));
         return { success: true };
+      case 'sound-check':
+        // Sound check is handled by the renderer process via IPC
+        // This is just a placeholder that returns success
+        // The actual sound check will be performed by the AudioService in main process
+        return { success: true, message: 'Sound check action triggered' };
       default:
         throw new Error(`Unknown action type: ${action.type}`);
     }

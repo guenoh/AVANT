@@ -2719,6 +2719,73 @@ class MacroBuilderApp {
             case 'home':
             case 'back':
                 return `<p class="text-xs text-slate-600 text-center py-2">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
+            case 'sound-check':
+                return `
+                    <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">측정 시간 (초)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" value="${(action.duration || 5000) / 1000}" min="1" max="60" step="1"
+                                    onclick="event.stopPropagation()"
+                                    class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
+                                    onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value) * 1000)">
+                                <span class="text-xs text-slate-500">초</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">검증 타입</label>
+                            <select
+                                value="${action.expectation || 'present'}"
+                                onclick="event.stopPropagation()"
+                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 cursor-pointer"
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'expectation', this.value)"
+                            >
+                                <option value="present">소리 감지</option>
+                                <option value="silent">무음 확인</option>
+                                <option value="level">특정 범위</option>
+                            </select>
+                        </div>
+
+                        ${action.expectation === 'level' ? `
+                        <div>
+                            <label class="text-xs text-slate-600 mb-2 block">데시벨 범위</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs">최소 (dB)</label>
+                                    <input type="number" value="${action.threshold?.min || 0}" min="0" max="100" step="5"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                        onchange="const threshold = window.macroApp.actions.find(a => a.id === '${action.id}').threshold || {}; threshold.min = parseInt(this.value); window.macroApp.updateActionValue('${action.id}', 'threshold', threshold)">
+                                </div>
+                                <div>
+                                    <label class="text-xs">최대 (dB)</label>
+                                    <input type="number" value="${action.threshold?.max || 100}" min="0" max="100" step="5"
+                                        onclick="event.stopPropagation()"
+                                        class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                                        onchange="const threshold = window.macroApp.actions.find(a => a.id === '${action.id}').threshold || {}; threshold.max = parseInt(this.value); window.macroApp.updateActionValue('${action.id}', 'threshold', threshold)">
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-700 leading-relaxed">
+                                노트북의 마이크를 사용하여 주변 소리의 데시벨을 측정합니다.
+                                ${action.expectation === 'present' ? '지정된 시간 동안 소리가 감지되는지 확인합니다.' :
+                                  action.expectation === 'silent' ? '지정된 시간 동안 무음 상태인지 확인합니다.' :
+                                  '지정된 시간 동안 소리가 설정한 범위 내에 있는지 확인합니다.'}
+                            </p>
+                        </div>
+
+                        <button class="btn-secondary w-full" onclick="event.stopPropagation(); window.macroApp.openSoundCheckModal('${action.id}')">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                            </svg>
+                            상세 설정
+                        </button>
+                    </div>
+                `;
             default:
                 return '';
         }
@@ -2820,6 +2887,7 @@ class MacroBuilderApp {
             'skip': { label: 'Skip', color: 'bg-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-50', icon: this.getIconSVG('skip-forward') },
             'fail': { label: 'Fail', color: 'bg-red-600', borderClass: 'border-red-600', bgClass: 'bg-red-50', icon: this.getIconSVG('x-circle') },
             'test': { label: '테스트', color: 'bg-fuchsia-500', borderClass: 'border-fuchsia-500', bgClass: 'bg-fuchsia-50', icon: this.getIconSVG('settings') },
+            'sound-check': { label: '사운드 체크', color: 'bg-indigo-600', borderClass: 'border-indigo-600', bgClass: 'bg-indigo-50', icon: this.getIconSVG('mic') },
         };
         return configs[type] || configs['click'];
     }
@@ -2890,6 +2958,17 @@ class MacroBuilderApp {
                 return '시스템 버튼';
             case 'test':
                 return 'UI 컴포넌트 샘플';
+            case 'sound-check':
+                const expectation = action.expectation || 'present';
+                const duration = (action.duration || 5000) / 1000;
+                if (expectation === 'present') {
+                    return `${duration}초간 소리 감지`;
+                } else if (expectation === 'silent') {
+                    return `${duration}초간 무음 확인`;
+                } else if (expectation === 'level') {
+                    return `${duration}초간 ${action.threshold?.min || 0}~${action.threshold?.max || 100}dB`;
+                }
+                return `${duration}초간 측정`;
             default:
                 return '';
         }
@@ -3264,6 +3343,11 @@ class MacroBuilderApp {
                 return await this.executeImageMatchAction(action);
             }
 
+            // Handle sound-check action (frontend processing)
+            if (action.type === 'sound-check') {
+                return await this.executeSoundCheckAction(action);
+            }
+
             // Handle tap-matched-image action
             if (action.type === 'tap-matched-image') {
                 if (!this.lastMatchedCoordinate) {
@@ -3490,6 +3574,107 @@ class MacroBuilderApp {
             console.error('[executeImageMatchAction] Error:', error);
             console.error('[executeImageMatchAction] Error stack:', error && error.stack);
             this.addLog('error', `이미지 매칭 에러: ${errorMsg}`);
+            return { success: false, error: errorMsg };
+        }
+    }
+
+    async executeSoundCheckAction(action) {
+        try {
+            console.log('[executeSoundCheckAction] Starting with action:', action);
+
+            const duration = action.duration || 5000;
+            const expectation = action.expectation || 'present';
+            const threshold = action.threshold || { min: 40, max: 80 };
+
+            this.addLog('info', `사운드 체크 시작: ${duration/1000}초 동안 측정`);
+
+            // AudioCapture should be available globally from the included script
+            if (!window.AudioCapture) {
+                throw new Error('AudioCapture not available. Please check if audio-capture.js is loaded.');
+            }
+
+            const audioCapture = new window.AudioCapture();
+
+            try {
+                // Initialize microphone
+                await audioCapture.init();
+
+                // Collect samples during the duration
+                const samples = [];
+                const startTime = Date.now();
+
+                // Create a promise that resolves after duration
+                await new Promise((resolve) => {
+                    const interval = setInterval(() => {
+                        const elapsed = Date.now() - startTime;
+
+                        // Get current decibel level
+                        const db = audioCapture.getDecibel();
+                        samples.push(db);
+
+                        // Update UI with current level
+                        this.addLog('info', `현재 데시벨: ${db.toFixed(1)} dB`);
+
+                        if (elapsed >= duration) {
+                            clearInterval(interval);
+                            resolve();
+                        }
+                    }, 100); // Sample every 100ms
+                });
+
+                // Analyze results
+                const avgDb = samples.reduce((a, b) => a + b, 0) / samples.length;
+                const maxDb = Math.max(...samples);
+                const minDb = Math.min(...samples);
+
+                this.addLog('info', `측정 완료 - 평균: ${avgDb.toFixed(1)}dB, 최대: ${maxDb.toFixed(1)}dB, 최소: ${minDb.toFixed(1)}dB`);
+
+                // Check expectation
+                let success = false;
+                let message = '';
+
+                if (expectation === 'present') {
+                    // Sound should be present (above 35dB)
+                    success = avgDb > 35;
+                    message = success ? '소리가 감지되었습니다' : '소리가 감지되지 않았습니다';
+                } else if (expectation === 'silent') {
+                    // Should be silent (below 35dB)
+                    success = avgDb < 35;
+                    message = success ? '무음 상태 확인' : '예상치 않은 소리가 감지되었습니다';
+                } else if (expectation === 'level') {
+                    // Should be within range
+                    success = avgDb >= threshold.min && avgDb <= threshold.max;
+                    message = success ?
+                        `데시벨이 범위 내입니다 (${threshold.min}-${threshold.max}dB)` :
+                        `데시벨이 범위를 벗어났습니다 (측정: ${avgDb.toFixed(1)}dB, 예상: ${threshold.min}-${threshold.max}dB)`;
+                }
+
+                if (success) {
+                    this.addLog('success', `사운드 체크 성공: ${message}`);
+                } else {
+                    this.addLog('error', `사운드 체크 실패: ${message}`);
+                }
+
+                return {
+                    success,
+                    message,
+                    data: {
+                        average: avgDb,
+                        max: maxDb,
+                        min: minDb,
+                        samples: samples.length
+                    }
+                };
+
+            } finally {
+                // Always cleanup audio capture
+                audioCapture.cleanup();
+            }
+
+        } catch (error) {
+            const errorMsg = error && error.message ? error.message : String(error);
+            console.error('[executeSoundCheckAction] Error:', error);
+            this.addLog('error', `사운드 체크 에러: ${errorMsg}`);
             return { success: false, error: errorMsg };
         }
     }
