@@ -84,6 +84,10 @@ body {
     --red-50: #FEF2F2;
     --amber-500: #f59e0b;
     --amber-50: #FFFBEB;
+    --yellow-500: #eab308;
+    --red-600: #dc2626;
+    --fuchsia-500: #d946ef;
+    --indigo-600: #4f46e5;
 }
 
 /* Layout Utilities */
@@ -684,6 +688,22 @@ svg {
 
 .bg-teal-500 {
     background-color: var(--teal-500);
+}
+
+.bg-yellow-500 {
+    background-color: var(--yellow-500);
+}
+
+.bg-red-600 {
+    background-color: var(--red-600);
+}
+
+.bg-fuchsia-500 {
+    background-color: var(--fuchsia-500);
+}
+
+.bg-indigo-600 {
+    background-color: var(--indigo-600);
 }
 
 .bg-sky-500 {
