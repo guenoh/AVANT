@@ -248,3 +248,8 @@ class AudioCapture {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AudioCapture;
 }
+
+// Also expose to window for browser usage
+if (typeof window !== 'undefined') {
+    window.AudioCapture = AudioCapture;
+}
