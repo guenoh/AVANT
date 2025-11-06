@@ -229,135 +229,135 @@ class ImageMatcher {
   }
 
   /**
-   * Search vertically from crop location (fix X, vary Y)
+   * Search vertically from crop location with horizontal tolerance
    */
   searchVerticalFromCrop(srcGray, tmpGray, cropLocation, threshold, startTime, timeout) {
-    const fixedX = cropLocation.x; // X is fixed at crop location
-    const centerY = cropLocation.y; // Center Y from crop location
-    const step = 4; // Pixel step for search
+    const centerX = cropLocation.x;
+    const centerY = cropLocation.y;
+    const stepY = 4; // Pixel step for vertical search
+    const stepX = 8; // Pixel step for horizontal search
+    const xTolerance = 50; // Search ±50 pixels horizontally
 
     const minY = 0;
     const maxY = srcGray.height - tmpGray.height;
+    const minX = Math.max(0, centerX - xTolerance);
+    const maxX = Math.min(srcGray.width - tmpGray.width, centerX + xTolerance);
 
     let bestMatch = {
       found: false,
-      x: fixedX,
+      x: centerX,
       y: centerY,
       width: tmpGray.width,
       height: tmpGray.height,
       score: 0
     };
 
-    console.log(`[ImageMatcher] Starting vertical search from crop location (${fixedX}, ${centerY})`);
-    console.log(`[ImageMatcher] Search range: Y ${minY} to ${maxY}, step: ${step}px`);
+    console.log(`[ImageMatcher] Starting search from crop location (${centerX}, ${centerY})`);
+    console.log(`[ImageMatcher] Search range: X ${minX}-${maxX}, Y ${minY}-${maxY}`);
 
-    // Search from center Y, expanding up and down
-    const maxDistance = Math.max(centerY - minY, maxY - centerY);
+    // Phase 1: Vertical search with center X, expanding up and down
+    const maxDistanceY = Math.max(centerY - minY, maxY - centerY);
     let searchCount = 0;
 
-    for (let dy = 0; dy <= maxDistance; dy += step) {
-      // Check timeout
+    console.log(`[ImageMatcher] Phase 1: Vertical search at X=${centerX}`);
+
+    for (let dy = 0; dy <= maxDistanceY; dy += stepY) {
       if (Date.now() - startTime > timeout) {
         console.log(`[ImageMatcher] Search timeout after ${searchCount} attempts`);
         break;
       }
 
-      // Try center first (dy = 0)
-      if (dy === 0) {
-        const y = centerY;
-        if (y >= minY && y <= maxY) {
+      // Try center first (dy = 0), then down, then up
+      const yPositions = dy === 0 ? [centerY] : [centerY + dy, centerY - dy];
+
+      for (const y of yPositions) {
+        if (y < minY || y > maxY) continue;
+
+        searchCount++;
+        const score = this.matchTemplateAt(srcGray, tmpGray, centerX, y);
+
+        if (searchCount <= 10 || searchCount % 50 === 0) {
+          console.log(`[ImageMatcher] #${searchCount} Checking (${centerX}, ${y}) - Score: ${(score * 100).toFixed(1)}%`);
+        }
+
+        if (score > bestMatch.score) {
+          bestMatch.score = score;
+          bestMatch.x = centerX;
+          bestMatch.y = y;
+
+          if (score >= threshold) {
+            bestMatch.found = true;
+            console.log(`[ImageMatcher] Match found! Position: (${centerX}, ${y}), Score: ${(score * 100).toFixed(1)}%`);
+            return bestMatch;
+          }
+        }
+      }
+    }
+
+    console.log(`[ImageMatcher] Phase 1 completed. Best score: ${(bestMatch.score * 100).toFixed(1)}% at (${bestMatch.x}, ${bestMatch.y})`);
+
+    // Phase 2: If no good match found, search horizontally around best Y
+    if (bestMatch.score < threshold && bestMatch.score > 0) {
+      console.log(`[ImageMatcher] Phase 2: Horizontal search at Y=${bestMatch.y}`);
+
+      for (let x = minX; x <= maxX; x += stepX) {
+        if (Date.now() - startTime > timeout) break;
+
+        searchCount++;
+        const score = this.matchTemplateAt(srcGray, tmpGray, x, bestMatch.y);
+
+        if (score > bestMatch.score) {
+          bestMatch.score = score;
+          bestMatch.x = x;
+          console.log(`[ImageMatcher] Improved score at (${x}, ${bestMatch.y}) - Score: ${(score * 100).toFixed(1)}%`);
+
+          if (score >= threshold) {
+            bestMatch.found = true;
+            console.log(`[ImageMatcher] Match found! Position: (${x}, ${bestMatch.y}), Score: ${(score * 100).toFixed(1)}%`);
+            return bestMatch;
+          }
+        }
+      }
+    }
+
+    console.log(`[ImageMatcher] Phase 2 completed. Total attempts: ${searchCount}, Best score: ${(bestMatch.score * 100).toFixed(1)}%`);
+
+    // Phase 3: Refine search around best match with 1px step
+    if (bestMatch.score > 0 && bestMatch.score < threshold) {
+      console.log(`[ImageMatcher] Phase 3: Refinement around (${bestMatch.x}, ${bestMatch.y})`);
+      const refineRange = 8;
+      const refineMinY = Math.max(minY, bestMatch.y - refineRange);
+      const refineMaxY = Math.min(maxY, bestMatch.y + refineRange);
+      const refineMinX = Math.max(minX, bestMatch.x - refineRange);
+      const refineMaxX = Math.min(maxX, bestMatch.x + refineRange);
+
+      for (let y = refineMinY; y <= refineMaxY; y++) {
+        for (let x = refineMinX; x <= refineMaxX; x++) {
+          if (Date.now() - startTime > timeout) {
+            console.log(`[ImageMatcher] Refinement timeout`);
+            break;
+          }
+
           searchCount++;
-          const score = this.matchTemplateAt(srcGray, tmpGray, fixedX, y);
-          console.log(`[ImageMatcher] #${searchCount} Checking (${fixedX}, ${y}) - Score: ${(score * 100).toFixed(1)}%`);
+          const score = this.matchTemplateAt(srcGray, tmpGray, x, y);
 
           if (score > bestMatch.score) {
             bestMatch.score = score;
+            bestMatch.x = x;
             bestMatch.y = y;
+            console.log(`[ImageMatcher] Refinement improved: (${x}, ${y}) - Score: ${(score * 100).toFixed(1)}%`);
 
             if (score >= threshold) {
               bestMatch.found = true;
-              console.log(`[ImageMatcher] Match found! Position: (${fixedX}, ${y}), Score: ${(score * 100).toFixed(1)}%`);
+              console.log(`[ImageMatcher] Match found in refinement!`);
               return bestMatch;
             }
           }
         }
-        continue;
-      }
-
-      // Try down (centerY + dy)
-      const yDown = centerY + dy;
-      if (yDown >= minY && yDown <= maxY) {
-        searchCount++;
-        const score = this.matchTemplateAt(srcGray, tmpGray, fixedX, yDown);
-        console.log(`[ImageMatcher] #${searchCount} Checking (${fixedX}, ${yDown}) - Score: ${(score * 100).toFixed(1)}% | Best: ${(bestMatch.score * 100).toFixed(1)}%`);
-
-        if (score > bestMatch.score) {
-          bestMatch.score = score;
-          bestMatch.y = yDown;
-
-          if (score >= threshold) {
-            bestMatch.found = true;
-            console.log(`[ImageMatcher] Match found! Position: (${fixedX}, ${yDown}), Score: ${(score * 100).toFixed(1)}%`);
-            return bestMatch;
-          }
-        }
-      }
-
-      // Try up (centerY - dy)
-      const yUp = centerY - dy;
-      if (yUp >= minY && yUp <= maxY) {
-        searchCount++;
-        const score = this.matchTemplateAt(srcGray, tmpGray, fixedX, yUp);
-        console.log(`[ImageMatcher] #${searchCount} Checking (${fixedX}, ${yUp}) - Score: ${(score * 100).toFixed(1)}% | Best: ${(bestMatch.score * 100).toFixed(1)}%`);
-
-        if (score > bestMatch.score) {
-          bestMatch.score = score;
-          bestMatch.y = yUp;
-
-          if (score >= threshold) {
-            bestMatch.found = true;
-            console.log(`[ImageMatcher] Match found! Position: (${fixedX}, ${yUp}), Score: ${(score * 100).toFixed(1)}%`);
-            return bestMatch;
-          }
-        }
       }
     }
 
-    console.log(`[ImageMatcher] Phase 1 completed. Total attempts: ${searchCount}, Best score: ${(bestMatch.score * 100).toFixed(1)}%`);
-
-    // Phase 2: Refine search around best match with 1px step
-    if (bestMatch.score > 0 && bestMatch.score < threshold) {
-      console.log(`[ImageMatcher] Starting Phase 2: Refining search around Y=${bestMatch.y} with 1px step`);
-      const refineRange = 8; // Search ±8px around best match
-      const refineMinY = Math.max(minY, bestMatch.y - refineRange);
-      const refineMaxY = Math.min(maxY, bestMatch.y + refineRange);
-
-      for (let y = refineMinY; y <= refineMaxY; y++) {
-        if (Date.now() - startTime > timeout) {
-          console.log(`[ImageMatcher] Refinement timeout after ${searchCount} total attempts`);
-          break;
-        }
-
-        searchCount++;
-        const score = this.matchTemplateAt(srcGray, tmpGray, fixedX, y);
-
-        if (score > bestMatch.score) {
-          bestMatch.score = score;
-          bestMatch.y = y;
-          console.log(`[ImageMatcher] Refinement improved score at (${fixedX}, ${y}) - Score: ${(score * 100).toFixed(1)}%`);
-
-          if (score >= threshold) {
-            bestMatch.found = true;
-            console.log(`[ImageMatcher] Match found in refinement! Position: (${fixedX}, ${y}), Score: ${(score * 100).toFixed(1)}%`);
-            return bestMatch;
-          }
-        }
-      }
-
-      console.log(`[ImageMatcher] Phase 2 completed. Final score: ${(bestMatch.score * 100).toFixed(1)}%`);
-    }
-
-    console.log(`[ImageMatcher] Search completed. Total attempts: ${searchCount}, Best score: ${(bestMatch.score * 100).toFixed(1)}%`);
+    console.log(`[ImageMatcher] Search completed. Total: ${searchCount} attempts, Best: ${(bestMatch.score * 100).toFixed(1)}% at (${bestMatch.x}, ${bestMatch.y})`);
     return bestMatch;
   }
 
