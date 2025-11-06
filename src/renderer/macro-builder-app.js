@@ -2529,6 +2529,10 @@ class MacroBuilderApp {
     }
 
     selectAction(id) {
+        // Clear condition-related states when selecting an action
+        this.selectedCondition = null;
+        this.expandedConditionId = null;
+
         this.selectedActionId = id;
         this.renderActionSequence();
 
