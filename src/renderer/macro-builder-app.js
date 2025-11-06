@@ -97,7 +97,16 @@ class MacroBuilderApp {
                     return;
                 }
 
-                // Priority 2: Deselect action if one is selected
+                // Priority 2: Deselect condition if one is selected
+                if (this.selectedCondition || this.expandedConditionId) {
+                    this.selectedCondition = null;
+                    this.expandedConditionId = null;
+                    this.renderActionSequence();
+                    this.clearScreenMarkers(); // Remove markers from screen
+                    return;
+                }
+
+                // Priority 3: Deselect action if one is selected
                 if (this.selectedActionId) {
                     this.selectedActionId = null;
                     this.renderActionSequence();
@@ -950,9 +959,11 @@ class MacroBuilderApp {
             this.cancelCoordinatePicking();
         }
 
-        // Always deselect current action when starting to add new action
+        // Always deselect current action/condition when starting to add new action
         // This ensures only one action is selected at a time (either in macro list or action list)
         this.selectedActionId = null;
+        this.selectedCondition = null;
+        this.expandedConditionId = null;
 
         // Clear markers from screen
         const screenPreview = document.getElementById('screen-preview-canvas');
