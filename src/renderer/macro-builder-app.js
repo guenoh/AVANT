@@ -4969,6 +4969,7 @@ class MacroBuilderApp {
         console.log('[openScenarioListModal] Modal element:', modal);
         if (modal) {
             modal.classList.remove('hidden');
+            modal.style.display = 'flex'; // Explicitly set display to flex
             this.renderScenarioList();
         } else {
             console.error('[openScenarioListModal] Modal element not found');
@@ -4979,6 +4980,7 @@ class MacroBuilderApp {
         const modal = document.getElementById('scenario-list-modal');
         if (modal) {
             modal.classList.add('hidden');
+            modal.style.display = 'none'; // Explicitly hide
         }
     }
 
