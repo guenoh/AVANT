@@ -16,17 +16,25 @@ class AudioCapture {
 
     /**
      * Initialize audio capture with microphone
+     * @param {string} deviceId - Optional audio input device ID
      */
-    async init() {
+    async init(deviceId = null) {
         try {
             // Request microphone permission
+            const audioConstraints = {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                sampleRate: 48000
+            };
+
+            // If specific device is requested, add deviceId constraint
+            if (deviceId) {
+                audioConstraints.deviceId = { exact: deviceId };
+            }
+
             this.stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    sampleRate: 48000
-                }
+                audio: audioConstraints
             });
 
             // Create Web Audio API context
@@ -240,6 +248,35 @@ class AudioCapture {
         } catch (error) {
             console.error('[AudioCapture] Permission denied:', error);
             return false;
+        }
+    }
+
+    /**
+     * Get list of available audio input devices
+     * @returns {Promise<Array>} List of audio input devices
+     */
+    static async getAudioInputDevices() {
+        try {
+            // Request permission first to get device labels
+            await AudioCapture.requestPermission();
+
+            // Enumerate devices
+            const devices = await navigator.mediaDevices.enumerateDevices();
+
+            // Filter audio input devices
+            const audioInputs = devices
+                .filter(device => device.kind === 'audioinput')
+                .map(device => ({
+                    deviceId: device.deviceId,
+                    label: device.label || `Microphone ${device.deviceId.substr(0, 8)}`,
+                    groupId: device.groupId
+                }));
+
+            console.log('[AudioCapture] Found audio input devices:', audioInputs);
+            return audioInputs;
+        } catch (error) {
+            console.error('[AudioCapture] Failed to enumerate devices:', error);
+            return [];
         }
     }
 }

@@ -44,6 +44,14 @@ class SoundCheckModal {
                         <h4 class="form-section-title">측정 설정</h4>
 
                         <div class="form-group">
+                            <label>마이크 선택</label>
+                            <select id="audio-device-select" class="form-select">
+                                <option value="">로딩 중...</option>
+                            </select>
+                            <small class="form-help">USB 카메라 마이크나 내장 마이크를 선택하세요</small>
+                        </div>
+
+                        <div class="form-group">
                             <label>측정 시간 (초)</label>
                             <input type="number" id="sound-duration" class="form-input"
                                 value="${action.duration || 5}" min="1" max="30" step="0.5">
@@ -171,8 +179,8 @@ class SoundCheckModal {
         // Update threshold settings visibility
         this.updateThresholdSettings();
 
-        // Request microphone permission on load
-        this.requestMicrophonePermission();
+        // Load audio devices and request permission
+        this.loadAudioDevices();
     }
 
     /**
@@ -211,6 +219,11 @@ class SoundCheckModal {
         // Calibrate
         modal.querySelector('#calibrate').addEventListener('click', () => {
             this.calibrate();
+        });
+
+        // Audio device selection change
+        modal.querySelector('#audio-device-select').addEventListener('change', (e) => {
+            this.onAudioDeviceChange(e.target.value);
         });
 
         // Backdrop click
@@ -326,9 +339,13 @@ class SoundCheckModal {
         const AudioCapture = require('./utils/audio-capture');
 
         try {
-            // Initialize audio capture
+            // Get selected audio device
+            const deviceSelect = document.getElementById('audio-device-select');
+            const selectedDeviceId = deviceSelect.value || null;
+
+            // Initialize audio capture with selected device
             this.audioCapture = new AudioCapture();
-            await this.audioCapture.init();
+            await this.audioCapture.init(selectedDeviceId);
 
             // Start monitoring
             this.monitorInterval = this.audioCapture.startMonitoring((data) => {
@@ -446,10 +463,13 @@ class SoundCheckModal {
      */
     getConfiguration() {
         const expectation = document.getElementById('sound-expectation').value;
+        const deviceSelect = document.getElementById('audio-device-select');
+
         const config = {
             type: 'sound-check',
             duration: parseFloat(document.getElementById('sound-duration').value) * 1000,
             expectation: expectation,
+            audioDeviceId: deviceSelect.value || null, // Save selected audio device
             threshold: {}
         };
 
@@ -463,6 +483,65 @@ class SoundCheckModal {
         }
 
         return config;
+    }
+
+    /**
+     * Load available audio input devices
+     */
+    async loadAudioDevices() {
+        const AudioCapture = require('./utils/audio-capture');
+
+        try {
+            // Get available audio devices
+            const devices = await AudioCapture.getAudioInputDevices();
+            const deviceSelect = document.getElementById('audio-device-select');
+
+            // Clear loading message
+            deviceSelect.innerHTML = '';
+
+            if (devices.length === 0) {
+                deviceSelect.innerHTML = '<option value="">오디오 장치 없음</option>';
+                return;
+            }
+
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '기본 마이크';
+            deviceSelect.appendChild(defaultOption);
+
+            // Add device options
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label;
+                deviceSelect.appendChild(option);
+            });
+
+            // Select the saved device if exists
+            if (this.currentAction && this.currentAction.audioDeviceId) {
+                deviceSelect.value = this.currentAction.audioDeviceId;
+            }
+
+            console.log('[SoundCheckModal] Loaded', devices.length, 'audio devices');
+        } catch (error) {
+            console.error('[SoundCheckModal] Failed to load audio devices:', error);
+            const deviceSelect = document.getElementById('audio-device-select');
+            deviceSelect.innerHTML = '<option value="">장치 로딩 실패</option>';
+        }
+    }
+
+    /**
+     * Handle audio device selection change
+     */
+    async onAudioDeviceChange(deviceId) {
+        console.log('[SoundCheckModal] Audio device changed to:', deviceId);
+
+        // If monitoring is active, restart with new device
+        if (this.isMonitoring) {
+            this.stopMonitoring();
+            await this.startMonitoring();
+        }
     }
 
     /**

@@ -3596,8 +3596,9 @@ class MacroBuilderApp {
             const audioCapture = new window.AudioCapture();
 
             try {
-                // Initialize microphone
-                await audioCapture.init();
+                // Initialize microphone with selected device (if specified)
+                const audioDeviceId = action.audioDeviceId || null;
+                await audioCapture.init(audioDeviceId);
 
                 // Collect samples during the duration
                 const samples = [];
