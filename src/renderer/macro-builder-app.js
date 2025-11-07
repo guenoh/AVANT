@@ -4969,7 +4969,7 @@ class MacroBuilderApp {
         console.log('[openScenarioListModal] Modal element:', modal);
         if (modal) {
             modal.classList.remove('hidden');
-            modal.style.display = 'flex'; // Explicitly set display to flex
+            modal.classList.add('active'); // Add active class for visibility
             this.renderScenarioList();
         } else {
             console.error('[openScenarioListModal] Modal element not found');
@@ -4979,8 +4979,8 @@ class MacroBuilderApp {
     closeScenarioListModal() {
         const modal = document.getElementById('scenario-list-modal');
         if (modal) {
+            modal.classList.remove('active'); // Remove active class
             modal.classList.add('hidden');
-            modal.style.display = 'none'; // Explicitly hide
         }
     }
 
