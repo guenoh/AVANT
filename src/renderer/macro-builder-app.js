@@ -4964,24 +4964,28 @@ class MacroBuilderApp {
 
     // Scenario List Modal Methods
     openScenarioListModal() {
-        console.log('[openScenarioListModal] Opening scenario list modal');
-        const modal = document.getElementById('scenario-list-modal');
-        console.log('[openScenarioListModal] Modal element:', modal);
-        if (modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('active'); // Add active class for visibility
-            this.renderScenarioList();
-        } else {
-            console.error('[openScenarioListModal] Modal element not found');
+        console.log('[openScenarioList] Showing scenario list in main panel');
+
+        // Hide action sequence, show scenario list
+        const actionList = document.getElementById('action-sequence-list');
+        const emptyState = document.getElementById('empty-state');
+
+        if (actionList) {
+            // Save current state
+            this.viewingScenarioList = true;
+
+            // Hide empty state and actions
+            if (emptyState) emptyState.style.display = 'none';
+
+            // Render scenario list in the main panel
+            this.renderScenarioListInPanel();
         }
     }
 
     closeScenarioListModal() {
-        const modal = document.getElementById('scenario-list-modal');
-        if (modal) {
-            modal.classList.remove('active'); // Remove active class
-            modal.classList.add('hidden');
-        }
+        console.log('[closeScenarioList] Returning to action sequence view');
+        this.viewingScenarioList = false;
+        this.renderActionSequence(); // Restore original view
     }
 
     renderScenarioList() {
@@ -5111,6 +5115,90 @@ class MacroBuilderApp {
         const countEl = document.getElementById('selected-count');
         if (countEl) {
             countEl.textContent = checkboxes.length;
+        }
+    }
+
+    renderScenarioListInPanel() {
+        const actionList = document.getElementById('action-sequence-list');
+        if (!actionList) return;
+
+        // Get registry and results
+        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+        const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+
+        // Merge and sort scenarios
+        const scenarios = Object.entries(registry).map(([key, registryData]) => {
+            const executionResult = results[key];
+            return {
+                key,
+                name: registryData.name,
+                filename: registryData.filename,
+                savedAt: registryData.savedAt,
+                actionsCount: registryData.actionsCount,
+                status: executionResult ? executionResult.status : 'never_run',
+                message: executionResult ? executionResult.message : '미실행',
+                timestamp: executionResult ? executionResult.timestamp : registryData.savedAt
+            };
+        });
+
+        scenarios.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Render in the main panel
+        if (scenarios.length === 0) {
+            actionList.innerHTML = `
+                <div class="empty-state" style="display: flex;">
+                    <svg class="empty-icon" style="width: 64px; height: 64px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="empty-title">저장된 시나리오가 없습니다</p>
+                    <p class="empty-description">시나리오를 저장하면 여기에 표시됩니다</p>
+                </div>
+            `;
+        } else {
+            const scenarioHTML = scenarios.map(scenario => {
+                const statusIcon = this.getStatusIcon(scenario.status);
+                const statusColor = this.getStatusColor(scenario.status);
+                const statusText = this.getStatusText(scenario.status);
+                const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
+
+                return `
+                    <div class="action-card" style="margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500; margin-bottom: 4px;">${scenario.filename}</div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${scenario.message}</div>
+                                <div style="font-size: 11px; color: #999;">${timestamp} • ${scenario.actionsCount}개 액션</div>
+                            </div>
+                            <span style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
+                                ${statusIcon} ${statusText}
+                            </span>
+                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')">
+                                실행
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            actionList.innerHTML = `
+                <div style="padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">저장된 시나리오</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.toggleSelectAll()">전체 선택</button>
+                            <button class="btn btn-sm btn-primary" onclick="window.macroApp.runSelectedScenarios()">선택 실행</button>
+                            <button class="btn btn-sm btn-ghost" onclick="window.macroApp.closeScenarioListModal()">닫기</button>
+                        </div>
+                    </div>
+                    ${scenarioHTML}
+                </div>
+            `;
+
+            // Add change listeners
+            actionList.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => this.updateSelectedCount());
+            });
         }
     }
 
