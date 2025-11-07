@@ -3701,19 +3701,23 @@ class MacroBuilderApp {
             return;
         }
 
-        // Create and show the modal
-        const modal = new window.SoundCheckModal(action);
+        // Create the modal
+        const modal = new window.SoundCheckModal();
 
-        // Listen for configuration updates
-        modal.on('update', (updatedConfig) => {
-            // Update the action with new configuration
-            Object.assign(action, updatedConfig);
-            this.renderActionSequence();
-            this.addLog('info', 'Sound check configuration updated');
-        });
-
-        // Show the modal
-        modal.show();
+        // Show the modal with callbacks
+        modal.show(
+            action,
+            (updatedConfig) => {
+                // onSave: Update the action with new configuration
+                Object.assign(action, updatedConfig);
+                this.renderActionSequence();
+                this.addLog('info', 'Sound check configuration updated');
+            },
+            () => {
+                // onCancel: Do nothing
+                this.addLog('info', 'Sound check configuration cancelled');
+            }
+        );
     }
 
     mapActionToBackend(action) {

@@ -565,3 +565,8 @@ class SoundCheckModal {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = SoundCheckModal;
 }
+
+// Also expose to window for browser usage
+if (typeof window !== 'undefined') {
+    window.SoundCheckModal = SoundCheckModal;
+}
