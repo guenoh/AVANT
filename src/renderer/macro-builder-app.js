@@ -4964,10 +4964,14 @@ class MacroBuilderApp {
 
     // Scenario List Modal Methods
     openScenarioListModal() {
+        console.log('[openScenarioListModal] Opening scenario list modal');
         const modal = document.getElementById('scenario-list-modal');
+        console.log('[openScenarioListModal] Modal element:', modal);
         if (modal) {
             modal.classList.remove('hidden');
             this.renderScenarioList();
+        } else {
+            console.error('[openScenarioListModal] Modal element not found');
         }
     }
 
@@ -4979,12 +4983,18 @@ class MacroBuilderApp {
     }
 
     renderScenarioList() {
+        console.log('[renderScenarioList] Rendering scenario list');
         const container = document.getElementById('scenario-list-container');
-        if (!container) return;
+        if (!container) {
+            console.error('[renderScenarioList] Container not found');
+            return;
+        }
 
         // Get both registry and execution results from localStorage
         const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
         const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+        console.log('[renderScenarioList] Registry:', registry);
+        console.log('[renderScenarioList] Results:', results);
 
         // Merge registry with execution results
         const scenarios = Object.entries(registry).map(([key, registryData]) => {
@@ -5003,6 +5013,7 @@ class MacroBuilderApp {
 
         // Sort by most recently saved/executed
         scenarios.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        console.log('[renderScenarioList] Found', scenarios.length, 'scenarios');
 
         if (scenarios.length === 0) {
             container.innerHTML = `

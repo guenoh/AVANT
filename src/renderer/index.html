@@ -256,33 +256,30 @@
     <script src="components/sound-check-modal.js"></script>
 
     <!-- Scenario List Modal -->
-    <div id="scenario-list-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-[800px] max-h-[600px] flex flex-col">
+    <div id="scenario-list-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content" style="max-width: 800px; max-height: 600px; display: flex; flex-direction: column;">
             <!-- Modal Header -->
-            <div class="px-6 py-4 border-b flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-slate-900">시나리오 목록</h2>
-                <button id="btn-close-scenario-list" class="text-slate-400 hover:text-slate-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+            <div class="modal-header">
+                <h3 class="modal-title">시나리오 목록</h3>
+                <button class="modal-close" id="btn-close-scenario-list">&times;</button>
             </div>
 
             <!-- Modal Body -->
-            <div class="flex-1 overflow-auto p-6">
+            <div class="modal-body" style="flex: 1; overflow-y: auto;">
                 <div id="scenario-list-container">
                     <!-- Scenarios will be rendered here -->
                 </div>
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 border-t flex items-center justify-between">
-                <div class="text-sm text-slate-600">
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 14px; color: #666;">
                     <span id="selected-count">0</span>개 선택됨
                 </div>
-                <div class="flex gap-2">
-                    <button class="btn-outline btn-sm" id="btn-select-all">전체 선택</button>
-                    <button class="btn-primary btn-sm" id="btn-run-selected">선택 항목 실행</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" id="btn-select-all">전체 선택</button>
+                    <button class="btn btn-primary" id="btn-run-selected">선택 항목 실행</button>
                 </div>
             </div>
         </div>
