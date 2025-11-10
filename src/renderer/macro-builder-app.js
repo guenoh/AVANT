@@ -156,8 +156,10 @@ class MacroBuilderApp {
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
 
-        // Scenario list modal buttons
-        document.getElementById('btn-close-scenario-list')?.addEventListener('click', () => this.closeScenarioListModal());
+        // Scenario sidebar buttons
+        document.getElementById('btn-close-sidebar')?.addEventListener('click', () => this.closeScenarioListModal());
+        document.getElementById('sidebar-overlay')?.addEventListener('click', () => this.closeScenarioListModal());
+        document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
 
@@ -357,7 +359,7 @@ class MacroBuilderApp {
         }
 
         // Initialize with welcome log
-        this.addLog('info', '매크로 빌더 준비 완료');
+        this.addLog('info', '시나리오 빌더 준비 완료');
     }
 
     handleScreenClick(e) {
@@ -2999,7 +3001,7 @@ class MacroBuilderApp {
             `;
         }
 
-        this.addLog('info', `매크로 실행 시작: ${this.macroName}`);
+        this.addLog('info', `시나리오 실행 시작: ${this.macroName}`);
 
         await this.executeActionsRange(0, this.actions.length);
 
@@ -3013,7 +3015,7 @@ class MacroBuilderApp {
 
         // Log final result
         let finalStatus = 'completed';
-        let finalMessage = '매크로 실행 완료';
+        let finalMessage = '시나리오 실행 완료';
 
         if (this.scenarioResult) {
             const { status, message } = this.scenarioResult;
@@ -3029,10 +3031,10 @@ class MacroBuilderApp {
             }
         } else if (wasStopped) {
             finalStatus = 'stopped';
-            finalMessage = '매크로 실행이 중단되었습니다';
+            finalMessage = '시나리오 실행이 중단되었습니다';
             this.addLog('warning', finalMessage);
         } else {
-            this.addLog('success', '매크로 실행 완료');
+            this.addLog('success', '시나리오 실행 완료');
         }
 
         // Save execution result to scenario file metadata
@@ -3052,7 +3054,7 @@ class MacroBuilderApp {
     stopMacro() {
         if (this.isRunning) {
             this.shouldStop = true;
-            this.addLog('info', '매크로 중단 요청...');
+            this.addLog('info', '시나리오 중단 요청...');
         }
     }
 
@@ -3806,7 +3808,7 @@ class MacroBuilderApp {
                 console.log(`Loaded macro: ${this.macroName} (${this.actions.length} actions)`);
             } catch (error) {
                 console.error('Failed to import macro:', error);
-                alert('매크로 파일을 불러오는데 실패했습니다.');
+                alert('시나리오 파일을 불러오는데 실패했습니다.');
             }
         };
         reader.readAsText(file);
@@ -4918,28 +4920,26 @@ class MacroBuilderApp {
 
     // Scenario List Modal Methods
     openScenarioListModal() {
-        console.log('[openScenarioList] Showing scenario list in main panel');
+        console.log('[openScenarioList] Opening scenario sidebar');
+        const sidebar = document.getElementById('scenario-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
 
-        // Hide action sequence, show scenario list
-        const actionList = document.getElementById('action-sequence-list');
-        const emptyState = document.getElementById('empty-state');
-
-        if (actionList) {
-            // Save current state
-            this.viewingScenarioList = true;
-
-            // Hide empty state and actions
-            if (emptyState) emptyState.style.display = 'none';
-
-            // Render scenario list in the main panel
-            this.renderScenarioListInPanel();
+        if (sidebar && overlay) {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            this.renderScenarioTree();
         }
     }
 
     closeScenarioListModal() {
-        console.log('[closeScenarioList] Returning to action sequence view');
-        this.viewingScenarioList = false;
-        this.renderActionSequence(); // Restore original view
+        console.log('[closeScenarioList] Closing scenario sidebar');
+        const sidebar = document.getElementById('scenario-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        if (sidebar && overlay) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
     }
 
     renderScenarioList() {
@@ -5070,6 +5070,194 @@ class MacroBuilderApp {
         if (countEl) {
             countEl.textContent = checkboxes.length;
         }
+    }
+
+    renderScenarioTree() {
+        console.log('[renderScenarioTree] Rendering scenario tree');
+        const container = document.getElementById('scenario-tree-container');
+        if (!container) {
+            console.error('[renderScenarioTree] Container not found');
+            return;
+        }
+
+        // Get registry from localStorage
+        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+        const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+
+        // Convert to array and sort
+        const scenarios = Object.entries(registry).map(([key, data]) => ({
+            key,
+            name: data.name,
+            filename: data.filename,
+            status: results[key]?.status || 'never_run'
+        }));
+
+        scenarios.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (scenarios.length === 0) {
+            container.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: var(--slate-400);">
+                    <p>No scenarios found</p>
+                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create a new scenario to get started</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render scenario list
+        container.innerHTML = scenarios.map(scenario => {
+            const statusIcon = this.getStatusIcon(scenario.status);
+            const statusColor = this.getStatusColor(scenario.status);
+
+            return `
+                <div class="scenario-tree-item" data-key="${scenario.key}">
+                    <svg class="tree-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <div class="tree-label-container">
+                        <span class="tree-label">${scenario.name}</span>
+                        <span class="tree-path">${scenario.filename}</span>
+                    </div>
+                    <span class="icon-sm ${statusColor}">${statusIcon}</span>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers
+        container.querySelectorAll('.scenario-tree-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const key = item.dataset.key;
+                const scenarioData = this.loadScenarioFromRegistry(key);
+
+                if (scenarioData) {
+                    // Load the scenario data
+                    this.actions = scenarioData.actions || [];
+                    this.macroName = scenarioData.name || key;
+                    this.currentFilePath = null; // Reset file path since we're loading from registry
+
+                    // Update UI
+                    this.renderActionSequence();
+                    const macroNameInput = document.getElementById('macro-name-input');
+                    if (macroNameInput) {
+                        macroNameInput.value = this.macroName;
+                    }
+
+                    // Log success
+                    this.addLog('success', `Loaded scenario: ${this.macroName}`);
+                }
+
+                this.closeScenarioListModal();
+            });
+        });
+    }
+
+    createNewScenario() {
+        console.log('[createNewScenario] Opening new scenario dialog');
+
+        const dialog = document.getElementById('new-scenario-dialog');
+        const input = document.getElementById('scenario-name-input');
+
+        if (!dialog || !input) {
+            console.error('[createNewScenario] Dialog elements not found');
+            return;
+        }
+
+        // Show dialog
+        dialog.style.display = 'flex';
+        input.value = '';
+        input.focus();
+
+        // Setup event listeners (remove old ones first)
+        const createBtn = document.getElementById('btn-create-scenario');
+        const cancelBtn = document.getElementById('btn-cancel-scenario');
+        const closeBtn = document.getElementById('btn-close-dialog');
+
+        const closeDialog = () => {
+            dialog.style.display = 'none';
+            input.value = '';
+        };
+
+        const createScenario = () => {
+            const scenarioName = input.value.trim();
+            const errorEl = document.getElementById('scenario-name-error');
+
+            if (!scenarioName) {
+                if (errorEl) {
+                    errorEl.textContent = 'Please enter a scenario name';
+                    errorEl.style.display = 'block';
+                }
+                input.focus();
+                return;
+            }
+
+            // Hide error if shown
+            if (errorEl) {
+                errorEl.style.display = 'none';
+            }
+
+            console.log('[createNewScenario] Creating scenario:', scenarioName);
+
+            // Reset current state
+            this.actions = [];
+            this.macroName = scenarioName;
+            this.currentFilePath = null;
+
+            // Generate unique key for the scenario
+            const key = scenarioName.replace(/\s+/g, '_');
+
+            // Create initial macro data
+            const macroData = {
+                name: scenarioName,
+                actions: [],
+                createdAt: new Date().toISOString(),
+                version: '1.0'
+            };
+
+            // Add to registry and localStorage
+            this.addScenarioToRegistry(key, `${key}.json`, macroData);
+
+            // Update UI
+            this.renderActionSequence();
+            const macroNameInput = document.getElementById('macro-name-input');
+            if (macroNameInput) {
+                macroNameInput.value = scenarioName;
+            }
+
+            // Close dialog and sidebar
+            closeDialog();
+            this.closeScenarioListModal();
+
+            // Show success message
+            this.addLog('success', `New scenario "${scenarioName}" created`);
+        };
+
+        // Remove old listeners by cloning
+        const newCreateBtn = createBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        const newCloseBtn = closeBtn.cloneNode(true);
+
+        createBtn.parentNode.replaceChild(newCreateBtn, createBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+        // Add new listeners
+        newCreateBtn.addEventListener('click', createScenario);
+        newCancelBtn.addEventListener('click', closeDialog);
+        newCloseBtn.addEventListener('click', closeDialog);
+
+        // Enter key to create
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                createScenario();
+            }
+        });
+
+        // Escape key to cancel
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDialog();
+            }
+        });
     }
 
     renderScenarioListInPanel() {

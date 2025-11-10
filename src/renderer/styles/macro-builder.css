@@ -2426,3 +2426,257 @@ input[type="number"] {
     -moz-appearance: textfield;
     appearance: textfield;
 }
+
+/* ========================================
+   Scenario Sidebar
+   ======================================== */
+
+/* Sidebar container */
+.scenario-sidebar {
+    position: fixed;
+    left: -320px;
+    top: 0;
+    width: 320px;
+    height: 100vh;
+    background: white;
+    border-right: 1px solid var(--slate-200);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+.scenario-sidebar.open {
+    left: 0;
+}
+
+/* Sidebar header */
+.scenario-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--slate-200);
+}
+
+.scenario-sidebar-header .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-base);
+}
+
+.scenario-sidebar-header .btn-icon:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-text);
+}
+
+.scenario-sidebar-header .btn-icon:active {
+    transform: scale(0.95);
+}
+
+.scenario-sidebar-header .btn-icon .icon-sm {
+    width: 16px;
+    height: 16px;
+}
+
+.scenario-sidebar-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--slate-900);
+}
+
+/* Sidebar actions */
+.scenario-sidebar-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--slate-200);
+}
+
+/* Sidebar content */
+.scenario-sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+/* Sidebar overlay */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Scenario tree */
+#scenario-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.scenario-tree-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.scenario-tree-item:hover {
+    background: var(--slate-100);
+}
+
+.scenario-tree-item.active {
+    background: var(--blue-50);
+    color: var(--blue-600);
+}
+
+.scenario-tree-item.folder {
+    font-weight: 500;
+}
+
+.scenario-tree-item .icon-sm {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.scenario-tree-item .tree-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--slate-400);
+}
+
+.scenario-tree-item .tree-label-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow: hidden;
+}
+
+.scenario-tree-item .tree-label {
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scenario-tree-item .tree-path {
+    font-size: 0.75rem;
+    color: var(--slate-400);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scenario-tree-children {
+    margin-left: 1.5rem;
+}
+
+/* ========================================
+   Modal Dialog
+   ======================================== */
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Modal content */
+.modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Modal header */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--slate-200);
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--slate-900);
+}
+
+/* Modal body */
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+/* Modal footer */
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--slate-200);
+}
+
+/* Input label */
+.input-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--slate-700);
+    margin-bottom: 0.5rem;
+}
+
+/* Input error */
+.input-error {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--red-600);
+}
+

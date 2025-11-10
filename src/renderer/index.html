@@ -12,6 +12,63 @@
 </head>
 <body>
     <div id="app" class="h-screen flex bg-slate-50">
+        <!-- Scenario Sidebar -->
+        <div id="scenario-sidebar" class="scenario-sidebar">
+            <div class="scenario-sidebar-header">
+                <h3 class="scenario-sidebar-title">Scenarios</h3>
+                <button id="btn-close-sidebar" class="btn-icon">
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="scenario-sidebar-actions">
+                <button class="btn-outline btn-sm" id="btn-new-folder">
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                    </svg>
+                    New Folder
+                </button>
+                <button class="btn-primary btn-sm" id="btn-new-scenario">
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    New Scenario
+                </button>
+            </div>
+            <div class="scenario-sidebar-content">
+                <div id="scenario-tree-container">
+                    <!-- Scenario tree will be rendered here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Overlay -->
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+        <!-- New Scenario Dialog -->
+        <div id="new-scenario-dialog" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">New Scenario</h3>
+                    <button id="btn-close-dialog" class="btn-icon">
+                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <label class="input-label">Scenario Name</label>
+                    <input type="text" id="scenario-name-input" class="input" placeholder="Enter scenario name..." />
+                    <p id="scenario-name-error" class="input-error" style="display: none;"></p>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-cancel-scenario" class="btn-outline">Cancel</button>
+                    <button id="btn-create-scenario" class="btn-primary">Create</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Content - 3 Column Layout -->
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Panel - Screen Preview (flex-[5]) -->
@@ -157,7 +214,7 @@
             <div class="flex-[2] bg-white border-l flex flex-col">
                 <div class="px-6 py-4 border-b">
                     <h2 class="text-slate-900">액션 추가</h2>
-                    <p class="text-sm text-slate-600">매크로에 추가할 액션 선택</p>
+                    <p class="text-sm text-slate-600">시나리오에 추가할 액션 선택</p>
                 </div>
                 <div class="flex-1 overflow-auto p-6" id="action-list-container">
                     <!-- Options Box -->
@@ -173,7 +230,7 @@
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
-                                        <span class="option-tooltip">액션을 추가할 때 바로 장치에 전송하여 실행합니다. 다음 페이지를 보면서 매크로를 작성할 수 있습니다.</span>
+                                        <span class="option-tooltip">액션을 추가할 때 바로 장치에 전송하여 실행합니다. 다음 페이지를 보면서 시나리오를 작성할 수 있습니다.</span>
                                     </div>
                                 </div>
                                 <label class="toggle-switch">
