@@ -5865,8 +5865,21 @@ class MacroBuilderApp {
         const actionsHTML = block.expanded ? this.renderBlockActions(block) : '';
 
         return `
-            <div class="scenario-block" data-block-id="${block.id}">
+            <div class="scenario-block"
+                 data-block-id="${block.id}"
+                 draggable="true"
+                 ondragstart="window.macroApp.handleDragStart(event)"
+                 ondragover="window.macroApp.handleDragOver(event)"
+                 ondrop="window.macroApp.handleDrop(event)"
+                 ondragend="window.macroApp.handleDragEnd(event)"
+                 ondragenter="window.macroApp.handleDragEnter(event)"
+                 ondragleave="window.macroApp.handleDragLeave(event)">
                 <div class="scenario-block-header" onclick="window.macroApp.toggleBlockExpansion('${block.id}')">
+                    <span class="block-drag-handle" title="드래그하여 순서 변경">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                        </svg>
+                    </span>
                     <span class="block-expand-icon">${expandIcon}</span>
                     <div class="block-status-icon ${color}">
                         ${icon}
@@ -5954,6 +5967,119 @@ class MacroBuilderApp {
     attachBlockEventListeners() {
         // Event listeners are handled inline via onclick for simplicity
         // Could be improved with proper event delegation
+    }
+
+    // ==================== Drag and Drop Event Handlers ====================
+
+    handleDragStart(event) {
+        const blockElement = event.target.closest('.scenario-block');
+        if (!blockElement) return;
+
+        const blockId = blockElement.dataset.blockId;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', blockId);
+
+        // Add visual feedback
+        blockElement.classList.add('dragging');
+
+        console.log('Drag started:', blockId);
+    }
+
+    handleDragOver(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+
+        const blockElement = event.target.closest('.scenario-block');
+        if (!blockElement) return;
+
+        // Don't show drop indicator on the dragged element itself
+        if (blockElement.classList.contains('dragging')) return;
+
+        // Show drop indicator
+        const rect = blockElement.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isAfter = event.clientY > midpoint;
+
+        blockElement.classList.remove('drop-before', 'drop-after');
+        blockElement.classList.add(isAfter ? 'drop-after' : 'drop-before');
+    }
+
+    handleDragEnter(event) {
+        event.preventDefault();
+        const blockElement = event.target.closest('.scenario-block');
+        if (!blockElement || blockElement.classList.contains('dragging')) return;
+    }
+
+    handleDragLeave(event) {
+        const blockElement = event.target.closest('.scenario-block');
+        if (!blockElement) return;
+
+        // Only remove drop indicator if leaving the block entirely
+        const rect = blockElement.getBoundingClientRect();
+        if (
+            event.clientX < rect.left ||
+            event.clientX >= rect.right ||
+            event.clientY < rect.top ||
+            event.clientY >= rect.bottom
+        ) {
+            blockElement.classList.remove('drop-before', 'drop-after');
+        }
+    }
+
+    handleDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const draggedBlockId = event.dataTransfer.getData('text/plain');
+        const targetBlockElement = event.target.closest('.scenario-block');
+
+        if (!targetBlockElement || !draggedBlockId) return;
+
+        const targetBlockId = targetBlockElement.dataset.blockId;
+
+        // Don't drop on itself
+        if (draggedBlockId === targetBlockId) return;
+
+        // Determine if dropping before or after
+        const rect = targetBlockElement.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isAfter = event.clientY > midpoint;
+
+        // Find indices
+        const draggedIndex = this.scenarioBlocks.findIndex(b => b.id === draggedBlockId);
+        const targetIndex = this.scenarioBlocks.findIndex(b => b.id === targetBlockId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        // Reorder blocks
+        const [draggedBlock] = this.scenarioBlocks.splice(draggedIndex, 1);
+        let insertIndex = targetIndex;
+
+        // Adjust insert index if needed
+        if (draggedIndex < targetIndex && !isAfter) {
+            insertIndex--;
+        } else if (draggedIndex > targetIndex && isAfter) {
+            insertIndex++;
+        } else if (isAfter) {
+            insertIndex++;
+        }
+
+        this.scenarioBlocks.splice(insertIndex, 0, draggedBlock);
+
+        console.log(`Reordered: moved block from ${draggedIndex} to ${insertIndex}`);
+
+        // Re-render
+        this.renderScenarioBlocks();
+    }
+
+    handleDragEnd(event) {
+        // Clean up all visual feedback
+        const allBlocks = document.querySelectorAll('.scenario-block');
+        allBlocks.forEach(block => {
+            block.classList.remove('dragging', 'drop-before', 'drop-after');
+        });
+
+        console.log('Drag ended');
     }
 }
 
