@@ -3379,7 +3379,11 @@ class MacroBuilderApp {
         try {
             // Highlight the action being executed
             this.selectedActionId = action.id;
-            this.renderActionSequence();
+
+            // Only render action sequence if scenario list is not visible
+            if (!this.isScenarioListVisible()) {
+                this.renderActionSequence();
+            }
 
             // Show marker for actions with coordinates
             if (action.x !== undefined && action.y !== undefined) {
