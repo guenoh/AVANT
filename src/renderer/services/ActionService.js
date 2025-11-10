@@ -72,7 +72,7 @@ class ActionService {
     }
 
     /**
-     * Execute a single action via IPC
+     * Execute a single action via Protocol API
      */
     async executeAction(action, options = {}) {
         const { deviceId } = options;
@@ -80,36 +80,42 @@ class ActionService {
         try {
             switch (action.type) {
                 case 'click':
-                    return await this.ipc.action.click(deviceId, action.x, action.y);
+                    await window.api.protocol.tap(action.x, action.y);
+                    return { success: true };
 
                 case 'long-press':
-                    return await this.ipc.action.longPress(deviceId, action.x, action.y, action.duration);
+                    await window.api.protocol.longPress(action.x, action.y, action.duration);
+                    return { success: true };
 
                 case 'drag':
-                    return await this.ipc.action.drag(
-                        deviceId,
+                    await window.api.protocol.drag(
                         action.x,
                         action.y,
                         action.endX,
                         action.endY,
                         action.duration
                     );
+                    return { success: true };
 
                 case 'input':
-                    return await this.ipc.action.input(deviceId, action.text);
+                    await window.api.protocol.inputText(action.text);
+                    return { success: true };
 
                 case 'wait':
                     await this._sleep(action.duration);
                     return { success: true };
 
                 case 'back':
-                    return await this.ipc.action.back(deviceId);
+                    await window.api.protocol.pressKey('KEYCODE_BACK');
+                    return { success: true };
 
                 case 'home':
-                    return await this.ipc.action.home(deviceId);
+                    await window.api.protocol.pressKey('KEYCODE_HOME');
+                    return { success: true };
 
                 case 'recent':
-                    return await this.ipc.action.recent(deviceId);
+                    await window.api.protocol.pressKey('KEYCODE_APP_SWITCH');
+                    return { success: true };
 
                 default:
                     throw new Error(`Unknown action type: ${action.type}`);
@@ -158,9 +164,9 @@ class ActionService {
             const coords = matchResult.location;
 
             if (action.action === 'click') {
-                await this.ipc.action.click(options.deviceId, coords.x, coords.y);
+                await window.api.protocol.tap(coords.x, coords.y);
             } else if (action.action === 'long-press') {
-                await this.ipc.action.longPress(options.deviceId, coords.x, coords.y, 1000);
+                await window.api.protocol.longPress(coords.x, coords.y, 1000);
             }
 
             return {

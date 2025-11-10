@@ -14,6 +14,13 @@ const settingsService = require('./services/settings.service');
 const loggerService = require('./services/logger.service');
 const { CCNCConnectionService } = require('./services/ccnc-connection.service');
 
+// Protocol System
+const ProtocolManager = require('./services/ProtocolManager');
+const AdbProtocol = require('./services/protocols/AdbProtocol');
+
+// Protocol manager instance
+let protocolManager = null;
+
 // ccNC connection instance
 let ccncService = null;
 
@@ -79,6 +86,19 @@ async function initializeServices() {
     // Initialize logger first
     await loggerService.initialize();
     loggerService.info('Starting Vision Auto v2');
+
+    // Initialize Protocol Manager
+    protocolManager = new ProtocolManager();
+
+    // Register ADB protocol
+    protocolManager.registerProtocol('adb', AdbProtocol, {
+      adbPath: 'adb'
+    });
+
+    // Set protocol priority (can add ccNC later)
+    protocolManager.setProtocolPriority(['adb']);
+
+    loggerService.info('Protocol Manager initialized');
 
     // Initialize other services
     await settingsService.initialize();
@@ -348,45 +368,57 @@ function setupIpcHandlers() {
     }
   });
 
-  // Action handlers
+  // Action handlers (legacy - prefer using protocol API directly)
   ipcMain.handle('action:execute', async (event, action) => {
     try {
-      // Use ccNC if connected
-      const isCcncConnected = ccncService && ccncService.isConnected();
+      // Use Protocol Manager for execution
+      switch (action.type) {
+        case 'tap':
+        case 'click':
+          await protocolManager.tap(action.x, action.y);
+          return { success: true };
 
-      if (isCcncConnected) {
-        switch (action.type) {
-          case 'tap':
-            await ccncService.tap(action.x, action.y);
-            return { success: true };
+        case 'long-press':
+          await protocolManager.longPress(action.x, action.y, action.duration || 1000);
+          return { success: true };
 
-          case 'swipe':
-            await ccncService.drag(
-              action.startX,
-              action.startY,
-              action.endX,
-              action.endY,
-              { duration: action.duration || 300 }
-            );
-            return { success: true };
+        case 'swipe':
+        case 'drag':
+          await protocolManager.swipe(
+            action.startX || action.x,
+            action.startY || action.y,
+            action.endX,
+            action.endY,
+            action.duration || 300
+          );
+          return { success: true };
 
-          case 'scroll':
-            await ccncService.scroll(action.direction, {
-              distance: action.distance || 600,
-              duration: action.duration || 300
-            });
-            return { success: true };
+        case 'scroll':
+          await protocolManager.scroll(action.direction, action.distance || 600);
+          return { success: true };
 
-          case 'wait':
-            await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
-            return { success: true };
+        case 'input':
+          await protocolManager.inputText(action.text);
+          return { success: true };
 
-          default:
-            throw new Error(`Unsupported action type for ccNC: ${action.type}`);
-        }
-      } else {
-        const result = await actionService.execute(action);
-        return { success: true, ...result };
+        case 'back':
+          await protocolManager.pressKey('KEYCODE_BACK');
+          return { success: true };
+
+        case 'home':
+          await protocolManager.pressKey('KEYCODE_HOME');
+          return { success: true };
+
+        case 'recent':
+          await protocolManager.pressKey('KEYCODE_APP_SWITCH');
+          return { success: true };
+
+        case 'wait':
+          await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
+          return { success: true };
+
+        default:
+          throw new Error(`Unsupported action type: ${action.type}`);
       }
     } catch (error) {
       loggerService.error('Failed to execute action', error);
@@ -396,33 +428,57 @@ function setupIpcHandlers() {
 
   ipcMain.handle('action:execute-batch', async (event, actions) => {
     try {
-      // Use ccNC if connected
-      if (ccncService && ccncService.isConnected()) {
-        const results = [];
-        for (const action of actions) {
-          // Execute action using ccNC
+      // Use Protocol Manager for batch execution
+      const results = [];
+
+      for (const action of actions) {
+        try {
           switch (action.type) {
             case 'tap':
-              await ccncService.tap(action.x, action.y);
+            case 'click':
+              await protocolManager.tap(action.x, action.y);
+              results.push({ success: true });
+              break;
+
+            case 'long-press':
+              await protocolManager.longPress(action.x, action.y, action.duration || 1000);
               results.push({ success: true });
               break;
 
             case 'swipe':
-              await ccncService.drag(
-                action.startX,
-                action.startY,
+            case 'drag':
+              await protocolManager.swipe(
+                action.startX || action.x,
+                action.startY || action.y,
                 action.endX,
                 action.endY,
-                { duration: action.duration || 300 }
+                action.duration || 300
               );
               results.push({ success: true });
               break;
 
             case 'scroll':
-              await ccncService.scroll(action.direction, {
-                distance: action.distance || 600,
-                duration: action.duration || 300
-              });
+              await protocolManager.scroll(action.direction, action.distance || 600);
+              results.push({ success: true });
+              break;
+
+            case 'input':
+              await protocolManager.inputText(action.text);
+              results.push({ success: true });
+              break;
+
+            case 'back':
+              await protocolManager.pressKey('KEYCODE_BACK');
+              results.push({ success: true });
+              break;
+
+            case 'home':
+              await protocolManager.pressKey('KEYCODE_HOME');
+              results.push({ success: true });
+              break;
+
+            case 'recent':
+              await protocolManager.pressKey('KEYCODE_APP_SWITCH');
               results.push({ success: true });
               break;
 
@@ -439,12 +495,12 @@ function setupIpcHandlers() {
           if (action.delay) {
             await new Promise(resolve => setTimeout(resolve, action.delay));
           }
+        } catch (error) {
+          results.push({ success: false, error: error.message });
         }
-        return { success: true, results };
-      } else {
-        const results = await actionService.executeBatch(actions);
-        return { success: true, results };
       }
+
+      return { success: true, results };
     } catch (error) {
       loggerService.error('Failed to execute batch actions', error);
       return { success: false, error: error.message };
@@ -698,6 +754,145 @@ function setupIpcHandlers() {
         success: false,
         error: error.message
       };
+    }
+  });
+
+  // ===== Protocol Manager Handlers =====
+
+  // Connect to device via protocol
+  ipcMain.handle('protocol:connect', async (event, deviceId, protocolName) => {
+    try {
+      console.log('[IPC] protocol:connect called:', deviceId, protocolName);
+      const result = await protocolManager.connect(deviceId, protocolName);
+      loggerService.info(`Connected to ${deviceId} via ${result.protocol}`);
+      return { success: true, ...result };
+    } catch (error) {
+      console.error('[IPC] protocol:connect error:', error);
+      loggerService.error('Protocol connection failed', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Disconnect from device
+  ipcMain.handle('protocol:disconnect', async () => {
+    try {
+      await protocolManager.disconnect();
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] protocol:disconnect error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Execute action via protocol
+  ipcMain.handle('protocol:execute', async (event, method, params) => {
+    try {
+      const result = await protocolManager[method](...params);
+      return { success: true, result };
+    } catch (error) {
+      console.error(`[IPC] protocol:execute ${method} error:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get protocol status
+  ipcMain.handle('protocol:status', async () => {
+    try {
+      const status = protocolManager.getStatus();
+      return { success: true, status };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // List available protocols
+  ipcMain.handle('protocol:list', async () => {
+    try {
+      const protocols = protocolManager.listProtocols();
+      return { success: true, protocols };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get screen resolution via protocol
+  ipcMain.handle('protocol:get-resolution', async () => {
+    try {
+      const resolution = await protocolManager.getScreenResolution();
+      return { success: true, resolution };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Tap via protocol
+  ipcMain.handle('protocol:tap', async (event, x, y) => {
+    try {
+      await protocolManager.tap(x, y);
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] protocol:tap error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Long press via protocol
+  ipcMain.handle('protocol:long-press', async (event, x, y, duration) => {
+    try {
+      await protocolManager.longPress(x, y, duration);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Swipe via protocol
+  ipcMain.handle('protocol:swipe', async (event, x1, y1, x2, y2, duration) => {
+    try {
+      await protocolManager.swipe(x1, y1, x2, y2, duration);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Drag via protocol
+  ipcMain.handle('protocol:drag', async (event, x1, y1, x2, y2, duration) => {
+    try {
+      await protocolManager.drag(x1, y1, x2, y2, duration);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Scroll via protocol
+  ipcMain.handle('protocol:scroll', async (event, direction, amount) => {
+    try {
+      await protocolManager.scroll(direction, amount);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Input text via protocol
+  ipcMain.handle('protocol:input-text', async (event, text) => {
+    try {
+      await protocolManager.inputText(text);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Press key via protocol
+  ipcMain.handle('protocol:press-key', async (event, keyCode) => {
+    try {
+      await protocolManager.pressKey(keyCode);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   });
 }
