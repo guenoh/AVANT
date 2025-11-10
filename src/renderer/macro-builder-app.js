@@ -5579,17 +5579,28 @@ class MacroBuilderApp {
                 const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
 
                 return `
-                    <div class="action-card" style="margin-bottom: 12px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px;">
-                            <div style="flex: 1;">
-                                <div style="font-weight: 500; margin-bottom: 4px;">${scenario.filename}</div>
-                                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${scenario.message}</div>
-                                <div style="font-size: 11px; color: #999;">${timestamp} • ${scenario.actionsCount}개 액션</div>
-                            </div>
-                            <span style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
+                    <div class="action-card" style="margin-bottom: 12px; padding: 16px;">
+                        <!-- Title Row -->
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;">
+                            <div style="flex: 1; font-weight: 600; font-size: 15px; color: #1e293b;">${scenario.filename}</div>
+                        </div>
+
+                        <!-- Info Row -->
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-left: 28px; font-size: 12px; color: #64748b;">
+                            <span>${scenario.message}</span>
+                            <span style="color: #cbd5e1;">•</span>
+                            <span>${scenario.actionsCount}개 액션</span>
+                            <span style="color: #cbd5e1;">•</span>
+                            <span>${timestamp}</span>
+                        </div>
+
+                        <!-- Action Row -->
+                        <div style="display: flex; align-items: center; gap: 8px; padding-left: 28px;">
+                            <span style="padding: 4px 10px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
                                 ${statusIcon} ${statusText}
                             </span>
+                            <div style="flex: 1;"></div>
                             <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')">
                                 편집
                             </button>
