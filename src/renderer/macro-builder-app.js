@@ -161,6 +161,7 @@ class MacroBuilderApp {
         });
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
+        document.getElementById('btn-back-to-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
         document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
@@ -1337,10 +1338,12 @@ class MacroBuilderApp {
             });
         });
 
-        // Hide scenario list buttons in toolbar
+        // Show/hide toolbar buttons for action sequence view
+        const btnBackToList = document.getElementById('btn-back-to-list');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
 
+        if (btnBackToList) btnBackToList.style.display = '';
         if (btnSelectAll) btnSelectAll.style.display = 'none';
         if (btnRunSelected) btnRunSelected.style.display = 'none';
     }
@@ -5508,11 +5511,13 @@ class MacroBuilderApp {
             });
         }
 
-        // Show scenario list buttons in toolbar
+        // Show/hide toolbar buttons for scenario list view
+        const btnBackToList = document.getElementById('btn-back-to-list');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
+        if (btnBackToList) btnBackToList.style.display = 'none';
         if (btnSelectAll) btnSelectAll.style.display = '';
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
