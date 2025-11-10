@@ -1353,8 +1353,14 @@ class MacroBuilderApp {
         const btnRunSelected = document.getElementById('btn-run-selected');
 
         if (btnBackToList) btnBackToList.style.display = '';
-        if (btnSelectAll) btnSelectAll.style.display = 'none';
-        if (btnRunSelected) btnRunSelected.style.display = 'none';
+        if (btnSelectAll) {
+            btnSelectAll.style.display = 'none';
+            console.log('[renderActionSequence] Hiding select-all button');
+        }
+        if (btnRunSelected) {
+            btnRunSelected.style.display = 'none';
+            console.log('[renderActionSequence] Hiding run-selected button');
+        }
     }
 
     captureRegionImage(action) {
@@ -5815,10 +5821,14 @@ class MacroBuilderApp {
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
         if (btnBackToList) btnBackToList.style.display = 'none';
-        if (btnSelectAll) btnSelectAll.style.display = '';
+        if (btnSelectAll) {
+            btnSelectAll.style.display = '';
+            console.log('[renderScenarioListInPanel] Showing select-all button');
+        }
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
             btnRunSelected.disabled = !isDeviceConnected;
+            console.log('[renderScenarioListInPanel] Showing run-selected button');
         }
 
         // Disable action list since we're in scenario list view (no active scenario)
