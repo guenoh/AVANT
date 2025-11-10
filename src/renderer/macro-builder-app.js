@@ -3145,9 +3145,11 @@ class MacroBuilderApp {
 
             const action = this.actions[i];
 
-            // Highlight current action
+            // Highlight current action (only if not viewing scenario list)
             this.selectedActionId = action.id;
-            this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
+            if (!this.isScenarioListVisible()) {
+                this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
+            }
 
             // Update progress for scenario if key provided
             if (scenarioKey) {
