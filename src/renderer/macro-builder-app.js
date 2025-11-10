@@ -40,6 +40,10 @@ class MacroBuilderApp {
         this.savedState = null; // JSON snapshot of actions when saved/loaded
         this.hasUnsavedChanges = false;
 
+        // Track running scenarios for progress display
+        this.runningScenarios = new Map(); // key -> { status: 'running', progress: { current: 0, total: 0 }, cancelFn: null }
+        this.scenarioCancelFlag = false; // Flag to cancel current scenario execution
+
         this.init();
     }
 
@@ -3011,7 +3015,7 @@ class MacroBuilderApp {
         this.renderActionSequence();
     }
 
-    async runMacro() {
+    async runMacro(scenarioKey = null) {
         if (!this.isDeviceConnected) {
             this.addLog('error', '장치가 연결되지 않았습니다');
             return;
@@ -3036,9 +3040,21 @@ class MacroBuilderApp {
             `;
         }
 
+        // If scenarioKey is provided, track its execution
+        if (scenarioKey) {
+            this.runningScenarios.set(scenarioKey, {
+                status: 'running',
+                progress: { current: 0, total: this.actions.length }
+            });
+            // Refresh scenario list to show progress
+            if (this.isScenarioListVisible()) {
+                this.renderScenarioListInPanel();
+            }
+        }
+
         this.addLog('info', `매크로 실행 시작: ${this.macroName}`);
 
-        await this.executeActionsRange(0, this.actions.length);
+        await this.executeActionsRange(0, this.actions.length, scenarioKey);
 
         const wasStopped = this.shouldStop;
 
@@ -3075,6 +3091,15 @@ class MacroBuilderApp {
         // Save execution result to scenario file metadata
         await this.saveExecutionResult(finalStatus, finalMessage);
 
+        // Clean up scenario running state
+        if (scenarioKey) {
+            this.runningScenarios.delete(scenarioKey);
+            // Refresh scenario list to remove progress
+            if (this.isScenarioListVisible()) {
+                this.renderScenarioListInPanel();
+            }
+        }
+
         if (runBtn) {
             runBtn.innerHTML = `
                 <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3093,7 +3118,23 @@ class MacroBuilderApp {
         }
     }
 
-    async executeActionsRange(startIndex, endIndex) {
+    cancelScenario(scenarioKey) {
+        // Set the stop flag to interrupt the running scenario
+        this.shouldStop = true;
+
+        // Clean up the running state
+        if (this.runningScenarios.has(scenarioKey)) {
+            this.runningScenarios.delete(scenarioKey);
+            this.addLog('info', `시나리오 실행 중단: ${scenarioKey}`);
+
+            // Refresh the scenario list to update the UI
+            if (this.isScenarioListVisible()) {
+                this.renderScenarioListInPanel();
+            }
+        }
+    }
+
+    async executeActionsRange(startIndex, endIndex, scenarioKey = null) {
         let i = startIndex;
 
         while (i < endIndex) {
@@ -3107,6 +3148,18 @@ class MacroBuilderApp {
             // Highlight current action
             this.selectedActionId = action.id;
             this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
+
+            // Update progress for scenario if key provided
+            if (scenarioKey) {
+                const runningState = this.runningScenarios.get(scenarioKey);
+                if (runningState) {
+                    runningState.progress.current = i + 1;
+                    // Refresh scenario list to show updated progress
+                    if (this.isScenarioListVisible()) {
+                        this.renderScenarioListInPanel();
+                    }
+                }
+            }
 
             try {
                 // Handle control flow actions
@@ -5598,11 +5651,36 @@ class MacroBuilderApp {
                 const statusText = this.getStatusText(scenario.status);
                 const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
 
+                // Check if this scenario is currently running
+                const runningState = this.runningScenarios.get(scenario.key);
+                const isRunning = runningState && runningState.status === 'running';
+
+                // Progress bar and info for running scenarios
+                let progressHTML = '';
+                if (isRunning && runningState.progress) {
+                    const progressPercent = runningState.progress.total > 0
+                        ? Math.round((runningState.progress.current / runningState.progress.total) * 100)
+                        : 0;
+
+                    progressHTML = `
+                        <!-- Progress Bar -->
+                        <div style="padding-left: 28px; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <span style="font-size: 12px; color: #2563eb; font-weight: 500;">실행 중...</span>
+                                <span style="font-size: 12px; color: #64748b;">${runningState.progress.current} / ${runningState.progress.total}</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                                <div style="width: ${progressPercent}%; height: 100%; background: #2563eb; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="action-card" style="margin-bottom: 12px; padding: 16px;">
                         <!-- Title Row -->
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;">
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;" ${isRunning ? 'disabled' : ''}>
                             <div style="flex: 1; font-weight: 600; font-size: 15px; color: #1e293b;">${scenario.filename}</div>
                         </div>
 
@@ -5615,24 +5693,32 @@ class MacroBuilderApp {
                             <span>${timestamp}</span>
                         </div>
 
+                        ${progressHTML}
+
                         <!-- Action Row -->
                         <div style="display: flex; align-items: center; gap: 8px; padding-left: 28px;">
-                            <span style="padding: 4px 10px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
-                                ${statusIcon} ${statusText}
+                            <span style="padding: 4px 10px; font-size: 11px; border-radius: 4px; background: ${isRunning ? '#dbeafe' : '#e2e8f0'}; color: ${isRunning ? '#1e40af' : '#334155'};">
+                                ${isRunning ? '⏱️ 실행 중' : statusIcon + ' ' + statusText}
                             </span>
                             <div style="flex: 1;"></div>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')">
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')" ${isRunning ? 'disabled' : ''}>
                                 편집
                             </button>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.duplicateScenario('${scenario.key}', '${scenario.filename}')">
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.duplicateScenario('${scenario.key}', '${scenario.filename}')" ${isRunning ? 'disabled' : ''}>
                                 복제
                             </button>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.deleteScenario('${scenario.key}', '${scenario.filename}')" style="color: #dc2626;">
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.deleteScenario('${scenario.key}', '${scenario.filename}')" style="color: #dc2626;" ${isRunning ? 'disabled' : ''}>
                                 삭제
                             </button>
-                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
-                                실행
-                            </button>
+                            ${isRunning ? `
+                                <button class="btn btn-sm" style="background: #dc2626; color: white;" onclick="window.macroApp.cancelScenario('${scenario.key}')">
+                                    중단
+                                </button>
+                            ` : `
+                                <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
+                                    실행
+                                </button>
+                            `}
                         </div>
                     </div>
                 `;
@@ -5721,8 +5807,8 @@ class MacroBuilderApp {
             // Render the action sequence
             this.renderActionSequence();
 
-            // Run the scenario and wait for completion
-            await this.runMacro();
+            // Run the scenario with key for progress tracking
+            await this.runMacro(key);
 
             // Small delay between scenarios
             if (i < selectedKeys.length - 1) {
@@ -5853,8 +5939,8 @@ class MacroBuilderApp {
 
         this.addLog('info', `시나리오 로드됨: ${this.macroName} (${this.actions.length}개 액션)`);
 
-        // Auto-run the scenario
-        await this.runMacro();
+        // Auto-run the scenario with the key for progress tracking
+        await this.runMacro(key);
     }
 
     // ==================== Scenario Block Management Methods ====================
