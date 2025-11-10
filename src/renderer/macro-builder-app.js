@@ -159,7 +159,7 @@ class MacroBuilderApp {
                 this.runMacro();
             }
         });
-        document.getElementById('btn-scenario-list')?.addEventListener('click', () => this.openScenarioListModal());
+        document.getElementById('btn-scenario-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
 
@@ -4964,14 +4964,9 @@ class MacroBuilderApp {
     }
 
     closeScenarioListModal() {
-        console.log('[closeScenarioList] Closing scenario sidebar');
-        const sidebar = document.getElementById('scenario-sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-
-        if (sidebar && overlay) {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
-        }
+        console.log('[closeScenarioList] Restoring action sequence view');
+        // Restore the action sequence view
+        this.renderActionSequence();
     }
 
     showAddActionPrompt() {
