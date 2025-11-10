@@ -5430,6 +5430,10 @@ class MacroBuilderApp {
                 </div>
             `;
         } else {
+            // Check device connection status first
+            const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
+            const disabledAttr = isDeviceConnected ? '' : 'disabled';
+
             const scenarioHTML = scenarios.map(scenario => {
                 const statusIcon = this.getStatusIcon(scenario.status);
                 const statusColor = this.getStatusColor(scenario.status);
@@ -5448,7 +5452,7 @@ class MacroBuilderApp {
                             <span style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
                                 ${statusIcon} ${statusText}
                             </span>
-                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')">
+                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
                                 실행
                             </button>
                         </div>
@@ -5462,7 +5466,7 @@ class MacroBuilderApp {
                         <h3 style="font-size: 16px; font-weight: 600;">저장된 시나리오</h3>
                         <div style="display: flex; gap: 8px;">
                             <button class="btn btn-sm btn-secondary" onclick="window.macroApp.toggleSelectAll()">전체 선택</button>
-                            <button class="btn btn-sm btn-primary" onclick="window.macroApp.runSelectedScenarios()">선택 실행</button>
+                            <button class="btn btn-sm btn-primary" onclick="window.macroApp.runSelectedScenarios()" ${disabledAttr}>선택 실행</button>
                             <button class="btn btn-sm btn-ghost" onclick="window.macroApp.closeScenarioListModal()">닫기</button>
                         </div>
                     </div>
