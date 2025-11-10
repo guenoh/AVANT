@@ -3953,6 +3953,9 @@ class MacroBuilderApp {
         // Switch to action sequence view
         this.renderActionSequence();
 
+        // Enable toolbar buttons and action list
+        this.updateToolbarButtons(true);
+
         console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
     }
 
