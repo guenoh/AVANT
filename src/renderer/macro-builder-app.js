@@ -1352,13 +1352,21 @@ class MacroBuilderApp {
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
 
-        if (btnBackToList) btnBackToList.style.display = '';
+        // Show "back to list" button in action editing view
+        if (btnBackToList) {
+            btnBackToList.style.display = '';
+            console.log('[renderActionSequence] Showing back-to-list button');
+        }
+
+        // Hide scenario list buttons (select-all, run-selected) in action editing view
         if (btnSelectAll) {
             btnSelectAll.style.display = 'none';
+            btnSelectAll.style.visibility = 'hidden';
             console.log('[renderActionSequence] Hiding select-all button');
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
+            btnRunSelected.style.visibility = 'hidden';
             console.log('[renderActionSequence] Hiding run-selected button');
         }
     }
@@ -5820,13 +5828,21 @@ class MacroBuilderApp {
         const btnRunSelected = document.getElementById('btn-run-selected');
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
-        if (btnBackToList) btnBackToList.style.display = 'none';
+        // Hide "back to list" button in scenario list view
+        if (btnBackToList) {
+            btnBackToList.style.display = 'none';
+            console.log('[renderScenarioListInPanel] Hiding back-to-list button');
+        }
+
+        // Show scenario list buttons (select-all, run-selected)
         if (btnSelectAll) {
             btnSelectAll.style.display = '';
+            btnSelectAll.style.visibility = 'visible';
             console.log('[renderScenarioListInPanel] Showing select-all button');
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
+            btnRunSelected.style.visibility = 'visible';
             btnRunSelected.disabled = !isDeviceConnected;
             console.log('[renderScenarioListInPanel] Showing run-selected button');
         }
