@@ -163,6 +163,7 @@ class MacroBuilderApp {
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
         document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
+        document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
         document.getElementById('btn-run-all-blocks')?.addEventListener('click', () => this.runAllScenarioBlocks());
 
@@ -1335,6 +1336,13 @@ class MacroBuilderApp {
                 }
             });
         });
+
+        // Hide scenario list buttons in toolbar
+        const btnSelectAll = document.getElementById('btn-select-all');
+        const btnRunSelected = document.getElementById('btn-run-selected');
+
+        if (btnSelectAll) btnSelectAll.style.display = 'none';
+        if (btnRunSelected) btnRunSelected.style.display = 'none';
     }
 
     captureRegionImage(action) {
@@ -5436,9 +5444,10 @@ class MacroBuilderApp {
                 const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
 
                 return `
-                    <div class="action-card" style="margin-bottom: 12px; cursor: pointer;" data-scenario-key="${scenario.key}">
+                    <div class="action-card" style="margin-bottom: 12px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="flex: 1;" onclick="window.macroApp.loadScenario('${scenario.key}')">
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px;">
+                            <div style="flex: 1;">
                                 <div style="font-weight: 500; margin-bottom: 4px;">${scenario.filename}</div>
                                 <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${scenario.message}</div>
                                 <div style="font-size: 11px; color: #999;">${timestamp} • ${scenario.actionsCount}개 액션</div>
@@ -5446,11 +5455,8 @@ class MacroBuilderApp {
                             <span style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
                                 ${statusIcon} ${statusText}
                             </span>
-                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
-                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
+                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
+                                실행
                             </button>
                         </div>
                     </div>
@@ -5458,48 +5464,26 @@ class MacroBuilderApp {
             }).join('');
 
             actionList.innerHTML = `
-                <div class="p-6">
+                <div class="px-6 py-4">
                     ${scenarioHTML}
                 </div>
             `;
 
-        }
-    }
-
-    loadScenario(scenarioKey) {
-        console.log('[loadScenario] Loading scenario:', scenarioKey);
-
-        // Get scenario from localStorage
-        const savedMacro = localStorage.getItem(scenarioKey);
-        if (!savedMacro) {
-            console.error('[loadScenario] Scenario not found:', scenarioKey);
-            alert('시나리오를 찾을 수 없습니다.');
-            return;
+            // Add change listeners
+            actionList.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => this.updateSelectedCount());
+            });
         }
 
-        try {
-            const macroData = JSON.parse(savedMacro);
+        // Show scenario list buttons in toolbar
+        const btnSelectAll = document.getElementById('btn-select-all');
+        const btnRunSelected = document.getElementById('btn-run-selected');
+        const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
-            // Load actions
-            this.actions = macroData.actions || [];
-            this.currentMacroKey = scenarioKey;
-
-            // Update macro name input
-            const macroNameInput = document.getElementById('macro-name-input');
-            if (macroNameInput) {
-                macroNameInput.value = macroData.name || '새 시나리오';
-            }
-
-            // Render action sequence
-            this.renderActionSequence();
-
-            // Update toolbar buttons
-            this.updateToolbarButtons(true);
-
-            console.log('[loadScenario] Scenario loaded successfully');
-        } catch (error) {
-            console.error('[loadScenario] Error loading scenario:', error);
-            alert('시나리오를 불러오는 중 오류가 발생했습니다.');
+        if (btnSelectAll) btnSelectAll.style.display = '';
+        if (btnRunSelected) {
+            btnRunSelected.style.display = '';
+            btnRunSelected.disabled = !isDeviceConnected;
         }
     }
 
