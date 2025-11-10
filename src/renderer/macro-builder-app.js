@@ -4530,10 +4530,6 @@ class MacroBuilderApp {
 
                             // Update coordinate system with new device dimensions
                             this.coordinateSystem.init(this.screenWidth, this.screenHeight, 0);
-                            console.log('Coordinate system updated with device dimensions:', {
-                                width: this.screenWidth,
-                                height: this.screenHeight
-                            });
                         }
 
                         // Hide device connection UI and show screen preview

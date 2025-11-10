@@ -11,9 +11,8 @@ class CoordinateService {
     /**
      * Update coordinate system with device dimensions
      */
-    updateSystem(deviceWidth, deviceHeight, displayWidth, displayHeight) {
-        this.system.updateDevice(deviceWidth, deviceHeight);
-        this.system.updateDisplay(displayWidth, displayHeight);
+    updateSystem(deviceWidth, deviceHeight, rotation = 0) {
+        this.system.init(deviceWidth, deviceHeight, rotation);
     }
 
     /**
