@@ -3015,6 +3015,47 @@ class MacroBuilderApp {
         this.renderActionSequence();
     }
 
+    calculateTotalActionCount(startIndex = 0, endIndex = null) {
+        // Calculate the total number of actions that will be executed, including loop iterations
+        if (endIndex === null) {
+            endIndex = this.actions.length;
+        }
+
+        let totalCount = 0;
+
+        for (let i = startIndex; i < endIndex; i++) {
+            const action = this.actions[i];
+
+            if (action.type === 'loop') {
+                // Find the end of this loop
+                const loopEnd = this.findBlockEnd(i, ['end-loop']);
+                const loopCount = action.loopCount || 1;
+
+                // Calculate actions inside the loop (recursively)
+                const actionsInLoop = this.calculateTotalActionCount(i + 1, loopEnd);
+
+                // Multiply by loop iterations
+                totalCount += actionsInLoop * loopCount;
+
+                // Skip to end of loop
+                i = loopEnd;
+            } else if (action.type === 'while') {
+                // For while loops, we can't predict the count
+                // Return null to indicate indeterminate progress
+                return null;
+            } else if (action.type === 'if' || action.type === 'else-if' || action.type === 'else') {
+                // For conditionals, we can't predict which branch will execute
+                // Return null to indicate indeterminate progress
+                return null;
+            } else if (!action.type.startsWith('end-')) {
+                // Count regular actions (skip end-loop, end-while, end-if markers)
+                totalCount++;
+            }
+        }
+
+        return totalCount;
+    }
+
     async runMacro(scenarioKey = null) {
         if (!this.isDeviceConnected) {
             this.addLog('error', '장치가 연결되지 않았습니다');
@@ -3042,9 +3083,12 @@ class MacroBuilderApp {
 
         // If scenarioKey is provided, track its execution
         if (scenarioKey) {
+            // Calculate total expected action count (null if indeterminate like while/if)
+            const totalActions = this.calculateTotalActionCount();
+
             this.runningScenarios.set(scenarioKey, {
                 status: 'running',
-                progress: { current: 0, total: null } // total will be calculated dynamically
+                progress: { current: 0, total: totalActions }
             });
             // Refresh scenario list to show progress
             if (this.isScenarioListVisible()) {
