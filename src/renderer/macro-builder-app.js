@@ -817,20 +817,6 @@ class MacroBuilderApp {
             marker.innerHTML = '<div class="action-marker-pulse"></div>';
             screenPreview.appendChild(marker);
 
-            // Add a debug dot at the exact center (for debugging)
-            const debugDot = document.createElement('div');
-            debugDot.style.position = 'absolute';
-            debugDot.style.width = '4px';
-            debugDot.style.height = '4px';
-            debugDot.style.backgroundColor = 'red';
-            debugDot.style.borderRadius = '50%';
-            debugDot.style.transform = 'translate(-50%, -50%)';
-            debugDot.style.left = `${markerX}px`;
-            debugDot.style.top = `${markerY}px`;
-            debugDot.style.zIndex = '11';
-            debugDot.style.pointerEvents = 'none';
-            screenPreview.appendChild(debugDot);
-
             // For drag, show line and end marker
             if (action.type === 'drag' && action.endX !== undefined && action.endY !== undefined) {
                 // Calculate end marker position (same as start marker calculation)
@@ -3479,7 +3465,7 @@ class MacroBuilderApp {
                     y: actualY
                 },
                 useCache: false,
-                colorInvariant: true  // Use edge-based matching for better accuracy
+                colorInvariant: false  // Include color information for better distinction
             });
 
             console.log('[executeImageMatchAction] findTemplate result:', result);
@@ -4049,6 +4035,9 @@ class MacroBuilderApp {
         // renderActionSequence will automatically update marker for selected action
         this.renderActionSequence();
 
+        // Clear selection markers (red box)
+        this.clearScreenMarkers();
+
         // Log the action creation
         const actionName = type === 'click' ? '클릭' : '롱프레스';
         this.addLog('success', `${actionName} 액션 추가: (${x}, ${y})`);
@@ -4081,6 +4070,9 @@ class MacroBuilderApp {
 
         // renderActionSequence will automatically update marker for selected action
         this.renderActionSequence();
+
+        // Clear selection markers (red box)
+        this.clearScreenMarkers();
 
         // Log the action creation
         this.addLog('success', `드래그 액션 추가: (${startX}, ${startY}) → (${endX}, ${endY})`);
@@ -4519,6 +4511,14 @@ class MacroBuilderApp {
                     if (result) {
                         this.isDeviceConnected = true;
                         this.fps = 30;
+
+                        // Connect to ProtocolManager
+                        try {
+                            await window.api.protocol.connect(device.id, 'adb');
+                            this.addLog('info', 'Protocol Manager 연결 완료');
+                        } catch (protocolError) {
+                            this.addLog('warning', `Protocol Manager 연결 실패: ${protocolError.message}`);
+                        }
 
                         // Store device screen resolution
                         // Result format: {success: true, info: {...}}

@@ -637,42 +637,7 @@
   color: var(--color-text);
 }
 
-/* Toggle Switch */
-.toggle-switch {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.toggle-switch input[type="checkbox"] {
-  display: none;
-}
-
-.toggle-slider {
-  position: relative;
-  width: 48px;
-  height: 24px;
-  background-color: #ccc;
-  border-radius: 12px;
-  transition: background-color 0.3s;
-  display: inline-block;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-
-.toggle-slider::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: white;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
+/* Toggle Switch - Moved to macro-builder.css to avoid conflicts */
 
 .toggle-label {
   position: absolute;
