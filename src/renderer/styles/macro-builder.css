@@ -2456,7 +2456,7 @@ input[type="number"] {
 .scenario-sidebar-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--slate-200);
 }
@@ -2492,9 +2492,10 @@ input[type="number"] {
 }
 
 .scenario-sidebar-title {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--slate-900);
+    margin: 0;
 }
 
 /* Sidebar actions */
@@ -2678,5 +2679,178 @@ input[type="number"] {
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: var(--red-600);
+}
+
+/* ========================================
+   Scenario Blocks (Multi-Scenario System)
+   ======================================== */
+
+/* Scenario block container */
+.scenario-block {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.scenario-block:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Scenario block header */
+.scenario-block-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.scenario-block-header:hover {
+    background: #f1f5f9;
+}
+
+/* Expand/collapse icon */
+.block-expand-icon {
+    width: 16px;
+    font-size: 12px;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+/* Status icon */
+.block-status-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.block-status-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Block name */
+.block-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Status text */
+.block-status-text {
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+/* Action buttons */
+.block-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.btn-icon-sm {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-icon-sm:hover {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.btn-icon-sm.btn-danger:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-icon-sm svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Block content (actions list) */
+.block-actions-list {
+    padding: 12px 16px;
+}
+
+/* Action item within block */
+.block-action-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.block-action-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Action status icon */
+.action-status-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.action-status-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Action type icon */
+.action-type-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: #64748b;
+}
+
+.action-type-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Action name */
+.action-name {
+    flex: 1;
+    font-size: 13px;
+    color: #334155;
+}
+
+/* Status color utilities */
+.text-slate-400 { color: #94a3b8; }
+.text-blue-500 { color: #3b82f6; }
+.text-green-500 { color: #22c55e; }
+.text-red-500 { color: #ef4444; }
+
+/* Animate pulse for running status */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 

@@ -16,6 +16,10 @@ class MacroBuilderApp {
         this.selectedCondition = null; // { actionId, conditionId }
         this.scenarioResult = null; // { status: 'pass'|'skip'|'fail', message: string }
 
+        // Scenario blocks for multi-scenario workflow
+        this.scenarioBlocks = []; // Array of scenario blocks
+        this.expandedBlockId = null; // ID of currently expanded block (only one can be expanded)
+
         // Coordinate picking mode
         this.isPickingCoordinate = false;
         this.pendingActionType = null;
@@ -31,6 +35,10 @@ class MacroBuilderApp {
 
         // ADB device list
         this.adbDevices = null;
+
+        // Track changes for save button state
+        this.savedState = null; // JSON snapshot of actions when saved/loaded
+        this.hasUnsavedChanges = false;
 
         this.init();
     }
@@ -62,6 +70,9 @@ class MacroBuilderApp {
         this.renderActionList();
         this.renderActionSequence();
         this.renderDeviceStatus();
+
+        // Initialize UI state (no scenario loaded initially)
+        this.updateToolbarButtons(false);
 
         this.logger.success('Macro Builder App initialized');
     }
@@ -149,10 +160,6 @@ class MacroBuilderApp {
             }
         });
         document.getElementById('btn-scenario-list')?.addEventListener('click', () => this.openScenarioListModal());
-        document.getElementById('btn-import-macro')?.addEventListener('click', () => {
-            document.getElementById('import-input-seq')?.click();
-        });
-        document.getElementById('import-input-seq')?.addEventListener('change', (e) => this.importMacro(e));
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
 
@@ -161,7 +168,8 @@ class MacroBuilderApp {
         document.getElementById('sidebar-overlay')?.addEventListener('click', () => this.closeScenarioListModal());
         document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
-        document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
+        document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
+        document.getElementById('btn-run-all-blocks')?.addEventListener('click', () => this.runAllScenarioBlocks());
 
         // Device connection buttons
         document.getElementById('btn-connect-adb')?.addEventListener('click', () => this.connectDevice('adb'));
@@ -359,7 +367,7 @@ class MacroBuilderApp {
         }
 
         // Initialize with welcome log
-        this.addLog('info', '시나리오 빌더 준비 완료');
+        this.addLog('info', '매크로 빌더 준비 완료');
     }
 
     handleScreenClick(e) {
@@ -1189,6 +1197,9 @@ class MacroBuilderApp {
 
         this.actions.push(newAction);
 
+        // Mark as changed
+        this.markAsChanged();
+
         // Auto-add END block for control flow structures
         if (type === 'if' || type === 'while' || type === 'loop') {
             const endType = type === 'if' ? 'end-if' : type === 'while' ? 'end-while' : 'end-loop';
@@ -1211,13 +1222,22 @@ class MacroBuilderApp {
         const scrollTop = container.scrollTop;
 
         if (this.actions.length === 0) {
+            // Check if a scenario has been created/loaded
+            const hasScenario = this.macroName && this.macroName.trim().length > 0;
+            const emptyTitle = hasScenario
+                ? '시나리오가 비어있습니다'
+                : '시나리오를 생성하여 시작하세요';
+            const emptyDescription = hasScenario
+                ? '오른쪽에서 액션을 선택하여 시작하세요'
+                : '"목록 보기"를 클릭하여 새 시나리오를 만드세요';
+
             container.innerHTML = `
                 <div id="empty-state" class="empty-state" style="display: flex;">
                     <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
-                    <p class="empty-title">매크로가 비어있습니다</p>
-                    <p class="empty-description">오른쪽에서 액션을 선택하여 시작하세요</p>
+                    <p class="empty-title">${emptyTitle}</p>
+                    <p class="empty-description">${emptyDescription}</p>
                 </div>
             `;
             return;
@@ -1231,7 +1251,7 @@ class MacroBuilderApp {
                 <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
-                <p class="empty-title">매크로가 비어있습니다</p>
+                <p class="empty-title">시나리오가 비어있습니다</p>
                 <p class="empty-description">오른쪽에서 액션을 선택하여 시작하세요</p>
             </div>
             <div class="space-y-2">
@@ -2817,6 +2837,8 @@ class MacroBuilderApp {
         const action = this.actions.find(a => a.id === id);
         if (action) {
             action[key] = value;
+            // Mark as changed
+            this.markAsChanged();
             // Don't re-render to avoid losing focus
         }
     }
@@ -2950,6 +2972,9 @@ class MacroBuilderApp {
     deleteAction(id) {
         this.actions = this.actions.filter(a => a.id !== id);
 
+        // Mark as changed
+        this.markAsChanged();
+
         // If deleted action was selected, clear selection and markers
         if (this.selectedActionId === id) {
             this.selectedActionId = null;
@@ -2973,6 +2998,10 @@ class MacroBuilderApp {
         if (newIndex < 0 || newIndex >= this.actions.length) return;
 
         [this.actions[index], this.actions[newIndex]] = [this.actions[newIndex], this.actions[index]];
+
+        // Mark as changed
+        this.markAsChanged();
+
         this.renderActionSequence();
     }
 
@@ -3001,7 +3030,7 @@ class MacroBuilderApp {
             `;
         }
 
-        this.addLog('info', `시나리오 실행 시작: ${this.macroName}`);
+        this.addLog('info', `매크로 실행 시작: ${this.macroName}`);
 
         await this.executeActionsRange(0, this.actions.length);
 
@@ -3015,7 +3044,7 @@ class MacroBuilderApp {
 
         // Log final result
         let finalStatus = 'completed';
-        let finalMessage = '시나리오 실행 완료';
+        let finalMessage = '매크로 실행 완료';
 
         if (this.scenarioResult) {
             const { status, message } = this.scenarioResult;
@@ -3031,10 +3060,10 @@ class MacroBuilderApp {
             }
         } else if (wasStopped) {
             finalStatus = 'stopped';
-            finalMessage = '시나리오 실행이 중단되었습니다';
+            finalMessage = '매크로 실행이 중단되었습니다';
             this.addLog('warning', finalMessage);
         } else {
-            this.addLog('success', '시나리오 실행 완료');
+            this.addLog('success', '매크로 실행 완료');
         }
 
         // Save execution result to scenario file metadata
@@ -3054,7 +3083,7 @@ class MacroBuilderApp {
     stopMacro() {
         if (this.isRunning) {
             this.shouldStop = true;
-            this.addLog('info', '시나리오 중단 요청...');
+            this.addLog('info', '매크로 중단 요청...');
         }
     }
 
@@ -3762,6 +3791,9 @@ class MacroBuilderApp {
         const scenariosData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
         scenariosData[key] = macroData;
         localStorage.setItem('scenario_data', JSON.stringify(scenariosData));
+
+        // Mark as saved
+        this.markAsSaved();
     }
 
     loadScenarioFromRegistry(key) {
@@ -3808,7 +3840,7 @@ class MacroBuilderApp {
                 console.log(`Loaded macro: ${this.macroName} (${this.actions.length} actions)`);
             } catch (error) {
                 console.error('Failed to import macro:', error);
-                alert('시나리오 파일을 불러오는데 실패했습니다.');
+                alert('매크로 파일을 불러오는데 실패했습니다.');
             }
         };
         reader.readAsText(file);
@@ -4942,6 +4974,98 @@ class MacroBuilderApp {
         }
     }
 
+    showAddActionPrompt() {
+        const dialog = document.getElementById('add-action-prompt-dialog');
+        if (!dialog) return;
+
+        // Show the dialog
+        dialog.style.display = 'flex';
+
+        // Setup event listeners
+        const closeBtn = document.getElementById('btn-close-prompt-dialog');
+        const confirmBtn = document.getElementById('btn-confirm-prompt');
+
+        const closeDialog = () => {
+            dialog.style.display = 'none';
+        };
+
+        // Remove old listeners by cloning
+        if (closeBtn) {
+            const newCloseBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+            newCloseBtn.addEventListener('click', closeDialog);
+        }
+
+        if (confirmBtn) {
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.addEventListener('click', closeDialog);
+        }
+
+        // Close on overlay click
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                closeDialog();
+            }
+        });
+
+        // Close on Escape key
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeDialog();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+    }
+
+    markAsChanged() {
+        this.hasUnsavedChanges = true;
+        this.updateToolbarButtons(true);
+    }
+
+    markAsSaved() {
+        this.savedState = JSON.stringify(this.actions);
+        this.hasUnsavedChanges = false;
+        this.updateToolbarButtons(true);
+    }
+
+    checkForChanges() {
+        if (!this.savedState) {
+            // No saved state means this is a new scenario with actions
+            this.hasUnsavedChanges = this.actions.length > 0;
+        } else {
+            const currentState = JSON.stringify(this.actions);
+            this.hasUnsavedChanges = currentState !== this.savedState;
+        }
+        this.updateToolbarButtons(true);
+    }
+
+    updateToolbarButtons(hasScenario) {
+        const saveBtn = document.getElementById('btn-save-macro');
+        const saveAsBtn = document.getElementById('btn-save-as-macro');
+        const runBtn = document.getElementById('btn-run-macro');
+        const actionListContainer = document.getElementById('action-list-container');
+
+        if (saveBtn) {
+            saveBtn.style.display = hasScenario ? 'inline-flex' : 'none';
+            saveBtn.disabled = !this.hasUnsavedChanges;
+        }
+        if (saveAsBtn) saveAsBtn.style.display = hasScenario ? 'inline-flex' : 'none';
+        if (runBtn) runBtn.style.display = hasScenario ? 'inline-flex' : 'none';
+
+        // Enable/disable action list panel
+        if (actionListContainer) {
+            if (hasScenario) {
+                actionListContainer.style.pointerEvents = 'auto';
+                actionListContainer.style.opacity = '1';
+            } else {
+                actionListContainer.style.pointerEvents = 'none';
+                actionListContainer.style.opacity = '0.5';
+            }
+        }
+    }
+
     renderScenarioList() {
         console.log('[renderScenarioList] Rendering scenario list');
         const container = document.getElementById('scenario-list-container');
@@ -5097,8 +5221,8 @@ class MacroBuilderApp {
         if (scenarios.length === 0) {
             container.innerHTML = `
                 <div style="padding: 2rem; text-align: center; color: var(--slate-400);">
-                    <p>No scenarios found</p>
-                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create a new scenario to get started</p>
+                    <p>시나리오가 없습니다</p>
+                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">새 시나리오를 만들어 시작하세요</p>
                 </div>
             `;
             return;
@@ -5116,7 +5240,6 @@ class MacroBuilderApp {
                     </svg>
                     <div class="tree-label-container">
                         <span class="tree-label">${scenario.name}</span>
-                        <span class="tree-path">${scenario.filename}</span>
                     </div>
                     <span class="icon-sm ${statusColor}">${statusIcon}</span>
                 </div>
@@ -5141,6 +5264,12 @@ class MacroBuilderApp {
                     if (macroNameInput) {
                         macroNameInput.value = this.macroName;
                     }
+
+                    // Mark as saved (loaded from registry)
+                    this.markAsSaved();
+
+                    // Show action buttons since we have a scenario loaded
+                    this.updateToolbarButtons(true);
 
                     // Log success
                     this.addLog('success', `Loaded scenario: ${this.macroName}`);
@@ -5223,12 +5352,21 @@ class MacroBuilderApp {
                 macroNameInput.value = scenarioName;
             }
 
+            // Mark as saved (new scenario with no actions)
+            this.markAsSaved();
+
+            // Show action buttons since we have a scenario now
+            this.updateToolbarButtons(true);
+
             // Close dialog and sidebar
             closeDialog();
             this.closeScenarioListModal();
 
             // Show success message
             this.addLog('success', `New scenario "${scenarioName}" created`);
+
+            // Show prompt to add actions
+            this.showAddActionPrompt();
         };
 
         // Remove old listeners by cloning
@@ -5413,6 +5551,98 @@ class MacroBuilderApp {
         this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
     }
 
+    // Add selected scenarios as blocks for multi-scenario workflow
+    addSelectedScenariosAsBlocks() {
+        const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
+        const selectedKeys = Array.from(checkboxes).map(cb => cb.dataset.key);
+
+        if (selectedKeys.length === 0) {
+            alert('추가할 시나리오를 선택해주세요');
+            return;
+        }
+
+        // Add the scenario blocks
+        this.addScenarioBlocks(selectedKeys);
+
+        // Close the modal
+        this.closeScenarioListModal();
+
+        // Log the action
+        console.log(`Added ${selectedKeys.length} scenario blocks`);
+    }
+
+    // Run all scenario blocks sequentially
+    async runAllScenarioBlocks() {
+        if (this.scenarioBlocks.length === 0) {
+            alert('실행할 시나리오 블록이 없습니다');
+            return;
+        }
+
+        console.log(`Starting execution of ${this.scenarioBlocks.length} scenario blocks`);
+
+        // Reset all blocks to pending status
+        this.scenarioBlocks.forEach(block => {
+            block.status = 'pending';
+            block.executedActions = 0;
+            block.errorMessage = null;
+        });
+        this.renderScenarioBlocks();
+
+        // Run each block sequentially
+        for (let i = 0; i < this.scenarioBlocks.length; i++) {
+            const block = this.scenarioBlocks[i];
+
+            console.log(`[${i + 1}/${this.scenarioBlocks.length}] Executing: ${block.scenarioName}`);
+
+            // Update block status to running
+            this.updateBlockStatus(block.id, 'running', 0, null);
+
+            try {
+                // Execute each action in the block
+                for (let actionIndex = 0; actionIndex < block.actions.length; actionIndex++) {
+                    const action = block.actions[actionIndex];
+
+                    // Update progress
+                    this.updateBlockStatus(block.id, 'running', actionIndex, null);
+
+                    // Execute the action
+                    await this.executeAction(action);
+
+                    // Small delay between actions
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                // All actions completed successfully
+                this.updateBlockStatus(block.id, 'success', block.actions.length, null);
+                console.log(`Block "${block.scenarioName}" completed successfully`);
+
+            } catch (error) {
+                // Action failed
+                console.error(`Block "${block.scenarioName}" failed:`, error);
+                this.updateBlockStatus(block.id, 'failed', block.executedActions, error.message);
+
+                // Ask user if they want to continue or stop
+                const shouldContinue = confirm(
+                    `시나리오 "${block.scenarioName}"에서 오류가 발생했습니다.\n\n` +
+                    `오류: ${error.message}\n\n` +
+                    `다음 시나리오를 계속 실행하시겠습니까?`
+                );
+
+                if (!shouldContinue) {
+                    console.log('User canceled execution');
+                    break;
+                }
+            }
+
+            // Delay between blocks
+            if (i < this.scenarioBlocks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        console.log('All scenario blocks execution finished');
+    }
+
     async runSingleScenario(key) {
         console.log('Running single scenario:', key);
 
@@ -5443,6 +5673,287 @@ class MacroBuilderApp {
 
         // Auto-run the scenario
         await this.runMacro();
+    }
+
+    // ==================== Scenario Block Management Methods ====================
+
+    // Create a new scenario block from scenario key
+    createScenarioBlock(scenarioKey, scenarioName, actions = []) {
+        const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        const block = {
+            id: blockId,
+            scenarioKey: scenarioKey,
+            scenarioName: scenarioName,
+            expanded: false,
+            actions: JSON.parse(JSON.stringify(actions)), // Deep copy
+            status: 'pending', // pending, running, success, failed
+            executionResult: null,
+            errorMessage: null,
+            executedActions: 0,
+            totalActions: actions.length
+        };
+
+        return block;
+    }
+
+    // Add scenario blocks from selected scenarios
+    addScenarioBlocks(scenarioKeys) {
+        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+
+        scenarioKeys.forEach(key => {
+            const scenarioData = registry[key];
+            if (!scenarioData) {
+                console.warn(`Scenario not found: ${key}`);
+                return;
+            }
+
+            // Load scenario actions from file
+            const actions = scenarioData.actions || [];
+            const scenarioName = scenarioData.name || key;
+
+            // Create and add block
+            const block = this.createScenarioBlock(key, scenarioName, actions);
+            this.scenarioBlocks.push(block);
+        });
+
+        // Render the blocks
+        this.renderScenarioBlocks();
+    }
+
+    // Remove scenario block by ID
+    removeScenarioBlock(blockId) {
+        const index = this.scenarioBlocks.findIndex(b => b.id === blockId);
+        if (index !== -1) {
+            this.scenarioBlocks.splice(index, 1);
+            this.renderScenarioBlocks();
+        }
+    }
+
+    // Toggle block expansion (accordion behavior - only one expanded at a time)
+    toggleBlockExpansion(blockId) {
+        const block = this.scenarioBlocks.find(b => b.id === blockId);
+        if (!block) return;
+
+        if (this.expandedBlockId === blockId) {
+            // Collapse currently expanded block
+            block.expanded = false;
+            this.expandedBlockId = null;
+        } else {
+            // Collapse all others and expand this one
+            this.scenarioBlocks.forEach(b => b.expanded = false);
+            block.expanded = true;
+            this.expandedBlockId = blockId;
+        }
+
+        this.renderScenarioBlocks();
+    }
+
+    // Move block up/down (for reordering)
+    moveScenarioBlock(blockId, direction) {
+        const index = this.scenarioBlocks.findIndex(b => b.id === blockId);
+        if (index === -1) return;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= this.scenarioBlocks.length) return;
+
+        // Swap blocks
+        [this.scenarioBlocks[index], this.scenarioBlocks[newIndex]] =
+        [this.scenarioBlocks[newIndex], this.scenarioBlocks[index]];
+
+        this.renderScenarioBlocks();
+    }
+
+    // Update block status during execution
+    updateBlockStatus(blockId, status, executedActions = 0, errorMessage = null) {
+        const block = this.scenarioBlocks.find(b => b.id === blockId);
+        if (!block) return;
+
+        block.status = status;
+        block.executedActions = executedActions;
+        block.errorMessage = errorMessage;
+
+        // Update just this block's visual state without full re-render
+        this.updateBlockVisual(blockId);
+    }
+
+    // Update block visual state (for real-time execution feedback)
+    updateBlockVisual(blockId) {
+        const block = this.scenarioBlocks.find(b => b.id === blockId);
+        if (!block) return;
+
+        const blockElement = document.querySelector(`[data-block-id="${blockId}"]`);
+        if (!blockElement) return;
+
+        // Update status icon and color
+        const statusIcon = blockElement.querySelector('.block-status-icon');
+        const statusText = blockElement.querySelector('.block-status-text');
+
+        if (statusIcon && statusText) {
+            const { icon, text, color } = this.getBlockStatusDisplay(block);
+            statusIcon.innerHTML = icon;
+            statusIcon.className = `block-status-icon ${color}`;
+            statusText.textContent = text;
+        }
+    }
+
+    // Get status icon and color for display
+    getBlockStatusDisplay(block) {
+        const displays = {
+            'pending': {
+                icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>',
+                text: '대기',
+                color: 'text-slate-400'
+            },
+            'running': {
+                icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                text: `실행 중 (${block.executedActions}/${block.totalActions})`,
+                color: 'text-blue-500 animate-pulse'
+            },
+            'success': {
+                icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                text: '성공',
+                color: 'text-green-500'
+            },
+            'failed': {
+                icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                text: '실패',
+                color: 'text-red-500'
+            }
+        };
+
+        return displays[block.status] || displays['pending'];
+    }
+
+    // Render scenario blocks in the main panel
+    renderScenarioBlocks() {
+        const container = document.getElementById('action-sequence-list');
+        if (!container) return;
+
+        // Update button visibility based on blocks
+        const runAllBtn = document.getElementById('btn-run-all-blocks');
+        if (runAllBtn) {
+            runAllBtn.style.display = this.scenarioBlocks.length > 0 ? 'flex' : 'none';
+        }
+
+        // If no blocks, show empty state
+        if (this.scenarioBlocks.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="display: flex;">
+                    <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <p class="empty-title">시나리오 블록이 없습니다</p>
+                    <p class="empty-description">"목록 보기"에서 시나리오를 선택하여 추가하세요</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render blocks
+        const blocksHTML = this.scenarioBlocks.map(block => this.renderScenarioBlock(block)).join('');
+        container.innerHTML = blocksHTML;
+
+        // Attach event listeners
+        this.attachBlockEventListeners();
+    }
+
+    // Render a single scenario block
+    renderScenarioBlock(block) {
+        const { icon, text, color } = this.getBlockStatusDisplay(block);
+        const expandIcon = block.expanded ? '▼' : '▶';
+        const actionsHTML = block.expanded ? this.renderBlockActions(block) : '';
+
+        return `
+            <div class="scenario-block" data-block-id="${block.id}">
+                <div class="scenario-block-header" onclick="window.macroApp.toggleBlockExpansion('${block.id}')">
+                    <span class="block-expand-icon">${expandIcon}</span>
+                    <div class="block-status-icon ${color}">
+                        ${icon}
+                    </div>
+                    <span class="block-name">${block.scenarioName}</span>
+                    <span class="block-status-text ${color}">${text}</span>
+                    <div class="block-actions">
+                        <button class="btn-icon-sm" onclick="event.stopPropagation(); window.macroApp.moveScenarioBlock('${block.id}', 'up')" title="위로 이동">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                            </svg>
+                        </button>
+                        <button class="btn-icon-sm" onclick="event.stopPropagation(); window.macroApp.moveScenarioBlock('${block.id}', 'down')" title="아래로 이동">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <button class="btn-icon-sm btn-danger" onclick="event.stopPropagation(); window.macroApp.removeScenarioBlock('${block.id}')" title="삭제">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                ${actionsHTML}
+            </div>
+        `;
+    }
+
+    // Render actions within an expanded block
+    renderBlockActions(block) {
+        if (!block.actions || block.actions.length === 0) {
+            return `
+                <div class="scenario-block-content">
+                    <div class="block-empty-actions">
+                        <p>이 시나리오에는 액션이 없습니다</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        const actionsHTML = block.actions.map((action, index) => {
+            const statusIcon = this.getActionStatusIcon(action, index, block);
+            return `
+                <div class="block-action-item" data-action-index="${index}">
+                    <span class="action-status-icon">${statusIcon}</span>
+                    <span class="action-type-badge">${action.type}</span>
+                    <span class="action-label">${action.label || `액션 ${index + 1}`}</span>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="scenario-block-content">
+                ${actionsHTML}
+            </div>
+        `;
+    }
+
+    // Get action status icon based on block execution state
+    getActionStatusIcon(action, index, block) {
+        if (block.status === 'pending') {
+            return '<svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>';
+        } else if (block.status === 'running') {
+            if (index < block.executedActions) {
+                return '<svg style="width: 16px; height: 16px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+            } else if (index === block.executedActions) {
+                return '<svg style="width: 16px; height: 16px; color: #2563eb;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
+            }
+            return '<svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>';
+        } else if (block.status === 'success') {
+            return '<svg style="width: 16px; height: 16px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+        } else if (block.status === 'failed') {
+            if (index < block.executedActions) {
+                return '<svg style="width: 16px; height: 16px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+            } else if (index === block.executedActions) {
+                return '<svg style="width: 16px; height: 16px; color: #dc2626;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+            }
+            return '<svg style="width: 16px; height: 16px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>';
+        }
+        return '<svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>';
+    }
+
+    // Attach event listeners to block elements
+    attachBlockEventListeners() {
+        // Event listeners are handled inline via onclick for simplicity
+        // Could be improved with proper event delegation
     }
 }
 
