@@ -3061,7 +3061,13 @@ class MacroBuilderApp {
         this.isRunning = false;
         this.shouldStop = false;
         this.selectedActionId = null;
-        this.renderActionSequence();
+
+        // Only render action sequence if scenario list is not visible
+        // to prevent switching away from scenario list during execution
+        if (!this.isScenarioListVisible()) {
+            this.renderActionSequence();
+        }
+
         this.clearScreenMarkers();
 
         // Log final result
@@ -3145,11 +3151,8 @@ class MacroBuilderApp {
 
             const action = this.actions[i];
 
-            // Highlight current action (only if not viewing scenario list)
+            // Highlight current action and update UI
             this.selectedActionId = action.id;
-            if (!this.isScenarioListVisible()) {
-                this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
-            }
 
             // Update progress for scenario if key provided
             if (scenarioKey) {
@@ -3161,6 +3164,11 @@ class MacroBuilderApp {
                         this.renderScenarioListInPanel();
                     }
                 }
+            }
+
+            // Only render action sequence if scenario list is not visible
+            if (!this.isScenarioListVisible()) {
+                this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
             }
 
             try {
@@ -5772,9 +5780,7 @@ class MacroBuilderApp {
             return;
         }
 
-        // Save current state
-        const previousActions = this.actions;
-        const previousName = this.macroName;
+        // Keep the scenario list visible - do not close modal or switch views
 
         this.addLog('info', `일괄 실행 시작: ${selectedKeys.length}개 시나리오`);
 
@@ -5798,11 +5804,11 @@ class MacroBuilderApp {
                 continue;
             }
 
-            // Temporarily load the scenario for execution
+            // Load the scenario data internally for execution
             this.actions = scenarioData.actions || [];
             this.macroName = scenarioData.name || 'Unnamed';
 
-            // Run the scenario with key for progress tracking
+            // Run the scenario with key for progress tracking (scenario list stays visible)
             await this.runMacro(key);
 
             // Small delay between scenarios
@@ -5810,10 +5816,6 @@ class MacroBuilderApp {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
-
-        // Restore previous state
-        this.actions = previousActions;
-        this.macroName = previousName;
 
         this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
     }
@@ -5920,24 +5922,15 @@ class MacroBuilderApp {
             return;
         }
 
-        // Save current state
-        const previousActions = this.actions;
-        const previousName = this.macroName;
-
-        // Temporarily load the scenario for execution
+        // Keep the scenario list visible - do not close modal or switch views
+        // Just load the scenario data internally for execution
         this.actions = scenarioData.actions || [];
         this.macroName = scenarioData.name || 'Unnamed';
 
-        this.addLog('info', `시나리오 실행: ${this.macroName} (${this.actions.length}개 액션)`);
+        this.addLog('info', `시나리오 실행 시작: ${this.macroName} (${this.actions.length}개 액션)`);
 
         // Run the scenario with the key for progress tracking
         await this.runMacro(key);
-
-        // Restore previous state
-        this.actions = previousActions;
-        this.macroName = previousName;
-
-        this.addLog('info', '시나리오 실행 완료');
     }
 
     // ==================== Scenario Block Management Methods ====================
