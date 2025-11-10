@@ -3845,6 +3845,50 @@ class MacroBuilderApp {
         console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
     }
 
+    deleteScenario(key, filename) {
+        console.log('[deleteScenario] Deleting scenario:', key, filename);
+
+        // Show confirmation dialog
+        const confirmDelete = confirm(`시나리오 "${filename}"을(를) 삭제하시겠습니까?`);
+
+        if (!confirmDelete) {
+            console.log('[deleteScenario] Deletion cancelled by user');
+            return;
+        }
+
+        try {
+            // Get the scenario registry
+            const registryData = localStorage.getItem('scenario_registry');
+            if (!registryData) {
+                console.error('[deleteScenario] No scenario registry found');
+                return;
+            }
+
+            const registry = JSON.parse(registryData);
+
+            // Remove scenario from registry
+            if (registry[key]) {
+                delete registry[key];
+
+                // Save updated registry
+                localStorage.setItem('scenario_registry', JSON.stringify(registry));
+
+                // Remove scenario data from localStorage
+                localStorage.removeItem(key);
+
+                console.log('[deleteScenario] Successfully deleted scenario:', key);
+
+                // Refresh the scenario list
+                this.renderScenarioListInPanel();
+            } else {
+                console.error('[deleteScenario] Scenario not found in registry:', key);
+            }
+        } catch (error) {
+            console.error('[deleteScenario] Error deleting scenario:', error);
+            alert('시나리오 삭제 중 오류가 발생했습니다.');
+        }
+    }
+
     importMacro(event) {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -5490,6 +5534,9 @@ class MacroBuilderApp {
                             </span>
                             <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')">
                                 편집
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.deleteScenario('${scenario.key}', '${scenario.filename}')" style="color: #dc2626;">
+                                삭제
                             </button>
                             <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
                                 실행
