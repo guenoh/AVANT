@@ -5770,7 +5770,9 @@ class MacroBuilderApp {
             return;
         }
 
-        this.closeScenarioListModal();
+        // Save current state
+        const previousActions = this.actions;
+        const previousName = this.macroName;
 
         this.addLog('info', `일괄 실행 시작: ${selectedKeys.length}개 시나리오`);
 
@@ -5794,18 +5796,9 @@ class MacroBuilderApp {
                 continue;
             }
 
-            // Load the scenario into the current editor
+            // Temporarily load the scenario for execution
             this.actions = scenarioData.actions || [];
             this.macroName = scenarioData.name || 'Unnamed';
-
-            // Update UI
-            const nameInput = document.getElementById('macro-name-input');
-            if (nameInput) {
-                nameInput.value = this.macroName;
-            }
-
-            // Render the action sequence
-            this.renderActionSequence();
 
             // Run the scenario with key for progress tracking
             await this.runMacro(key);
@@ -5815,6 +5808,10 @@ class MacroBuilderApp {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
+
+        // Restore previous state
+        this.actions = previousActions;
+        this.macroName = previousName;
 
         this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
     }
@@ -5921,26 +5918,24 @@ class MacroBuilderApp {
             return;
         }
 
-        // Close the modal
-        this.closeScenarioListModal();
+        // Save current state
+        const previousActions = this.actions;
+        const previousName = this.macroName;
 
-        // Load the scenario into the current editor
+        // Temporarily load the scenario for execution
         this.actions = scenarioData.actions || [];
         this.macroName = scenarioData.name || 'Unnamed';
 
-        // Update UI
-        const nameInput = document.getElementById('macro-name-input');
-        if (nameInput) {
-            nameInput.value = this.macroName;
-        }
+        this.addLog('info', `시나리오 실행: ${this.macroName} (${this.actions.length}개 액션)`);
 
-        // Render the action sequence
-        this.renderActionSequence();
-
-        this.addLog('info', `시나리오 로드됨: ${this.macroName} (${this.actions.length}개 액션)`);
-
-        // Auto-run the scenario with the key for progress tracking
+        // Run the scenario with the key for progress tracking
         await this.runMacro(key);
+
+        // Restore previous state
+        this.actions = previousActions;
+        this.macroName = previousName;
+
+        this.addLog('info', '시나리오 실행 완료');
     }
 
     // ==================== Scenario Block Management Methods ====================
