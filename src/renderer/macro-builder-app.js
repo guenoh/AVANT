@@ -3044,7 +3044,7 @@ class MacroBuilderApp {
         if (scenarioKey) {
             this.runningScenarios.set(scenarioKey, {
                 status: 'running',
-                progress: { current: 0, total: this.actions.length }
+                progress: { current: 0, total: null } // total will be calculated dynamically
             });
             // Refresh scenario list to show progress
             if (this.isScenarioListVisible()) {
@@ -3154,11 +3154,11 @@ class MacroBuilderApp {
             // Highlight current action and update UI
             this.selectedActionId = action.id;
 
-            // Update progress for scenario if key provided
+            // Update progress for scenario if key provided - increment for each executed action
             if (scenarioKey) {
                 const runningState = this.runningScenarios.get(scenarioKey);
                 if (runningState) {
-                    runningState.progress.current = i + 1;
+                    runningState.progress.current++;
                     // Refresh scenario list to show updated progress
                     if (this.isScenarioListVisible()) {
                         this.renderScenarioListInPanel();
@@ -5672,19 +5672,25 @@ class MacroBuilderApp {
                 // Progress bar and info for running scenarios
                 let progressHTML = '';
                 if (isRunning && runningState.progress) {
-                    const progressPercent = runningState.progress.total > 0
-                        ? Math.round((runningState.progress.current / runningState.progress.total) * 100)
-                        : 0;
+                    // Show action count (total may be null for loops)
+                    const progressText = runningState.progress.total !== null
+                        ? `${runningState.progress.current} / ${runningState.progress.total}`
+                        : `${runningState.progress.current}개 액션 실행됨`;
+
+                    // For indeterminate progress (no total), show animated bar
+                    const progressBarHTML = runningState.progress.total !== null
+                        ? `<div style="width: ${Math.round((runningState.progress.current / runningState.progress.total) * 100)}%; height: 100%; background: #2563eb; transition: width 0.3s;"></div>`
+                        : `<div style="width: 100%; height: 100%; background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%); animation: progress-indeterminate 1.5s ease-in-out infinite;"></div>`;
 
                     progressHTML = `
                         <!-- Progress Bar -->
                         <div style="padding-left: 28px; margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                                 <span style="font-size: 12px; color: #2563eb; font-weight: 500;">실행 중...</span>
-                                <span style="font-size: 12px; color: #64748b;">${runningState.progress.current} / ${runningState.progress.total}</span>
+                                <span style="font-size: 12px; color: #64748b;">${progressText}</span>
                             </div>
                             <div style="width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-                                <div style="width: ${progressPercent}%; height: 100%; background: #2563eb; transition: width 0.3s;"></div>
+                                ${progressBarHTML}
                             </div>
                         </div>
                     `;
