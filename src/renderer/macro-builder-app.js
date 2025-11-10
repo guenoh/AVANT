@@ -3812,6 +3812,36 @@ class MacroBuilderApp {
         return scenarioData;
     }
 
+    editScenario(key) {
+        console.log('[editScenario] Loading scenario for editing:', key);
+
+        // Load scenario data from localStorage
+        const scenarioData = this.loadScenarioFromRegistry(key);
+
+        if (!scenarioData) {
+            console.error('[editScenario] Scenario not found:', key);
+            return;
+        }
+
+        // Load the scenario into the editor
+        this.actions = scenarioData.actions || [];
+        this.macroName = scenarioData.name || key;
+
+        // Store current scenario key for saving
+        this.currentScenarioKey = key;
+
+        // Update UI
+        const macroNameInput = document.getElementById('macro-name-input');
+        if (macroNameInput) {
+            macroNameInput.value = this.macroName;
+        }
+
+        // Switch to action sequence view
+        this.renderActionSequence();
+
+        console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
+    }
+
     importMacro(event) {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -5455,6 +5485,9 @@ class MacroBuilderApp {
                             <span style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: #e2e8f0; color: #334155;">
                                 ${statusIcon} ${statusText}
                             </span>
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')">
+                                편집
+                            </button>
                             <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
                                 실행
                             </button>
