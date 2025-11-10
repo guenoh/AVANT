@@ -3889,6 +3889,64 @@ class MacroBuilderApp {
         }
     }
 
+    duplicateScenario(key, filename) {
+        console.log('[duplicateScenario] Duplicating scenario:', key, filename);
+
+        try {
+            // Load the original scenario
+            const scenarioData = this.loadScenarioFromRegistry(key);
+
+            if (!scenarioData) {
+                console.error('[duplicateScenario] Scenario not found:', key);
+                alert('시나리오를 찾을 수 없습니다.');
+                return;
+            }
+
+            // Generate unique filename for the duplicate
+            const baseFilename = filename.replace(/\s*\(복사\s*\d*\)\s*$/, '');
+            let newFilename = `${baseFilename} (복사)`;
+            let counter = 2;
+
+            // Get existing filenames to check for duplicates
+            const registryData = localStorage.getItem('scenario_registry');
+            const registry = registryData ? JSON.parse(registryData) : {};
+            const existingFilenames = Object.values(registry).map(item => item.filename);
+
+            // Find unique filename
+            while (existingFilenames.includes(newFilename)) {
+                newFilename = `${baseFilename} (복사 ${counter})`;
+                counter++;
+            }
+
+            // Create new scenario with duplicate data
+            const newKey = `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const newScenarioData = {
+                name: newFilename,
+                actions: JSON.parse(JSON.stringify(scenarioData.actions)) // Deep copy
+            };
+
+            // Save the duplicated scenario
+            localStorage.setItem(newKey, JSON.stringify(newScenarioData));
+
+            // Update registry
+            registry[newKey] = {
+                filename: newFilename,
+                savedAt: new Date().toISOString(),
+                actionsCount: scenarioData.actions.length
+            };
+            localStorage.setItem('scenario_registry', JSON.stringify(registry));
+
+            console.log('[duplicateScenario] Successfully duplicated scenario:', newFilename);
+
+            // Refresh the scenario list
+            this.renderScenarioListInPanel();
+
+        } catch (error) {
+            console.error('[duplicateScenario] Error duplicating scenario:', error);
+            alert('시나리오 복제 중 오류가 발생했습니다.');
+        }
+    }
+
     importMacro(event) {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -5534,6 +5592,9 @@ class MacroBuilderApp {
                             </span>
                             <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')">
                                 편집
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.duplicateScenario('${scenario.key}', '${scenario.filename}')">
+                                복제
                             </button>
                             <button class="btn btn-sm btn-outline" onclick="window.macroApp.deleteScenario('${scenario.key}', '${scenario.filename}')" style="color: #dc2626;">
                                 삭제
