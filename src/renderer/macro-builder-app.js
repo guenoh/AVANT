@@ -166,7 +166,12 @@ class MacroBuilderApp {
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
         document.getElementById('btn-back-to-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
-        document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
+
+        // Handle multiple "new scenario" buttons (there are 2 in the UI)
+        document.querySelectorAll('#btn-new-scenario').forEach(btn => {
+            btn.addEventListener('click', () => this.createNewScenario());
+        });
+
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
@@ -5815,6 +5820,9 @@ class MacroBuilderApp {
             btnRunSelected.style.display = '';
             btnRunSelected.disabled = !isDeviceConnected;
         }
+
+        // Disable action list since we're in scenario list view (no active scenario)
+        this.updateToolbarButtons(false);
     }
 
     toggleSelectAll() {
