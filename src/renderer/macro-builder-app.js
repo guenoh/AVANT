@@ -5,25 +5,16 @@
 
 class MacroBuilderApp {
     constructor() {
+        // Initialize controller
+        this.controller = new MacroBuilderController();
+
+        // Actions and UI state
         this.actions = [];
         this.selectedActionId = null;
         this.expandedActionId = null;
         this.expandedConditionId = null;
         this.selectedCondition = null; // { actionId, conditionId }
-        this.isRunning = false;
-        this.shouldStop = false;
         this.scenarioResult = null; // { status: 'pass'|'skip'|'fail', message: string }
-        this.macroName = '새 매크로';
-        this.currentFilePath = null; // Track the currently loaded file path for save
-        this.currentCoordinate = null;
-
-        // Device screen resolution
-        this.screenWidth = 1080; // Default portrait width
-        this.screenHeight = 2400; // Default portrait height
-
-        // Coordinate System - Unified coordinate transformation
-        this.coordinateSystem = new CoordinateSystem();
-        this.coordinateSystem.init(this.screenWidth, this.screenHeight, 0);
 
         // Coordinate picking mode
         this.isPickingCoordinate = false;
@@ -35,29 +26,109 @@ class MacroBuilderApp {
         this.selectionStart = null;
         this.selectionEnd = null;
 
-        // Log output
-        this.logs = [];
-
         // Image matching result storage
         this.lastMatchedCoordinate = null; // Store last image-match result {x, y}
 
-        // Device connection
-        this.isDeviceConnected = false;
-        this.deviceType = null; // 'adb' or 'isap'
-        this.deviceName = null;
-        this.fps = 0;
-        this.adbDevices = null; // Store ADB device list
+        // ADB device list
+        this.adbDevices = null;
 
         this.init();
     }
 
-    init() {
+    async init() {
         console.log('Initializing Macro Builder App...');
+
+        // Initialize controller and services
+        await this.controller.init();
+
+        // Get service references for convenience
+        this.logger = this.controller.getService('logger');
+        this.actionConfig = this.controller.getService('actionConfig');
+        this.coordinateService = this.controller.getService('coordinateService');
+        this.markerRenderer = this.controller.getService('markerRenderer');
+        this.screenInteraction = this.controller.getService('screenInteraction');
+        this.macroExecutor = this.controller.getService('macroExecutor');
+        this.eventBus = this.controller.getService('eventBus');
+
+        // Backward compatibility - keep coordinateSystem reference
+        this.coordinateSystem = this.coordinateService.system;
+
+        // Setup event listeners
         this.setupEventListeners();
+        this.setupServiceEventListeners();
+
+        // Render initial UI
         this.renderScreenPreview();
         this.renderActionList();
         this.renderActionSequence();
         this.renderDeviceStatus();
+
+        this.logger.success('Macro Builder App initialized');
+    }
+
+    setupServiceEventListeners() {
+        // Listen to controller events
+        this.eventBus.on('log:entry', (entry) => {
+            this.addLogEntry(entry);
+        });
+
+        this.eventBus.on('action:create-from-click', (data) => {
+            if (this.isPickingCoordinate && this.pendingActionType) {
+                this.createActionFromClick(data.devicePos);
+            }
+        });
+
+        this.eventBus.on('action:create-from-drag', (data) => {
+            if (this.isPickingCoordinate && this.pendingActionType === 'drag') {
+                this.createActionFromDrag(data.startDevice, data.endDevice);
+            }
+        });
+
+        this.eventBus.on('device:status-changed', (data) => {
+            this.updateDeviceStatusUI(data);
+        });
+    }
+
+    // Delegate properties to controller state
+    get macroName() { return this.controller.state.macroName; }
+    set macroName(value) { this.controller.state.macroName = value; }
+
+    get currentFilePath() { return this.controller.state.currentFilePath; }
+    set currentFilePath(value) { this.controller.state.currentFilePath = value; }
+
+    get isRunning() { return this.controller.state.isRunning; }
+    set isRunning(value) { this.controller.state.isRunning = value; }
+
+    get shouldStop() { return this.controller.state.shouldStop; }
+    set shouldStop(value) { this.controller.state.shouldStop = value; }
+
+    get isDeviceConnected() { return this.controller.state.isDeviceConnected; }
+    set isDeviceConnected(value) { this.controller.state.isDeviceConnected = value; }
+
+    get deviceType() { return this.controller.state.deviceType; }
+    set deviceType(value) { this.controller.state.deviceType = value; }
+
+    get deviceName() { return this.controller.state.deviceName; }
+    set deviceName(value) { this.controller.state.deviceName = value; }
+
+    get screenWidth() { return this.controller.state.screenWidth; }
+    set screenWidth(value) {
+        this.controller.state.screenWidth = value;
+        this.controller.updateScreenDimensions(value, this.screenHeight);
+    }
+
+    get screenHeight() { return this.controller.state.screenHeight; }
+    set screenHeight(value) {
+        this.controller.state.screenHeight = value;
+        this.controller.updateScreenDimensions(this.screenWidth, value);
+    }
+
+    get fps() { return this.controller.state.fps; }
+    set fps(value) { this.controller.state.fps = value; }
+
+    // Helper methods for backward compatibility
+    get logs() {
+        return this.logger ? this.logger.logs : [];
     }
 
     setupEventListeners() {
@@ -957,164 +1028,64 @@ class MacroBuilderApp {
     }
 
     drawCoordinateMarker(x, y, color = '#3b82f6') {
-        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (!this.markerRenderer) return;
+
         const img = document.getElementById('screen-stream-image');
+        if (!img) return;
 
-        if (!screenPreview || !img) return;
+        // Convert device coordinates to display coordinates
+        const displayPos = this.coordinateService.deviceToDisplay({ x, y }, img);
 
-        const containerRect = screenPreview.getBoundingClientRect();
-        const imgRect = img.getBoundingClientRect();
-        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
-
-        // Convert device coordinates to viewport coordinates
-        const normalizedX = x / this.screenWidth;
-        const normalizedY = y / this.screenHeight;
-        const imgX = normalizedX * actualImgWidth;
-        const imgY = normalizedY * actualImgHeight;
-        const markerX = offsetX + imgX;
-        const markerY = offsetY + imgY;
-
-        // Create marker
-        const marker = document.createElement('div');
-        marker.className = 'action-marker';
-        marker.style.left = `${markerX}px`;
-        marker.style.top = `${markerY}px`;
-        marker.style.borderColor = color;
-        marker.innerHTML = '<div class="action-marker-pulse"></div>';
-        screenPreview.appendChild(marker);
+        // Add marker using MarkerRenderer service
+        this.markerRenderer.addMarker(displayPos, {
+            type: 'click',
+            color: color,
+            label: ''
+        });
     }
 
     drawDragMarker(startX, startY, endX, endY) {
-        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (!this.markerRenderer) return;
+
         const img = document.getElementById('screen-stream-image');
+        if (!img) return;
 
-        if (!screenPreview || !img) return;
+        // Convert device coordinates to display coordinates
+        const startDisplay = this.coordinateService.deviceToDisplay({ x: startX, y: startY }, img);
+        const endDisplay = this.coordinateService.deviceToDisplay({ x: endX, y: endY }, img);
 
-        const containerRect = screenPreview.getBoundingClientRect();
-        const imgRect = img.getBoundingClientRect();
-        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
-
-        // Start marker
-        const startImgX = (startX / this.screenWidth) * actualImgWidth;
-        const startImgY = (startY / this.screenHeight) * actualImgHeight;
-        const startMarkerX = offsetX + startImgX;
-        const startMarkerY = offsetY + startImgY;
-
-        const startMarker = document.createElement('div');
-        startMarker.className = 'action-marker';
-        startMarker.style.left = `${startMarkerX}px`;
-        startMarker.style.top = `${startMarkerY}px`;
-        startMarker.innerHTML = '<div class="action-marker-pulse"></div>';
-        screenPreview.appendChild(startMarker);
-
-        // End marker
-        const endImgX = (endX / this.screenWidth) * actualImgWidth;
-        const endImgY = (endY / this.screenHeight) * actualImgHeight;
-        const endMarkerX = offsetX + endImgX;
-        const endMarkerY = offsetY + endImgY;
-
-        console.log('[drawDragMarker] Drawing drag end marker:', {
-            deviceCoords: { startX, startY, endX, endY },
-            screenResolution: { width: this.screenWidth, height: this.screenHeight },
-            imageRect: { width: imgRect.width, height: imgRect.height },
-            actualImageSize: { width: actualImgWidth, height: actualImgHeight },
-            letterbox: { offsetX, offsetY },
-            endPosition: {
-                imgX: endImgX.toFixed(2),
-                imgY: endImgY.toFixed(2),
-                markerX: endMarkerX.toFixed(2),
-                markerY: endMarkerY.toFixed(2)
-            }
+        // Add markers and drag line using MarkerRenderer service
+        this.markerRenderer.addMarker(startDisplay, {
+            type: 'drag-start',
+            color: '#2563eb',
+            label: 'Start'
         });
 
-        // SVG line
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'action-marker-line');
-        svg.style.position = 'absolute';
-        svg.style.inset = '0';
-        svg.style.pointerEvents = 'none';
-        svg.style.zIndex = '10';
-        svg.style.width = '100%';
-        svg.style.height = '100%';
+        this.markerRenderer.addMarker(endDisplay, {
+            type: 'drag-end',
+            color: '#16a34a',
+            label: 'End'
+        });
 
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        marker.setAttribute('id', 'arrowhead');
-        marker.setAttribute('markerWidth', '10');
-        marker.setAttribute('markerHeight', '7');
-        marker.setAttribute('refX', '9');
-        marker.setAttribute('refY', '3.5');
-        marker.setAttribute('orient', 'auto');
-
-        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-        polygon.setAttribute('fill', '#3b82f6');
-
-        marker.appendChild(polygon);
-        defs.appendChild(marker);
-        svg.appendChild(defs);
-
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', `${startMarkerX}`);
-        line.setAttribute('y1', `${startMarkerY}`);
-        line.setAttribute('x2', `${endMarkerX}`);
-        line.setAttribute('y2', `${endMarkerY}`);
-        line.setAttribute('stroke', '#3b82f6');
-        line.setAttribute('stroke-width', '3');
-        line.setAttribute('marker-end', 'url(#arrowhead)');
-
-        svg.appendChild(line);
-        screenPreview.appendChild(svg);
+        this.markerRenderer.setDragLine(startDisplay, endDisplay, {
+            color: '#2563eb'
+        });
     }
 
     drawRegionMarker(region, color = '#6366f1') {
-        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (!this.markerRenderer) return;
+
         const img = document.getElementById('screen-stream-image');
+        if (!img) return;
 
-        if (!screenPreview || !img) return;
+        // Convert device region to display region
+        const displayRegion = this.coordinateService.regionDeviceToDisplay(region, img);
 
-        const imgRect = img.getBoundingClientRect();
-        const { actualImgWidth, actualImgHeight, offsetX, offsetY } = this.getImageDisplayInfo(img, imgRect);
-
-        // Calculate region position and size
-        const regionX = (region.x / this.screenWidth) * actualImgWidth;
-        const regionY = (region.y / this.screenHeight) * actualImgHeight;
-        const regionWidth = (region.width / this.screenWidth) * actualImgWidth;
-        const regionHeight = (region.height / this.screenHeight) * actualImgHeight;
-
-        const markerX = offsetX + regionX;
-        const markerY = offsetY + regionY;
-
-        // Create region rectangle
-        const regionMarker = document.createElement('div');
-        regionMarker.className = 'region-marker';
-        regionMarker.style.position = 'absolute';
-        regionMarker.style.left = `${markerX}px`;
-        regionMarker.style.top = `${markerY}px`;
-        regionMarker.style.width = `${regionWidth}px`;
-        regionMarker.style.height = `${regionHeight}px`;
-        regionMarker.style.border = `2px solid ${color}`;
-        regionMarker.style.background = `${color}33`; // 20% opacity
-        regionMarker.style.borderRadius = '4px';
-        regionMarker.style.pointerEvents = 'none';
-        regionMarker.style.zIndex = '10';
-        regionMarker.style.boxSizing = 'border-box';
-
-        // Create size label
-        const sizeLabel = document.createElement('div');
-        sizeLabel.style.position = 'absolute';
-        sizeLabel.style.top = '-24px';
-        sizeLabel.style.left = '0';
-        sizeLabel.style.background = color;
-        sizeLabel.style.color = 'white';
-        sizeLabel.style.fontSize = '11px';
-        sizeLabel.style.padding = '2px 8px';
-        sizeLabel.style.borderRadius = '4px';
-        sizeLabel.style.whiteSpace = 'nowrap';
-        sizeLabel.textContent = `${region.width} × ${region.height}`;
-
-        regionMarker.appendChild(sizeLabel);
-        screenPreview.appendChild(regionMarker);
+        // Draw region using MarkerRenderer service
+        this.markerRenderer.setRegion(displayRegion, {
+            color: color,
+            label: `${region.width} × ${region.height}`
+        });
     }
 
     renderActionList() {
@@ -4185,33 +4156,20 @@ class MacroBuilderApp {
 
     // Log management methods
     addLog(level, message) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-        const logEntry = {
-            timestamp,
-            level,
-            message
-        };
-
-        this.logs.push(logEntry);
-
-        // Keep only last 100 logs
-        if (this.logs.length > 100) {
-            this.logs.shift();
+        if (this.logger) {
+            this.logger.log(level, message);
         }
+    }
 
+    addLogEntry(entry) {
+        // Called from event bus when logger emits log:entry
         this.renderLogs();
     }
 
     clearLogs() {
-        this.logs = [];
+        if (this.logger) {
+            this.logger.clear();
+        }
         this.renderLogs();
         this.addLog('info', '로그가 초기화되었습니다');
     }
