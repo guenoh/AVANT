@@ -68,7 +68,7 @@ class MacroBuilderApp {
         // Render initial UI
         this.renderScreenPreview();
         this.renderActionList();
-        this.renderActionSequence();
+        this.renderScenarioListInPanel(); // Show scenario list by default
         this.renderDeviceStatus();
 
         // Initialize UI state (no scenario loaded initially)
@@ -159,13 +159,8 @@ class MacroBuilderApp {
                 this.runMacro();
             }
         });
-        document.getElementById('btn-scenario-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
-
-        // Scenario sidebar buttons
-        document.getElementById('btn-close-sidebar')?.addEventListener('click', () => this.closeScenarioListModal());
-        document.getElementById('sidebar-overlay')?.addEventListener('click', () => this.closeScenarioListModal());
         document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
@@ -5461,15 +5456,16 @@ class MacroBuilderApp {
             }).join('');
 
             actionList.innerHTML = `
-                <div style="padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="font-size: 16px; font-weight: 600;">저장된 시나리오</h3>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm btn-secondary" onclick="window.macroApp.toggleSelectAll()">전체 선택</button>
-                            <button class="btn btn-sm btn-primary" onclick="window.macroApp.runSelectedScenarios()" ${disabledAttr}>선택 실행</button>
-                            <button class="btn btn-sm btn-ghost" onclick="window.macroApp.closeScenarioListModal()">닫기</button>
+                <div class="px-6 py-4 bg-white border-b">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-lg font-semibold">저장된 시나리오</h3>
+                        <div class="flex items-center gap-2">
+                            <button class="btn-outline btn-sm" onclick="window.macroApp.toggleSelectAll()">전체 선택</button>
+                            <button class="btn-primary btn-sm" onclick="window.macroApp.runSelectedScenarios()" ${disabledAttr}>선택 실행</button>
                         </div>
                     </div>
+                </div>
+                <div class="px-6 py-4">
                     ${scenarioHTML}
                 </div>
             `;
