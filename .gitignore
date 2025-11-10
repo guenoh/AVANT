@@ -40,3 +40,7 @@ _backup/
 .env
 .env.local
 coverage/
+
+# Test results
+test-results/
+test-*.png
