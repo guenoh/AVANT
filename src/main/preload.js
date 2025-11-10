@@ -92,6 +92,25 @@ contextBridge.exposeInMainWorld('api', {
   adb: {
     screenshot: () => ipcRenderer.invoke('adb:screenshot'),
     logcat: () => ipcRenderer.invoke('adb:logcat')
+  },
+
+  // Protocol APIs
+  protocol: {
+    connect: (deviceId, protocolName) => ipcRenderer.invoke('protocol:connect', deviceId, protocolName),
+    disconnect: () => ipcRenderer.invoke('protocol:disconnect'),
+    execute: (method, ...params) => ipcRenderer.invoke('protocol:execute', method, params),
+    getStatus: () => ipcRenderer.invoke('protocol:status'),
+    list: () => ipcRenderer.invoke('protocol:list'),
+    getResolution: () => ipcRenderer.invoke('protocol:get-resolution'),
+
+    // Action shortcuts
+    tap: (x, y) => ipcRenderer.invoke('protocol:tap', x, y),
+    longPress: (x, y, duration) => ipcRenderer.invoke('protocol:long-press', x, y, duration),
+    swipe: (x1, y1, x2, y2, duration) => ipcRenderer.invoke('protocol:swipe', x1, y1, x2, y2, duration),
+    drag: (x1, y1, x2, y2, duration) => ipcRenderer.invoke('protocol:drag', x1, y1, x2, y2, duration),
+    scroll: (direction, amount) => ipcRenderer.invoke('protocol:scroll', direction, amount),
+    inputText: (text) => ipcRenderer.invoke('protocol:input-text', text),
+    pressKey: (keyCode) => ipcRenderer.invoke('protocol:press-key', keyCode)
   }
 });
 
