@@ -1362,12 +1362,14 @@ class MacroBuilderApp {
         if (btnSelectAll) {
             btnSelectAll.style.display = 'none';
             btnSelectAll.style.visibility = 'hidden';
-            console.log('[renderActionSequence] Hiding select-all button');
+            btnSelectAll.textContent = '[HIDDEN BY renderActionSequence]';
+            console.log('[renderActionSequence] Hiding select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
             btnRunSelected.style.visibility = 'hidden';
-            console.log('[renderActionSequence] Hiding run-selected button');
+            btnRunSelected.textContent = '[HIDDEN BY renderActionSequence]';
+            console.log('[renderActionSequence] Hiding run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
         }
     }
 
@@ -5838,13 +5840,15 @@ class MacroBuilderApp {
         if (btnSelectAll) {
             btnSelectAll.style.display = '';
             btnSelectAll.style.visibility = 'visible';
-            console.log('[renderScenarioListInPanel] Showing select-all button');
+            btnSelectAll.textContent = '전체 선택';
+            console.log('[renderScenarioListInPanel] Showing select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
             btnRunSelected.style.visibility = 'visible';
+            btnRunSelected.textContent = '선택 실행';
             btnRunSelected.disabled = !isDeviceConnected;
-            console.log('[renderScenarioListInPanel] Showing run-selected button');
+            console.log('[renderScenarioListInPanel] Showing run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
         }
 
         // Disable action list since we're in scenario list view (no active scenario)
