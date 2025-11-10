@@ -3198,18 +3198,6 @@ class MacroBuilderApp {
             // Highlight current action and update UI
             this.selectedActionId = action.id;
 
-            // Update progress for scenario if key provided - increment for each executed action
-            if (scenarioKey) {
-                const runningState = this.runningScenarios.get(scenarioKey);
-                if (runningState) {
-                    runningState.progress.current++;
-                    // Refresh scenario list to show updated progress
-                    if (this.isScenarioListVisible()) {
-                        this.renderScenarioListInPanel();
-                    }
-                }
-            }
-
             // Only render action sequence if scenario list is not visible
             if (!this.isScenarioListVisible()) {
                 this.renderActionSequence(); // This already calls updateSelectedActionMarker internally
@@ -3231,7 +3219,7 @@ class MacroBuilderApp {
                     if (conditionResult) {
                         // Execute block until else-if/else/end-if
                         const blockEnd = this.findBlockEnd(i, ['else-if', 'else', 'end-if']);
-                        await this.executeActionsRange(i + 1, blockEnd);
+                        await this.executeActionsRange(i + 1, blockEnd, scenarioKey);
                         // Skip to end-if
                         i = this.findBlockEnd(i, ['end-if']) + 1;
                     } else {
@@ -3253,7 +3241,7 @@ class MacroBuilderApp {
 
                     // Execute until end-if
                     const blockEnd = this.findBlockEnd(i, ['end-if']);
-                    await this.executeActionsRange(i + 1, blockEnd);
+                    await this.executeActionsRange(i + 1, blockEnd, scenarioKey);
                     i = blockEnd + 1;
                 } else if (action.type === 'while') {
                     const whileStart = i;
@@ -3268,7 +3256,7 @@ class MacroBuilderApp {
 
                         if (!conditionResult) break;
 
-                        await this.executeActionsRange(whileStart + 1, whileEnd);
+                        await this.executeActionsRange(whileStart + 1, whileEnd, scenarioKey);
                         iterations++;
                     }
 
@@ -3283,7 +3271,7 @@ class MacroBuilderApp {
                     const loopCount = action.loopCount || 1;
 
                     for (let j = 0; j < loopCount; j++) {
-                        await this.executeActionsRange(loopStart + 1, loopEnd);
+                        await this.executeActionsRange(loopStart + 1, loopEnd, scenarioKey);
                     }
 
                     i = loopEnd + 1;
@@ -3322,6 +3310,18 @@ class MacroBuilderApp {
                         this.addLog('success', `${this.getActionTypeName(action.type)} 실행 완료`);
                     } else {
                         this.addLog('error', `${this.getActionTypeName(action.type)} 실행 실패: ${result.error}`);
+                    }
+
+                    // Update progress after executing a real action
+                    if (scenarioKey) {
+                        const runningState = this.runningScenarios.get(scenarioKey);
+                        if (runningState) {
+                            runningState.progress.current++;
+                            // Refresh scenario list to show updated progress
+                            if (this.isScenarioListVisible()) {
+                                this.renderScenarioListInPanel();
+                            }
+                        }
                     }
 
                     // Get delay from option
