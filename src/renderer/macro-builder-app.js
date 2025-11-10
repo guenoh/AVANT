@@ -5568,9 +5568,8 @@ class MacroBuilderApp {
                 </div>
             `;
         } else {
-            // Check device connection status first
-            const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
-            const disabledAttr = isDeviceConnected ? '' : 'disabled';
+            // Check device connection status using the global flag
+            const disabledAttr = this.isDeviceConnected ? '' : 'disabled';
 
             const scenarioHTML = scenarios.map(scenario => {
                 const statusIcon = this.getStatusIcon(scenario.status);
