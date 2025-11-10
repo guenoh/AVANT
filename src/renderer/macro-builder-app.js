@@ -4659,6 +4659,11 @@ class MacroBuilderApp {
         this.renderScreenPreview();
         this.renderDeviceStatus();
         this.addLog('success', `iSAP 장치에 연결되었습니다`);
+
+        // Refresh scenario list if it's currently visible
+        if (this.isScenarioListVisible()) {
+            this.renderScenarioListInPanel();
+        }
     }
 
     async selectDevice(deviceName, type) {
@@ -4718,6 +4723,11 @@ class MacroBuilderApp {
 
                         this.addLog('success', `${deviceName} 장치가 연결되었습니다`);
 
+                        // Refresh scenario list if it's currently visible
+                        if (this.isScenarioListVisible()) {
+                            this.renderScenarioListInPanel();
+                        }
+
                         // Start screen stream
                         this.startScreenStream();
                     } else {
@@ -4745,6 +4755,11 @@ class MacroBuilderApp {
             this.renderDeviceStatus();
 
             this.addLog('success', `${deviceName} 장치가 연결되었습니다`);
+
+            // Refresh scenario list if it's currently visible
+            if (this.isScenarioListVisible()) {
+                this.renderScenarioListInPanel();
+            }
         }
     }
 
@@ -5529,6 +5544,12 @@ class MacroBuilderApp {
                 closeDialog();
             }
         });
+    }
+
+    isScenarioListVisible() {
+        // Check if scenario list is currently being displayed
+        const backToListBtn = document.getElementById('btn-back-to-list');
+        return backToListBtn && backToListBtn.style.display === 'none';
     }
 
     renderScenarioListInPanel() {
