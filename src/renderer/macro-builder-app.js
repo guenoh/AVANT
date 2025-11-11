@@ -1224,10 +1224,11 @@ class MacroBuilderApp {
         const container = document.getElementById('action-sequence-list');
         if (!container) return;
 
-        // Show/hide toolbar buttons for action sequence view (MUST be at the top, before any return)
+        // Show/hide UI elements for action editing view (MUST be at the top, before any return)
         const btnBackToList = document.getElementById('btn-back-to-list');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
+        const actionPanel = document.getElementById('action-panel');
 
         // Show "back to list" button in action editing view
         if (btnBackToList) {
@@ -1242,6 +1243,11 @@ class MacroBuilderApp {
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
             btnRunSelected.style.visibility = 'hidden';
+        }
+
+        // Show action panel in action editing view
+        if (actionPanel) {
+            actionPanel.style.display = '';
         }
 
         // Save scroll position
@@ -5819,10 +5825,11 @@ class MacroBuilderApp {
             });
         }
 
-        // Show/hide toolbar buttons for scenario list view
+        // Show/hide UI elements for scenario list view
         const btnBackToList = document.getElementById('btn-back-to-list');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
+        const actionPanel = document.getElementById('action-panel');
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
         // Hide "back to list" button in scenario list view
@@ -5839,6 +5846,11 @@ class MacroBuilderApp {
             btnRunSelected.style.display = '';
             btnRunSelected.style.visibility = 'visible';
             btnRunSelected.disabled = !isDeviceConnected;
+        }
+
+        // Hide action panel in scenario list view
+        if (actionPanel) {
+            actionPanel.style.display = 'none';
         }
 
         // Disable action list since we're in scenario list view (no active scenario)
