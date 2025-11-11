@@ -1245,9 +1245,9 @@ class MacroBuilderApp {
             btnRunSelected.style.visibility = 'hidden';
         }
 
-        // Show action panel in action editing view
+        // Show action panel in action editing view (with slide animation)
         if (actionPanel) {
-            actionPanel.style.display = '';
+            actionPanel.classList.remove('hidden');
         }
 
         // Save scroll position
@@ -5848,9 +5848,9 @@ class MacroBuilderApp {
             btnRunSelected.disabled = !isDeviceConnected;
         }
 
-        // Hide action panel in scenario list view
+        // Hide action panel in scenario list view (with slide animation)
         if (actionPanel) {
-            actionPanel.style.display = 'none';
+            actionPanel.classList.add('hidden');
         }
 
         // Disable action list since we're in scenario list view (no active scenario)

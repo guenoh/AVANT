@@ -2909,3 +2909,17 @@ input[type="number"] {
     -ms-user-select: none;
 }
 
+/* Action Panel Slide Animation */
+#action-panel {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(0);
+    opacity: 1;
+}
+
+#action-panel.hidden {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
