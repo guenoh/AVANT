@@ -1224,6 +1224,31 @@ class MacroBuilderApp {
         const container = document.getElementById('action-sequence-list');
         if (!container) return;
 
+        // Show/hide toolbar buttons for action sequence view (MUST be at the top, before any return)
+        const btnBackToList = document.getElementById('btn-back-to-list');
+        const btnSelectAll = document.getElementById('btn-select-all');
+        const btnRunSelected = document.getElementById('btn-run-selected');
+
+        // Show "back to list" button in action editing view
+        if (btnBackToList) {
+            btnBackToList.style.display = '';
+            console.log('[renderActionSequence] Showing back-to-list button');
+        }
+
+        // Hide scenario list buttons (select-all, run-selected) in action editing view
+        if (btnSelectAll) {
+            btnSelectAll.style.display = 'none';
+            btnSelectAll.style.visibility = 'hidden';
+            btnSelectAll.textContent = '[HIDDEN BY renderActionSequence]';
+            console.log('[renderActionSequence] Hiding select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
+        }
+        if (btnRunSelected) {
+            btnRunSelected.style.display = 'none';
+            btnRunSelected.style.visibility = 'hidden';
+            btnRunSelected.textContent = '[HIDDEN BY renderActionSequence]';
+            console.log('[renderActionSequence] Hiding run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
+        }
+
         // Save scroll position
         const scrollTop = container.scrollTop;
 
@@ -1346,31 +1371,6 @@ class MacroBuilderApp {
                 }
             });
         });
-
-        // Show/hide toolbar buttons for action sequence view
-        const btnBackToList = document.getElementById('btn-back-to-list');
-        const btnSelectAll = document.getElementById('btn-select-all');
-        const btnRunSelected = document.getElementById('btn-run-selected');
-
-        // Show "back to list" button in action editing view
-        if (btnBackToList) {
-            btnBackToList.style.display = '';
-            console.log('[renderActionSequence] Showing back-to-list button');
-        }
-
-        // Hide scenario list buttons (select-all, run-selected) in action editing view
-        if (btnSelectAll) {
-            btnSelectAll.style.display = 'none';
-            btnSelectAll.style.visibility = 'hidden';
-            btnSelectAll.textContent = '[HIDDEN BY renderActionSequence]';
-            console.log('[renderActionSequence] Hiding select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
-        }
-        if (btnRunSelected) {
-            btnRunSelected.style.display = 'none';
-            btnRunSelected.style.visibility = 'hidden';
-            btnRunSelected.textContent = '[HIDDEN BY renderActionSequence]';
-            console.log('[renderActionSequence] Hiding run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
-        }
     }
 
     captureRegionImage(action) {
