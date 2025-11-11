@@ -1232,21 +1232,16 @@ class MacroBuilderApp {
         // Show "back to list" button in action editing view
         if (btnBackToList) {
             btnBackToList.style.display = '';
-            console.log('[renderActionSequence] Showing back-to-list button');
         }
 
         // Hide scenario list buttons (select-all, run-selected) in action editing view
         if (btnSelectAll) {
             btnSelectAll.style.display = 'none';
             btnSelectAll.style.visibility = 'hidden';
-            btnSelectAll.textContent = '[HIDDEN BY renderActionSequence]';
-            console.log('[renderActionSequence] Hiding select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
             btnRunSelected.style.visibility = 'hidden';
-            btnRunSelected.textContent = '[HIDDEN BY renderActionSequence]';
-            console.log('[renderActionSequence] Hiding run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
         }
 
         // Save scroll position
@@ -5833,22 +5828,17 @@ class MacroBuilderApp {
         // Hide "back to list" button in scenario list view
         if (btnBackToList) {
             btnBackToList.style.display = 'none';
-            console.log('[renderScenarioListInPanel] Hiding back-to-list button');
         }
 
         // Show scenario list buttons (select-all, run-selected)
         if (btnSelectAll) {
             btnSelectAll.style.display = '';
             btnSelectAll.style.visibility = 'visible';
-            btnSelectAll.textContent = '전체 선택';
-            console.log('[renderScenarioListInPanel] Showing select-all button, display:', btnSelectAll.style.display, 'visibility:', btnSelectAll.style.visibility);
         }
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
             btnRunSelected.style.visibility = 'visible';
-            btnRunSelected.textContent = '선택 실행';
             btnRunSelected.disabled = !isDeviceConnected;
-            console.log('[renderScenarioListInPanel] Showing run-selected button, display:', btnRunSelected.style.display, 'visibility:', btnRunSelected.style.visibility);
         }
 
         // Disable action list since we're in scenario list view (no active scenario)
