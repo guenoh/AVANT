@@ -144,10 +144,17 @@ function setupIpcHandlers() {
 
       // 렌더러에 디바이스 상태 업데이트 전송
       if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send('device:status', {
-          status: 'connected',
+        console.log('[IPC] Sending device:status event to renderer:', {
+          connected: true,
           device: result
         });
+        mainWindow.webContents.send('device:status', {
+          connected: true,
+          device: result
+        });
+        console.log('[IPC] device:status event sent');
+      } else {
+        console.error('[IPC] Cannot send device:status - mainWindow or webContents is null');
       }
 
       return { success: true, info: result };

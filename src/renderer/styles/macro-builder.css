@@ -419,8 +419,9 @@ input[type="range"]::-moz-range-thumb:hover {
 
 /* Buttons */
 .btn-sm {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    padding: var(--btn-padding-sm);
+    font-size: var(--btn-font-sm);
+    min-height: var(--btn-height-sm);
     border-radius: var(--radius);
     border: 1px solid var(--slate-200);
     background: white;
@@ -443,12 +444,15 @@ input[type="range"]::-moz-range-thumb:hover {
 
 .btn-outline {
     background: white;
-    border: 1px solid var(--slate-200);
+    border: 1.5px solid var(--slate-300);
     color: var(--slate-900);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .btn-outline:hover {
     background: var(--slate-50);
+    border-color: var(--slate-400);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary {
@@ -459,6 +463,16 @@ input[type="range"]::-moz-range-thumb:hover {
 
 .btn-primary:hover {
     background: #2563eb;
+}
+
+.btn-danger {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: var(--color-error-hover);
 }
 
 .btn-ghost {
@@ -2907,6 +2921,23 @@ input[type="number"] {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+}
+
+/* Scenario name clickable styling */
+.scenario-name-clickable:hover {
+    color: #2563eb;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* Scenario card clickable for checkbox toggle */
+.scenario-card {
+    cursor: default;
+}
+
+.scenario-card:hover {
+    background-color: #f8fafc;
 }
 
 /* Panel Order: Macro | Action | Screen Preview */

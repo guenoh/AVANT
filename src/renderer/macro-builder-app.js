@@ -71,9 +71,15 @@ class MacroBuilderApp {
 
         // Render initial UI
         this.renderScreenPreview();
-        this.renderActionList();
-        this.renderScenarioListInPanel(); // Show scenario list by default
         this.renderDeviceStatus();
+
+        // Check initial device connection state
+        this.checkInitialDeviceState();
+
+        this.renderActionList();
+
+        // Show scenario list by default (don't render action sequence on init)
+        this.renderScenarioListInPanel();
 
         // Initialize UI state (no scenario loaded initially)
         this.updateToolbarButtons(false);
@@ -81,7 +87,47 @@ class MacroBuilderApp {
         this.logger.success('Macro Builder App initialized');
     }
 
+    checkInitialDeviceState() {
+        // Check if device is already connected on startup
+        console.log('[DEBUG] Checking initial device state...');
+
+        // Use a short delay to allow Main process to update device state
+        setTimeout(() => {
+            const connected = this.isDeviceConnected;
+            const hasScreenDimensions = this.controller.state.screenWidth > 0 && this.controller.state.screenHeight > 0;
+
+            console.log('[DEBUG] isDeviceConnected:', connected);
+            console.log('[DEBUG] Screen dimensions:', this.controller.state.screenWidth, 'x', this.controller.state.screenHeight);
+
+            // If screen dimensions exist but isDeviceConnected is false, we need to re-render
+            if (hasScreenDimensions && !connected) {
+                console.log('[DEBUG] Device connected but state not updated, forcing re-render...');
+                // The device is actually connected, force a re-render
+                this.renderActionList();
+            } else if (connected) {
+                console.log('[DEBUG] Device already connected on startup');
+            } else {
+                console.log('[DEBUG] No device connected on startup');
+            }
+        }, 500); // Wait 500ms for device to initialize
+    }
+
     setupServiceEventListeners() {
+        // Listen to IPC events from Main process
+        if (window.api && window.api.device) {
+            window.api.device.onStatus((status) => {
+                console.log('[DEBUG] device:status IPC event received:', status);
+
+                // Update controller state
+                this.controller.updateDeviceStatus(
+                    status.connected,
+                    status.device?.type || null,
+                    status.device?.model || status.device?.device || null,
+                    status.device?.id || null
+                );
+            });
+        }
+
         // Listen to controller events
         this.eventBus.on('log:entry', (entry) => {
             this.addLogEntry(entry);
@@ -100,7 +146,16 @@ class MacroBuilderApp {
         });
 
         this.eventBus.on('device:status-changed', (data) => {
-            this.updateDeviceStatusUI(data);
+            console.log('[DEBUG] device:status-changed event received:', data);
+
+            // Update device connection state
+            this.isDeviceConnected = data.connected;
+            this.deviceType = data.deviceType;
+
+            console.log('[DEBUG] isDeviceConnected updated to:', this.isDeviceConnected);
+
+            // Re-render action list to update disabled state
+            this.renderActionList();
         });
     }
 
@@ -147,11 +202,59 @@ class MacroBuilderApp {
     }
 
     setupEventListeners() {
+        // Store original values for cancellation
+        this.originalMacroName = '';
+        this.originalMacroDescription = '';
+
         // Macro name input
         const macroNameInput = document.getElementById('macro-name-input');
         if (macroNameInput) {
+            macroNameInput.addEventListener('focus', () => {
+                this.originalMacroName = this.macroName;
+            });
+
             macroNameInput.addEventListener('input', (e) => {
                 this.macroName = e.target.value;
+                this.hasUnsavedChanges = true;
+                this.updateToolbarButtons(true);
+            });
+
+            macroNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.target.blur(); // Unfocus the input
+                    this.saveMetadata('name');
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.cancelMetadataEdit('name');
+                    e.target.blur();
+                }
+            });
+        }
+
+        // Macro description input
+        const macroDescriptionInput = document.getElementById('macro-description-input');
+        if (macroDescriptionInput) {
+            macroDescriptionInput.addEventListener('focus', () => {
+                this.originalMacroDescription = this.macroDescription || '';
+            });
+
+            macroDescriptionInput.addEventListener('input', (e) => {
+                this.macroDescription = e.target.value;
+                this.hasUnsavedChanges = true;
+                this.updateToolbarButtons(true);
+            });
+
+            macroDescriptionInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.target.blur(); // Unfocus the input
+                    this.saveMetadata('description');
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.cancelMetadataEdit('description');
+                    e.target.blur();
+                }
             });
         }
 
@@ -174,6 +277,7 @@ class MacroBuilderApp {
 
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
+        document.getElementById('btn-delete-selected')?.addEventListener('click', () => this.deleteSelectedScenarios());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
         document.getElementById('btn-run-all-blocks')?.addEventListener('click', () => this.runAllScenarioBlocks());
 
@@ -1126,6 +1230,45 @@ class MacroBuilderApp {
             ]
         };
 
+        // Apply disabled state to entire action panel
+        const actionPanel = document.getElementById('action-panel');
+
+        console.log('[DEBUG] renderActionList - isDeviceConnected:', this.isDeviceConnected);
+
+        if (actionPanel) {
+            // Remove existing overlay if present
+            const existingOverlay = actionPanel.querySelector('.action-panel-disabled-overlay');
+            if (existingOverlay) {
+                console.log('[DEBUG] Removing existing overlay');
+                existingOverlay.remove();
+            }
+
+            if (this.isDeviceConnected) {
+                // Enable state
+                console.log('[DEBUG] Enabling action panel');
+                actionPanel.style.filter = 'none';
+            } else {
+                // Disable state - add overlay to block all interactions
+                console.log('[DEBUG] Disabling action panel');
+                actionPanel.style.filter = 'grayscale(1) opacity(0.5)';
+
+                const overlay = document.createElement('div');
+                overlay.className = 'action-panel-disabled-overlay';
+                overlay.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255, 255, 255, 0.3);
+                    cursor: not-allowed;
+                    z-index: 1000;
+                `;
+                actionPanel.style.position = 'relative';
+                actionPanel.appendChild(overlay);
+            }
+        }
+
         for (const [category, actions] of Object.entries(actionTypes)) {
             const container = document.getElementById(`${category}-actions`);
             if (!container) continue;
@@ -1226,16 +1369,32 @@ class MacroBuilderApp {
 
         // Show/hide UI elements for action editing view (MUST be at the top, before any return)
         const btnBackToList = document.getElementById('btn-back-to-list');
+        const btnNewScenario = document.getElementById('btn-new-scenario');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
+        const scenarioListHeader = document.getElementById('scenario-list-header');
+        const macroNameContainer = document.getElementById('macro-name-container');
 
-        // Show "back to list" button in action editing view
-        if (btnBackToList) {
-            btnBackToList.style.display = '';
+        // Hide scenario list header, show macro name input
+        if (scenarioListHeader) {
+            scenarioListHeader.style.display = 'none';
+        }
+        if (macroNameContainer) {
+            macroNameContainer.style.display = '';
         }
 
-        // Hide scenario list buttons (select-all, run-selected) in action editing view
+        // Show "back to list" button, hide "new scenario" button in action editing view
+        if (btnBackToList) {
+            btnBackToList.style.display = '';
+            btnBackToList.style.visibility = 'visible';
+        }
+        if (btnNewScenario) {
+            btnNewScenario.style.setProperty('display', 'none', 'important');
+            btnNewScenario.style.visibility = 'hidden';
+        }
+
+        // Hide scenario list buttons (select-all, run-selected, delete-selected) in action editing view
         if (btnSelectAll) {
             btnSelectAll.style.display = 'none';
             btnSelectAll.style.visibility = 'hidden';
@@ -1243,6 +1402,11 @@ class MacroBuilderApp {
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
             btnRunSelected.style.visibility = 'hidden';
+        }
+        const btnDeleteSelected = document.getElementById('btn-delete-selected');
+        if (btnDeleteSelected) {
+            btnDeleteSelected.style.display = 'none';
+            btnDeleteSelected.style.visibility = 'hidden';
         }
 
         // Show action panel in action editing view (with slide animation)
@@ -3888,9 +4052,16 @@ class MacroBuilderApp {
     }
 
     saveAsMacro() {
+        // Get description from input field
+        const macroDescriptionInput = document.getElementById('macro-description-input');
+        if (macroDescriptionInput) {
+            this.macroDescription = macroDescriptionInput.value || '';
+        }
+
         // Export to new file (Save As)
         const macroData = {
             name: this.macroName,
+            description: this.macroDescription,
             actions: this.actions,
             createdAt: new Date().toISOString(),
             version: '1.0'
@@ -3915,11 +4086,115 @@ class MacroBuilderApp {
         console.log(`Exported macro as: ${filename}`);
     }
 
+    saveMetadata(field) {
+        // Quick save for name/description only (doesn't export file, just updates in localStorage)
+        if (!this.currentScenarioKey) {
+            // No scenario loaded yet, use saveAsMacro
+            this.saveAsMacro();
+            this.showSavedFeedback(field, 'save');
+            return;
+        }
+
+        // Get latest values from inputs
+        const macroNameInput = document.getElementById('macro-name-input');
+        const macroDescriptionInput = document.getElementById('macro-description-input');
+
+        if (macroNameInput) {
+            this.macroName = macroNameInput.value;
+        }
+        if (macroDescriptionInput) {
+            this.macroDescription = macroDescriptionInput.value || '';
+        }
+
+        // Update existing scenario in localStorage
+        const macroData = {
+            name: this.macroName,
+            description: this.macroDescription,
+            actions: this.actions,
+            createdAt: new Date().toISOString(),
+            version: '1.0'
+        };
+
+        // Update registry and data
+        const sanitizedName = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
+        const filename = sanitizedName + '.json';
+        this.addScenarioToRegistry(this.currentScenarioKey, filename, macroData);
+
+        // Show feedback only on "저장" button
+        this.showSavedFeedback(field, 'save');
+
+        // Mark as saved
+        this.originalMacroName = this.macroName;
+        this.originalMacroDescription = this.macroDescription;
+
+        console.log('[saveMetadata] Metadata saved:', field);
+    }
+
+    cancelMetadataEdit(field) {
+        // Restore original values
+        const macroNameInput = document.getElementById('macro-name-input');
+        const macroDescriptionInput = document.getElementById('macro-description-input');
+
+        if (field === 'name' && macroNameInput) {
+            this.macroName = this.originalMacroName;
+            macroNameInput.value = this.originalMacroName;
+        } else if (field === 'description' && macroDescriptionInput) {
+            this.macroDescription = this.originalMacroDescription;
+            macroDescriptionInput.value = this.originalMacroDescription;
+        }
+
+        // Check if there are still other unsaved changes
+        this.checkForChanges();
+
+        console.log('[cancelMetadataEdit] Edit cancelled:', field);
+    }
+
+    showSavedFeedback(field, buttonType = 'both') {
+        // Show "✓ 저장됨" on save button(s) briefly
+        const btnSave = document.getElementById('btn-save-macro');
+        const btnSaveAs = document.getElementById('btn-save-as-macro');
+
+        // Store original text
+        const originalSaveText = btnSave ? btnSave.innerHTML : '';
+        const originalSaveAsText = btnSaveAs ? btnSaveAs.innerHTML : '';
+
+        const savedHTML = `
+            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            저장됨
+        `;
+
+        // Update button text to show saved state based on buttonType
+        if (btnSave && (buttonType === 'both' || buttonType === 'save')) {
+            btnSave.innerHTML = savedHTML;
+            btnSave.style.color = '#16a34a';
+        }
+
+        if (btnSaveAs && (buttonType === 'both' || buttonType === 'saveAs')) {
+            btnSaveAs.innerHTML = savedHTML;
+            btnSaveAs.style.color = '#16a34a';
+        }
+
+        // Restore original text after 2 seconds
+        setTimeout(() => {
+            if (btnSave && (buttonType === 'both' || buttonType === 'save')) {
+                btnSave.innerHTML = originalSaveText;
+                btnSave.style.color = '';
+            }
+            if (btnSaveAs && (buttonType === 'both' || buttonType === 'saveAs')) {
+                btnSaveAs.innerHTML = originalSaveAsText;
+                btnSaveAs.style.color = '';
+            }
+        }, 2000);
+    }
+
     addScenarioToRegistry(key, filename, macroData) {
         // Add scenario to registry for tracking
         const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
         registry[key] = {
             name: this.macroName,
+            description: this.macroDescription || '',
             filename: filename,
             savedAt: new Date().toISOString(),
             actionsCount: this.actions.length
@@ -3962,6 +4237,7 @@ class MacroBuilderApp {
         // Load the scenario into the editor
         this.actions = scenarioData.actions || [];
         this.macroName = scenarioData.name || key;
+        this.macroDescription = scenarioData.description || '';
 
         // Store current scenario key for saving
         this.currentScenarioKey = key;
@@ -3971,12 +4247,22 @@ class MacroBuilderApp {
         if (macroNameInput) {
             macroNameInput.value = this.macroName;
         }
+        const macroDescriptionInput = document.getElementById('macro-description-input');
+        if (macroDescriptionInput) {
+            macroDescriptionInput.value = this.macroDescription;
+        }
 
         // Switch to action sequence view
         this.renderActionSequence();
 
         // Enable toolbar buttons and action list
         this.updateToolbarButtons(true);
+
+        // Render action list with correct enabled/disabled state based on device connection
+        setTimeout(() => {
+            console.log('[editScenario] Rendering action list - isDeviceConnected:', this.isDeviceConnected);
+            this.renderActionList();
+        }, 100);
 
         console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
     }
@@ -5765,47 +6051,34 @@ class MacroBuilderApp {
                     `;
                 }
 
+                // Get description (optional)
+                const description = scenario.description || '';
+
                 return `
-                    <div class="action-card" style="margin-bottom: 12px; padding: 16px;">
+                    <div class="action-card scenario-card" data-key="${scenario.key}" style="margin-bottom: 12px; padding: 16px;">
                         <!-- Title Row -->
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;" ${isRunning ? 'disabled' : ''}>
-                            <div style="flex: 1; font-weight: 600; font-size: 15px; color: #1e293b;">${scenario.filename}</div>
-                        </div>
-
-                        <!-- Info Row -->
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-left: 28px; font-size: 12px; color: #64748b;">
-                            <span>${scenario.message}</span>
-                            <span style="color: #cbd5e1;">•</span>
-                            <span>${scenario.actionsCount}개 액션</span>
-                            <span style="color: #cbd5e1;">•</span>
-                            <span>${timestamp}</span>
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;" ${isRunning || scenario.actionsCount === 0 ? 'disabled' : ''}>
+                            <div class="scenario-name-clickable" data-key="${scenario.key}" style="font-weight: 600; font-size: 15px; color: #1e293b; cursor: pointer; transition: all 0.2s; display: inline-block;">
+                                ${scenario.filename}
+                            </div>
+                            <div style="flex: 1;"></div>
                         </div>
 
                         ${progressHTML}
 
-                        <!-- Action Row -->
+                        <!-- Action Row with Description -->
                         <div style="display: flex; align-items: center; gap: 8px; padding-left: 28px;">
-                            <span style="padding: 4px 10px; font-size: 11px; border-radius: 4px; background: ${isRunning ? '#dbeafe' : '#e2e8f0'}; color: ${isRunning ? '#1e40af' : '#334155'};">
-                                ${isRunning ? '⏱️ 실행 중' : statusIcon + ' ' + statusText}
-                            </span>
-                            <div style="flex: 1;"></div>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.editScenario('${scenario.key}')" ${isRunning ? 'disabled' : ''}>
-                                편집
-                            </button>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.duplicateScenario('${scenario.key}', '${scenario.filename}')" ${isRunning ? 'disabled' : ''}>
-                                복제
-                            </button>
-                            <button class="btn btn-sm btn-outline" onclick="window.macroApp.deleteScenario('${scenario.key}', '${scenario.filename}')" style="color: #dc2626;" ${isRunning ? 'disabled' : ''}>
-                                삭제
-                            </button>
+                            <div style="flex: 1; font-size: 14px; color: #64748b;">
+                                ${description}
+                            </div>
                             ${isRunning ? `
-                                <button class="btn btn-sm" style="background: #dc2626; color: white;" onclick="window.macroApp.cancelScenario('${scenario.key}')">
-                                    중단
+                                <button class="btn btn-sm" style="background: #dc2626; color: white; padding: 6px 12px;" onclick="window.macroApp.cancelScenario('${scenario.key}')">
+                                    ⏱️ 실행 중 - 중단
                                 </button>
                             ` : `
-                                <button class="btn btn-sm btn-secondary" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
-                                    실행
+                                <button class="btn btn-sm" style="background: ${statusColor === '#16a34a' ? '#16a34a' : statusColor === '#dc2626' ? '#dc2626' : '#64748b'}; color: white; padding: 6px 12px;" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
+                                    ${statusIcon} ${statusText} - ${statusColor === '#16a34a' ? '다시 실행' : statusColor === '#dc2626' ? '재시도' : '실행하기'}
                                 </button>
                             `}
                         </div>
@@ -5819,9 +6092,40 @@ class MacroBuilderApp {
                 </div>
             `;
 
-            // Add change listeners
+            // Add change listeners to checkboxes
             actionList.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', () => this.updateSelectedCount());
+            });
+
+            // Add click listeners to scenario names for editing
+            actionList.querySelectorAll('.scenario-name-clickable').forEach(nameEl => {
+                nameEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const key = nameEl.dataset.key;
+                    if (key) {
+                        this.editScenario(key);
+                    }
+                });
+            });
+
+            // Add click listeners to scenario cards for checkbox toggle
+            actionList.querySelectorAll('.scenario-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on button, name, checkbox itself, or any interactive element
+                    if (e.target.tagName === 'BUTTON' ||
+                        e.target.tagName === 'INPUT' ||
+                        e.target.closest('button') ||
+                        e.target.closest('.scenario-name-clickable')) {
+                        return;
+                    }
+
+                    // Toggle checkbox
+                    const checkbox = card.querySelector('.scenario-checkbox');
+                    if (checkbox && !checkbox.disabled) {
+                        checkbox.checked = !checkbox.checked;
+                        this.updateSelectedCount();
+                    }
+                });
             });
         }
 
@@ -5830,14 +6134,30 @@ class MacroBuilderApp {
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
+        const scenarioListHeader = document.getElementById('scenario-list-header');
+        const macroNameContainer = document.getElementById('macro-name-container');
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
-        // Hide "back to list" button in scenario list view
-        if (btnBackToList) {
-            btnBackToList.style.display = 'none';
+        // Show scenario list header, hide macro name input
+        if (scenarioListHeader) {
+            scenarioListHeader.style.display = '';
+        }
+        if (macroNameContainer) {
+            macroNameContainer.style.display = 'none';
         }
 
-        // Show scenario list buttons (select-all, run-selected)
+        // Hide "back to list" button, show "new scenario" button in scenario list view
+        if (btnBackToList) {
+            btnBackToList.style.display = 'none';
+            btnBackToList.style.visibility = 'hidden';
+        }
+        const btnNewScenario = document.getElementById('btn-new-scenario');
+        if (btnNewScenario) {
+            btnNewScenario.style.setProperty('display', '', 'important');
+            btnNewScenario.style.visibility = 'visible';
+        }
+
+        // Show scenario list buttons (select-all, run-selected, delete-selected)
         if (btnSelectAll) {
             btnSelectAll.style.display = '';
             btnSelectAll.style.visibility = 'visible';
@@ -5846,6 +6166,11 @@ class MacroBuilderApp {
             btnRunSelected.style.display = '';
             btnRunSelected.style.visibility = 'visible';
             btnRunSelected.disabled = !isDeviceConnected;
+        }
+        const btnDeleteSelected = document.getElementById('btn-delete-selected');
+        if (btnDeleteSelected) {
+            btnDeleteSelected.style.display = '';
+            btnDeleteSelected.style.visibility = 'visible';
         }
 
         // Hide action panel in scenario list view (with slide animation)
@@ -5915,6 +6240,49 @@ class MacroBuilderApp {
         }
 
         this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
+    }
+
+    deleteSelectedScenarios() {
+        const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
+        const selectedItems = Array.from(checkboxes).map(cb => ({
+            key: cb.dataset.key,
+            filename: cb.dataset.filename
+        }));
+
+        if (selectedItems.length === 0) {
+            alert('삭제할 시나리오를 선택해주세요');
+            return;
+        }
+
+        // Show confirmation dialog
+        const confirmDelete = confirm(`선택한 ${selectedItems.length}개의 시나리오를 삭제하시겠습니까?`);
+
+        if (!confirmDelete) {
+            return;
+        }
+
+        try {
+            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+
+            // Delete each selected scenario
+            selectedItems.forEach(({ key }) => {
+                if (registry[key]) {
+                    delete registry[key];
+                }
+                localStorage.removeItem(key);
+            });
+
+            // Save updated registry
+            localStorage.setItem('scenario_registry', JSON.stringify(registry));
+
+            this.addLog('success', `${selectedItems.length}개 시나리오 삭제 완료`);
+
+            // Refresh scenario list
+            this.renderScenarioListInPanel();
+        } catch (error) {
+            console.error('[deleteSelectedScenarios] Error:', error);
+            this.addLog('error', `시나리오 삭제 실패: ${error.message}`);
+        }
     }
 
     // Add selected scenarios as blocks for multi-scenario workflow
