@@ -2924,6 +2924,11 @@ input[type="number"] {
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
+#action-panel > * {
+    min-width: 400px;
+    flex-shrink: 0;
+}
+
 #action-panel.hidden {
     flex: 0 0 0 !important;
     min-width: 0 !important;
