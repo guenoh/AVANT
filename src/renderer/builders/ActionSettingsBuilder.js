@@ -47,48 +47,21 @@ class ActionSettingsBuilder {
      */
     buildClickSettings(action) {
         const isLongPress = action.type === 'long-press';
+        const H = TemplateHelpers;
 
-        return `
-            <div class="bg-slate-50/50 px-4 py-4 space-y-4">
-                <div>
-                    <label class="text-xs text-slate-600 mb-2 block">좌표</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs">X</label>
-                            <input type="number" value="${action.x || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
-                        </div>
-                        <div>
-                            <label class="text-xs">Y</label>
-                            <input type="number" value="${action.y || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
-                        </div>
-                    </div>
-                </div>
-                ${isLongPress ? `
-                <div>
-                    <label class="text-xs mb-2 block">지속 시간</label>
-                    <div class="flex items-center gap-2">
-                        <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.max(100, val - 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
-                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                        </button>
-                        <input type="number" value="${action.duration || 1000}" min="100" max="5000" step="100"
-                            onclick="event.stopPropagation()"
-                            class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
-                            onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
-                        <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.min(5000, val + 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
-                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        </button>
-                        <span class="text-xs text-slate-500">ms</span>
-                    </div>
-                </div>
-                ` : ''}
-            </div>
-        `;
+        const content = H.coordinateInputs(action) +
+            (isLongPress ? H.incrementControl({
+                value: action.duration || 1000,
+                min: 100,
+                max: 5000,
+                step: 100,
+                actionId: action.id,
+                field: 'duration',
+                unit: 'ms',
+                label: '지속 시간'
+            }) : '');
+
+        return H.settingsContainer(content);
     }
 
     /**
@@ -143,58 +116,53 @@ class ActionSettingsBuilder {
      * Keyboard input settings
      */
     buildKeyboardSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">입력할 텍스트</label>
-                <input type="text" value="${action.text || ''}" placeholder="텍스트 입력"
-                    onclick="event.stopPropagation()"
-                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                    onchange="window.macroApp.updateActionValue('${action.id}', 'text', this.value)">
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.textInput({
+            value: action.text || '',
+            actionId: action.id,
+            field: 'text',
+            label: '입력할 텍스트',
+            placeholder: '텍스트 입력'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Wait settings
      */
     buildWaitSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">대기 시간</label>
-                <div class="flex items-center gap-2">
-                    <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.max(100, val - 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
-                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                    </button>
-                    <input type="number" value="${action.duration || 1000}" min="100" max="10000" step="100"
-                        onclick="event.stopPropagation()"
-                        class="flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono"
-                        onchange="window.macroApp.updateActionValue('${action.id}', 'duration', parseInt(this.value))">
-                    <button onclick="event.stopPropagation(); const val = ${action.duration || 1000}; const newVal = Math.min(10000, val + 100); window.macroApp.updateActionValue('${action.id}', 'duration', newVal);" class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
-                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    </button>
-                    <span class="text-xs text-slate-500">ms</span>
-                </div>
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.incrementControl({
+            value: action.duration || 1000,
+            min: 100,
+            max: 10000,
+            step: 100,
+            actionId: action.id,
+            field: 'duration',
+            unit: 'ms',
+            label: '대기 시간'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Screenshot settings
      */
     buildScreenshotSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">파일 이름</label>
-                <input type="text" value="${action.filename || 'screenshot.png'}" placeholder="screenshot.png"
-                    onclick="event.stopPropagation()"
-                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                    onchange="window.macroApp.updateActionValue('${action.id}', 'filename', this.value)">
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.textInput({
+            value: action.filename || 'screenshot.png',
+            actionId: action.id,
+            field: 'filename',
+            label: '파일 이름',
+            placeholder: 'screenshot.png'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Image match settings
+     * TODO: Refactor to use TemplateHelpers
      * This is one of the most complex builders - kept simplified for now
      */
     buildImageMatchSettings(action) {
@@ -209,6 +177,7 @@ class ActionSettingsBuilder {
 
     /**
      * Conditional settings (if/else-if/while)
+     * TODO: Refactor to use TemplateHelpers
      */
     buildConditionalSettings(action) {
         return `
@@ -222,49 +191,52 @@ class ActionSettingsBuilder {
      * Loop settings
      */
     buildLoopSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">반복 횟수</label>
-                <input type="number" value="${action.loopCount || 1}" min="1" max="1000"
-                    onclick="event.stopPropagation()"
-                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                    onchange="window.macroApp.updateActionValue('${action.id}', 'loopCount', parseInt(this.value))">
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.incrementControl({
+            value: action.loopCount || 1,
+            min: 1,
+            max: 1000,
+            step: 1,
+            actionId: action.id,
+            field: 'loopCount',
+            label: '반복 횟수'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Log settings
      */
     buildLogSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">로그 메시지</label>
-                <input type="text" value="${action.message || ''}" placeholder="로그 메시지"
-                    onclick="event.stopPropagation()"
-                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                    onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.textInput({
+            value: action.message || '',
+            actionId: action.id,
+            field: 'message',
+            label: '로그 메시지',
+            placeholder: '로그 메시지'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Result settings (success/fail/skip)
      */
     buildResultSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <label class="text-xs mb-2 block">결과 메시지</label>
-                <input type="text" value="${action.message || ''}" placeholder="결과 메시지"
-                    onclick="event.stopPropagation()"
-                    class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                    onchange="window.macroApp.updateActionValue('${action.id}', 'message', this.value)">
-            </div>
-        `;
+        const H = TemplateHelpers;
+        const content = H.textInput({
+            value: action.message || '',
+            actionId: action.id,
+            field: 'message',
+            label: '결과 메시지',
+            placeholder: '결과 메시지'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
      * Tap matched image settings
+     * TODO: Refactor to use TemplateHelpers
      */
     buildTapMatchedImageSettings(action) {
         return `
@@ -276,6 +248,7 @@ class ActionSettingsBuilder {
 
     /**
      * Test settings
+     * TODO: Refactor to use TemplateHelpers
      */
     buildTestSettings(action) {
         return `
@@ -287,6 +260,7 @@ class ActionSettingsBuilder {
 
     /**
      * Sound check settings
+     * TODO: Refactor to use TemplateHelpers
      */
     buildSoundCheckSettings(action) {
         return `
