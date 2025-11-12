@@ -5454,7 +5454,7 @@ class MacroBuilderApp {
                     <div class="action-card scenario-card" data-key="${scenario.key}" style="margin-bottom: 12px; padding: 16px;">
                         <!-- Title Row -->
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;" ${isRunning || scenario.actionsCount === 0 ? 'disabled' : ''}>
+                            <input type="checkbox" class="scenario-checkbox" data-key="${scenario.key}" data-filename="${scenario.filename}" style="width: 16px; height: 16px; flex-shrink: 0;" ${isRunning ? 'disabled' : ''}>
                             <div class="scenario-name-clickable" data-key="${scenario.key}" style="font-weight: 600; font-size: 15px; color: #1e293b; cursor: pointer; transition: all 0.2s; display: inline-block;">
                                 ${scenario.filename}
                             </div>
