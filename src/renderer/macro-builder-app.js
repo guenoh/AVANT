@@ -4236,6 +4236,9 @@ class MacroBuilderApp {
                 } else {
                     this.addLog('warning', 'ADB 장치를 찾을 수 없습니다');
 
+                    // Show no devices message in card
+                    this.showNoDevicesMessage(card);
+
                     // Reset button
                     button.classList.remove('loading');
                     button.innerHTML = `
@@ -4293,6 +4296,38 @@ class MacroBuilderApp {
 
             deviceList.appendChild(deviceItem);
         });
+    }
+
+    showNoDevicesMessage(card) {
+        // Find or create device list container
+        let deviceList = card.querySelector('.device-list');
+        if (!deviceList) {
+            deviceList = document.createElement('div');
+            deviceList.className = 'device-list';
+            card.appendChild(deviceList);
+        }
+
+        // Clear existing list
+        deviceList.innerHTML = '';
+
+        // Create no devices message
+        const messageContainer = document.createElement('div');
+        messageContainer.className = 'no-devices-message';
+        messageContainer.innerHTML = `
+            <div class="no-devices-icon">
+                <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="no-devices-title">연결된 장치를 찾을 수 없습니다</p>
+            <ul class="no-devices-tips">
+                <li>USB 케이블이 연결되어 있는지 확인하세요</li>
+                <li>장치에서 USB 디버깅이 활성화되어 있는지 확인하세요</li>
+                <li>ADB 드라이버가 설치되어 있는지 확인하세요</li>
+            </ul>
+        `;
+
+        deviceList.appendChild(messageContainer);
     }
 
     showISAPConnectionForm(card) {

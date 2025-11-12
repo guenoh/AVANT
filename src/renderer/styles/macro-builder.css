@@ -2052,6 +2052,53 @@ svg {
     font-weight: 500;
 }
 
+/* No Devices Message */
+.no-devices-message {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: var(--slate-50);
+    border-radius: calc(var(--radius) - 0.125rem);
+    animation: slideInUp 0.4s ease-out;
+}
+
+.no-devices-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.no-devices-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    margin-bottom: 1rem;
+}
+
+.no-devices-tips {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.no-devices-tips li {
+    padding: 0.5rem 0;
+    font-size: 0.75rem;
+    color: var(--slate-600);
+    position: relative;
+    padding-left: 1.25rem;
+}
+
+.no-devices-tips li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--slate-400);
+    font-weight: bold;
+}
+
 @keyframes slideInUp {
     from {
         opacity: 0;
