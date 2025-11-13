@@ -3019,3 +3019,9 @@ input[type="number"] {
     transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
+/* Hide markers when toggle is off */
+#screen-preview-canvas.hide-markers .action-marker,
+#screen-preview-canvas.hide-markers .action-marker-line,
+#screen-preview-canvas.hide-markers .region-marker {
+    display: none !important;
+}

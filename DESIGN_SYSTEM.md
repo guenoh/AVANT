@@ -366,3 +366,296 @@ Same as input but add:
 ## Complete Examples
 
 See test action (`case 'test'`) for full implementation examples of all components following these rules.
+
+---
+
+## UIComponents Library
+
+**Location:** `src/renderer/builders/UIComponents.js`
+
+A centralized component library for consistent design across action settings panels. All action builders should use these components instead of raw HTML.
+
+### Available Components
+
+#### 1. Alert Boxes
+```javascript
+UI.alert('Message text', 'info')  // Variants: info, success, warning, error
+```
+
+**Output:**
+- Info: Blue background (#E3F2FD), blue border, blue text
+- Success: Green background, green border, green text
+- Warning: Yellow background, yellow border, yellow text
+- Error: Red background, red border, red text
+
+#### 2. Form Group
+```javascript
+UI.formGroup('Label', content, 'Helper text (optional)')
+```
+
+Creates a labeled container with optional helper text below.
+
+#### 3. Text Input
+```javascript
+UI.textInput({
+    value: '',
+    placeholder: 'Enter text...',
+    actionId: action.id,
+    field: 'fieldName',
+    type: 'text',  // or 'email', 'password', etc.
+    disabled: false
+})
+```
+
+#### 4. Number Input
+```javascript
+UI.numberInput({
+    value: 0,
+    min: 0,
+    max: 100,
+    actionId: action.id,
+    field: 'fieldName',
+    disabled: false
+})
+```
+
+#### 5. Coordinate Inputs (X/Y Grid)
+```javascript
+UI.coordinateInputs({
+    x: 100,
+    y: 200,
+    actionId: action.id,
+    label: 'Position',
+    xField: 'x',      // Field name for X value
+    yField: 'y'       // Field name for Y value
+})
+```
+
+**Usage Example:**
+```javascript
+// For drag action with endX/endY
+UI.coordinateInputs({
+    x: action.endX || 0,
+    y: action.endY || 0,
+    actionId: action.id,
+    label: 'End Point',
+    xField: 'endX',
+    yField: 'endY'
+})
+```
+
+#### 6. Increment Control (+/- buttons)
+```javascript
+UI.incrementControl({
+    value: 1000,
+    min: 0,
+    max: 5000,
+    step: 100,
+    actionId: action.id,
+    field: 'duration',
+    unit: 'ms',
+    label: 'Duration'
+})
+```
+
+Displays value with increment/decrement buttons.
+
+#### 7. Slider
+```javascript
+UI.slider({
+    value: 75,
+    min: 0,
+    max: 100,
+    actionId: action.id,
+    field: 'threshold',
+    label: 'Threshold',
+    unit: '%',
+    marks: true,        // Show min/mid/max labels
+    helper: 'Helper text below slider'
+})
+```
+
+#### 8. Select Dropdown
+```javascript
+UI.select({
+    value: 'option1',
+    options: [
+        { value: 'option1', label: 'Option 1' },
+        { value: 'option2', label: 'Option 2' },
+        { value: 'option3', label: 'Option 3' }
+    ],
+    actionId: action.id,
+    field: 'fieldName',
+    disabled: false
+})
+```
+
+#### 9. Checkbox
+```javascript
+UI.checkbox({
+    checked: false,
+    label: 'Enable feature',
+    actionId: action.id,
+    field: 'fieldName'
+})
+```
+
+#### 10. Button Group (Toggle)
+```javascript
+UI.buttonGroup({
+    value: 'AND',
+    options: [
+        { value: 'AND', label: 'All conditions (AND)' },
+        { value: 'OR', label: 'Any condition (OR)' }
+    ],
+    actionId: action.id,
+    field: 'operator'
+})
+```
+
+Creates a horizontal group of toggle buttons.
+
+#### 11. Image Thumbnail
+```javascript
+UI.imageThumbnail(imagePath, 'Alt text', '200px')
+```
+
+Displays an image with border and proper styling.
+
+#### 12. Section Container
+```javascript
+UI.section(content, 'normal')  // Spacing: compact, normal, relaxed
+```
+
+Wraps content with consistent padding and spacing.
+
+#### 13. Divider
+```javascript
+UI.divider('my-4')  // Optional margin class
+```
+
+#### 14. Empty State
+```javascript
+UI.emptyState('No items found', '📭')  // Optional icon
+```
+
+#### 15. Code Block
+```javascript
+UI.codeBlock(`const example = true;\nconst value = 42;`)
+```
+
+Displays code with monospace font and dark background.
+
+#### 16. Grid Layout
+```javascript
+UI.grid([item1, item2, item3, item4], 2)  // 2 columns
+```
+
+### Usage Patterns
+
+#### Simple Action Settings
+```javascript
+buildWaitSettings(action) {
+    const UI = UIComponents;
+    const content = UI.incrementControl({
+        value: action.duration || 1000,
+        min: 100,
+        max: 10000,
+        step: 100,
+        actionId: action.id,
+        field: 'duration',
+        unit: 'ms',
+        label: 'Wait Duration'
+    });
+    return UI.section(content);
+}
+```
+
+#### Complex Action Settings
+```javascript
+buildImageMatchSettings(action) {
+    const UI = UIComponents;
+    const threshold = action.threshold || 0.95;
+    const imagePath = action.imagePath || action.image;
+    const hasImage = imagePath && imagePath !== 'image.png';
+
+    const imageSection = hasImage
+        ? UI.formGroup('Captured Image', UI.imageThumbnail(imagePath, 'Captured region'))
+        : UI.alert('Select a region on screen to capture', 'info');
+
+    const thresholdSlider = UI.slider({
+        value: Math.round(threshold * 100),
+        min: 50,
+        max: 100,
+        actionId: action.id,
+        field: 'threshold',
+        label: 'Match Threshold',
+        unit: '%',
+        helper: 'Lower values match more similar images'
+    });
+
+    return UI.section(imageSection + thresholdSlider);
+}
+```
+
+#### Multiple Sections
+```javascript
+buildDragSettings(action) {
+    const UI = UIComponents;
+
+    const startPoint = UI.coordinateInputs({
+        x: action.x || 0,
+        y: action.y || 0,
+        actionId: action.id,
+        label: 'Start Point',
+        xField: 'x',
+        yField: 'y'
+    });
+
+    const endPoint = UI.coordinateInputs({
+        x: action.endX || 0,
+        y: action.endY || 0,
+        actionId: action.id,
+        label: 'End Point',
+        xField: 'endX',
+        yField: 'endY'
+    });
+
+    return UI.section(startPoint + endPoint);
+}
+```
+
+### Event Handlers
+
+All UIComponents automatically wire up to MacroBuilderApp methods:
+
+- **updateActionValue**: For direct value updates (text, number, checkbox, select, etc.)
+- **updateActionSetting**: For settings that need special handling (sliders with real-time label updates)
+
+### Best Practices
+
+1. **Always use UIComponents** - Don't write raw HTML for standard patterns
+2. **Import at method start** - `const UI = UIComponents;`
+3. **Build sections logically** - Group related inputs together
+4. **Use consistent spacing** - Let UIComponents handle spacing
+5. **Provide helper text** - Use helper parameter for context
+6. **Test edge cases** - Ensure components work with min/max values
+
+### Testing
+
+Add a "Test" action type to see all components in action. The test action demonstrates:
+- All component types
+- Proper spacing and layout
+- Real-time interactions
+- Code examples
+
+### Migration Guide
+
+To migrate existing action builders to UIComponents:
+
+1. Replace raw HTML inputs with UIComponents methods
+2. Use `UI.section()` for consistent container styling
+3. Use `UI.formGroup()` for labeled inputs
+4. Replace custom coordinate grids with `UI.coordinateInputs()`
+5. Replace custom increment controls with `UI.incrementControl()`
+6. Use `UI.alert()` for info messages instead of custom divs

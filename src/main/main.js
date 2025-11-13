@@ -764,6 +764,30 @@ function setupIpcHandlers() {
     }
   });
 
+  // ===== File Dialog Handlers =====
+
+  ipcMain.handle('file:show-save-dialog', async (event, options) => {
+    try {
+      const { dialog } = require('electron');
+      const result = await dialog.showSaveDialog(mainWindow, options);
+      return result;
+    } catch (error) {
+      console.error('[File] showSaveDialog error:', error.message);
+      return { canceled: true, error: error.message };
+    }
+  });
+
+  ipcMain.handle('file:write-file', async (event, filePath, data) => {
+    try {
+      const fs = require('fs').promises;
+      await fs.writeFile(filePath, data, 'utf8');
+      return { success: true, path: filePath };
+    } catch (error) {
+      console.error('[File] writeFile error:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   // ===== Protocol Manager Handlers =====
 
   // Connect to device via protocol

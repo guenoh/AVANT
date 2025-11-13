@@ -47,6 +47,10 @@ class MacroBuilderApp {
         this.runningScenarios = new Map(); // key -> { status: 'running', progress: { current: 0, total: 0 }, cancelFn: null }
         this.scenarioCancelFlag = false; // Flag to cancel current scenario execution
 
+        // Multi-scenario file support
+        this.currentFilePath = null; // Current file being edited (filesystem-safe filename)
+        this.currentScenarioId = null; // Current scenario ID within the file
+
         this.init();
     }
 
@@ -67,6 +71,22 @@ class MacroBuilderApp {
 
         // Backward compatibility - keep coordinateSystem reference
         this.coordinateSystem = this.coordinateService.system;
+
+        // Migrate existing scenarios if needed (run once)
+        const migrationFlag = localStorage.getItem('scenario_migration_v2_done');
+        if (!migrationFlag) {
+            console.log('[Init] Running first-time migration...');
+            this.migrateExistingScenarios();
+            localStorage.setItem('scenario_migration_v2_done', 'true');
+        }
+
+        // Add filename field to existing registry entries (run once)
+        const filenameMigrationFlag = localStorage.getItem('scenario_filename_migration_done');
+        if (!filenameMigrationFlag) {
+            console.log('[Init] Adding filename field to registry...');
+            this.addFilenameToRegistry();
+            localStorage.setItem('scenario_filename_migration_done', 'true');
+        }
 
         // Setup event listeners
         this.setupEventListeners();
@@ -220,6 +240,7 @@ class MacroBuilderApp {
                 this.macroName = e.target.value;
                 this.hasUnsavedChanges = true;
                 this.updateToolbarButtons(true);
+                this.updateFilenamePreview(); // Update filename preview in real-time
             });
 
             macroNameInput.addEventListener('keydown', (e) => {
@@ -271,7 +292,17 @@ class MacroBuilderApp {
         });
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
+        document.getElementById('btn-save-macro-inline')?.addEventListener('click', () => this.saveMacro());
+        document.getElementById('btn-save-as-macro-inline')?.addEventListener('click', () => this.saveAsMacro());
         document.getElementById('btn-back-to-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
+
+        // Screen markers toggle
+        const showMarkersToggle = document.getElementById('option-show-markers');
+        if (showMarkersToggle) {
+            showMarkersToggle.addEventListener('change', (e) => {
+                this.toggleScreenMarkers(e.target.checked);
+            });
+        }
 
         // Handle multiple "new scenario" buttons (there are 2 in the UI)
         document.querySelectorAll('#btn-new-scenario').forEach(btn => {
@@ -283,6 +314,7 @@ class MacroBuilderApp {
         document.getElementById('btn-delete-selected')?.addEventListener('click', () => this.deleteSelectedScenarios());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
         document.getElementById('btn-run-all-blocks')?.addEventListener('click', () => this.runAllScenarioBlocks());
+        document.getElementById('btn-close-scenario-modal')?.addEventListener('click', () => this.closeScenarioModal());
 
         // Device connection buttons
         document.getElementById('btn-connect-adb')?.addEventListener('click', () => this.connectDevice('adb'));
@@ -768,6 +800,85 @@ class MacroBuilderApp {
         const visibleActions = allActions.filter(a => !a.isCondition);
         const index = visibleActions.findIndex(a => a.id === actionId);
         return index >= 0 ? index + 1 : -1;
+    }
+
+    // Helper function to sanitize scenario name into valid filename
+    sanitizeFilename(scenarioName) {
+        if (!scenarioName || scenarioName.trim() === '') {
+            return 'unnamed';
+        }
+
+        // Replace spaces with underscores
+        let sanitized = scenarioName.replace(/\s+/g, '_');
+
+        // Remove or replace special characters (keep Korean, English, numbers, underscore, hyphen)
+        sanitized = sanitized.replace(/[^\w가-힣\-]/g, '_');
+
+        // Replace multiple consecutive underscores with single underscore
+        sanitized = sanitized.replace(/_+/g, '_');
+
+        // Remove leading/trailing underscores
+        sanitized = sanitized.replace(/^_+|_+$/g, '');
+
+        // Fallback if empty after sanitization
+        if (sanitized === '') {
+            sanitized = 'unnamed';
+        }
+
+        return sanitized;
+    }
+
+    // Helper function to update filename preview
+    updateFilenamePreview() {
+        const previewElement = document.getElementById('filename-preview-text');
+        if (previewElement) {
+            const sanitized = this.sanitizeFilename(this.macroName);
+            previewElement.textContent = `${sanitized}.json`;
+        }
+    }
+
+    // Helper function to check if filename already exists in localStorage
+    isFilenameExists(filename) {
+        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+        return Object.keys(scenarioData).some(filePath => {
+            const existingFilename = filePath.split('/').pop();
+            return existingFilename === filename;
+        });
+    }
+
+    // Helper function to generate unique filename with auto-numbering
+    generateUniqueFilename(baseName) {
+        const sanitized = this.sanitizeFilename(baseName);
+        let filename = `${sanitized}.json`;
+
+        // If filename doesn't exist, return as-is
+        if (!this.isFilenameExists(filename)) {
+            return filename;
+        }
+
+        // Find unique filename by adding number suffix
+        let counter = 1;
+        while (this.isFilenameExists(`${sanitized}_${counter}.json`)) {
+            counter++;
+        }
+
+        return `${sanitized}_${counter}.json`;
+    }
+
+    // Helper function to update dialog filename preview with uniqueness check
+    updateDialogFilenamePreview(scenarioName) {
+        const previewElement = document.getElementById('dialog-filename-preview-text');
+        if (previewElement) {
+            const uniqueFilename = this.generateUniqueFilename(scenarioName || 'unnamed');
+            previewElement.textContent = uniqueFilename;
+
+            // Change color if numbered (indicating duplicate)
+            if (uniqueFilename.match(/_\d+\.json$/)) {
+                previewElement.style.color = '#f59e0b'; // Orange color for duplicates
+            } else {
+                previewElement.style.color = '#64748b'; // Normal color
+            }
+        }
     }
 
     // Helper function to get all image-match actions before a specific action
@@ -1325,6 +1436,8 @@ class MacroBuilderApp {
         // For click, long-press, and drag, enter coordinate picking mode
         if (type === 'click' || type === 'long-press' || type === 'drag') {
             this.startCoordinatePicking(type);
+            // Mark as changed since coordinate picking will eventually add an action
+            this.markAsChanged();
             return;
         }
 
@@ -2526,6 +2639,26 @@ class MacroBuilderApp {
         }
     }
 
+    updateActionSetting(actionId, setting, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        action[setting] = value;
+        this.markAsChanged();
+
+        // Re-render to update UI
+        this.renderActionSequence();
+
+        // Update the slider label in real-time
+        const slider = document.querySelector(`input[data-action-id="${actionId}"][data-setting="${setting}"]`);
+        if (slider && setting === 'threshold') {
+            const label = slider.parentElement.querySelector('label span');
+            if (label) {
+                label.textContent = `${Math.round(value * 100)}%`;
+            }
+        }
+    }
+
     deleteAction(id) {
         this.actions = this.actions.filter(a => a.id !== id);
 
@@ -3412,7 +3545,7 @@ class MacroBuilderApp {
         return names[type] || type;
     }
 
-    saveAsMacro() {
+    async saveAsMacro() {
         // Get description from input field
         const macroDescriptionInput = document.getElementById('macro-description-input');
         if (macroDescriptionInput) {
@@ -3429,22 +3562,39 @@ class MacroBuilderApp {
         };
 
         const data = JSON.stringify(macroData, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
 
-        // Use macro name as filename (sanitized)
-        const sanitizedName = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
-        const filename = sanitizedName + '.json';
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
+        // Use macro name as default filename (sanitized using helper function)
+        const sanitizedName = this.sanitizeFilename(this.macroName);
+        const defaultFilename = sanitizedName + '.json';
 
-        // Save to scenario registry AND store scenario data in localStorage
-        this.addScenarioToRegistry(sanitizedName, filename, macroData);
+        // Show save dialog
+        const result = await api.file.showSaveDialog({
+            title: '시나리오 저장',
+            defaultPath: defaultFilename,
+            filters: [
+                { name: 'JSON Files', extensions: ['json'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
 
-        console.log(`Exported macro as: ${filename}`);
+        // User cancelled
+        if (result.canceled || !result.filePath) {
+            return;
+        }
+
+        // Write file
+        const writeResult = await api.file.writeFile(result.filePath, data);
+
+        if (writeResult.success) {
+            // Save to scenario registry AND store scenario data in localStorage
+            const filename = result.filePath.split(/[\\/]/).pop();
+            this.addScenarioToRegistry(sanitizedName, filename, macroData);
+            console.log(`Exported macro as: ${result.filePath}`);
+            this.addLog('success', `시나리오 저장 완료: ${filename}`);
+        } else {
+            console.error('Failed to save file:', writeResult.error);
+            this.addLog('error', `저장 실패: ${writeResult.error}`);
+        }
     }
 
     saveMetadata(field) {
@@ -3511,13 +3661,13 @@ class MacroBuilderApp {
     }
 
     showSavedFeedback(field, buttonType = 'both') {
-        // Show "✓ 저장됨" on save button(s) briefly
-        const btnSave = document.getElementById('btn-save-macro');
-        const btnSaveAs = document.getElementById('btn-save-as-macro');
+        // Show "✓ 저장됨" on save button(s) briefly (inline buttons only)
+        const btnSaveInline = document.getElementById('btn-save-macro-inline');
+        const btnSaveAsInline = document.getElementById('btn-save-as-macro-inline');
 
         // Store original text
-        const originalSaveText = btnSave ? btnSave.innerHTML : '';
-        const originalSaveAsText = btnSaveAs ? btnSaveAs.innerHTML : '';
+        const originalSaveText = btnSaveInline ? btnSaveInline.innerHTML : '';
+        const originalSaveAsText = btnSaveAsInline ? btnSaveAsInline.innerHTML : '';
 
         const savedHTML = `
             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3527,25 +3677,25 @@ class MacroBuilderApp {
         `;
 
         // Update button text to show saved state based on buttonType
-        if (btnSave && (buttonType === 'both' || buttonType === 'save')) {
-            btnSave.innerHTML = savedHTML;
-            btnSave.style.color = '#16a34a';
+        if (btnSaveInline && (buttonType === 'both' || buttonType === 'save')) {
+            btnSaveInline.innerHTML = savedHTML;
+            btnSaveInline.style.color = '#16a34a';
         }
 
-        if (btnSaveAs && (buttonType === 'both' || buttonType === 'saveAs')) {
-            btnSaveAs.innerHTML = savedHTML;
-            btnSaveAs.style.color = '#16a34a';
+        if (btnSaveAsInline && (buttonType === 'both' || buttonType === 'saveAs')) {
+            btnSaveAsInline.innerHTML = savedHTML;
+            btnSaveAsInline.style.color = '#16a34a';
         }
 
         // Restore original text after 2 seconds
         setTimeout(() => {
-            if (btnSave && (buttonType === 'both' || buttonType === 'save')) {
-                btnSave.innerHTML = originalSaveText;
-                btnSave.style.color = '';
+            if (btnSaveInline && (buttonType === 'both' || buttonType === 'save')) {
+                btnSaveInline.innerHTML = originalSaveText;
+                btnSaveInline.style.color = '';
             }
-            if (btnSaveAs && (buttonType === 'both' || buttonType === 'saveAs')) {
-                btnSaveAs.innerHTML = originalSaveAsText;
-                btnSaveAs.style.color = '';
+            if (btnSaveAsInline && (buttonType === 'both' || buttonType === 'saveAs')) {
+                btnSaveAsInline.innerHTML = originalSaveAsText;
+                btnSaveAsInline.style.color = '';
             }
         }, 2000);
     }
@@ -3571,37 +3721,114 @@ class MacroBuilderApp {
         this.markAsSaved();
     }
 
-    loadScenarioFromRegistry(key) {
-        // Load scenario data from localStorage
-        const scenariosData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
-        const scenarioData = scenariosData[key];
+    /**
+     * Load scenario by filePath
+     * Loads the first scenario from the given file
+     * @param {string} filePath - The file path
+     * @returns {object|null} - Scenario data or null if not found
+     */
+    loadScenarioByFilePath(filePath) {
+        console.log('[loadScenarioByFilePath] Loading from file:', filePath);
 
-        if (!scenarioData) {
-            console.error(`Scenario not found: ${key}`);
+        // Load the file data
+        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+        const fileData = scenarioData[filePath];
+
+        if (!fileData || !fileData.scenarios || fileData.scenarios.length === 0) {
+            console.error('[loadScenarioByFilePath] File not found or empty:', filePath);
             return null;
         }
 
-        return scenarioData;
+        // Return the first scenario in the file
+        const scenario = fileData.scenarios[0];
+        console.log('[loadScenarioByFilePath] Loaded scenario:', scenario.name);
+
+        return {
+            ...scenario,
+            filePath: filePath  // Include filePath for reference
+        };
     }
 
-    editScenario(key) {
-        console.log('[editScenario] Loading scenario for editing:', key);
+    /**
+     * Load scenario by scenarioId
+     * Uses scenario_index to find the file, then loads the scenario from that file
+     * @param {string} scenarioId - The unique scenario ID
+     * @returns {object|null} - Scenario data or null if not found
+     */
+    loadScenarioFromRegistry(scenarioId) {
+        console.log('[loadScenarioFromRegistry] Loading scenario:', scenarioId);
 
-        // Load scenario data from localStorage
-        const scenarioData = this.loadScenarioFromRegistry(key);
+        // Load index to find which file contains this scenario
+        const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+        const indexEntry = index[scenarioId];
+
+        if (!indexEntry) {
+            console.error('[loadScenarioFromRegistry] Scenario not found in index:', scenarioId);
+            return null;
+        }
+
+        const { filePath } = indexEntry;
+
+        // Load the file data
+        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+        const fileData = scenarioData[filePath];
+
+        if (!fileData) {
+            console.error('[loadScenarioFromRegistry] File not found:', filePath);
+            return null;
+        }
+
+        // Find the specific scenario within the file
+        const scenario = fileData.scenarios.find(s => s.id === scenarioId);
+
+        if (!scenario) {
+            console.error('[loadScenarioFromRegistry] Scenario not found in file:', scenarioId);
+            return null;
+        }
+
+        console.log('[loadScenarioFromRegistry] Loaded scenario:', scenario.name);
+        return {
+            ...scenario,
+            filePath: filePath  // Include filePath for reference
+        };
+    }
+
+    /**
+     * Edit scenario by scenarioId or filePath
+     * @param {string} keyOrId - Either a scenarioId or filePath
+     */
+    editScenario(keyOrId) {
+        console.log('[editScenario] Loading scenario for editing:', keyOrId);
+
+        // Check for unsaved changes before loading new scenario
+        if (!this.checkUnsavedChanges()) {
+            console.log('[editScenario] User cancelled due to unsaved changes');
+            return;
+        }
+
+        // Try to load as scenarioId first
+        let scenarioData = this.loadScenarioFromRegistry(keyOrId);
+
+        // If not found, try to load by filePath
+        if (!scenarioData) {
+            console.log('[editScenario] Not found as scenarioId, trying as filePath:', keyOrId);
+            scenarioData = this.loadScenarioByFilePath(keyOrId);
+        }
 
         if (!scenarioData) {
-            console.error('[editScenario] Scenario not found:', key);
+            console.error('[editScenario] Scenario not found:', keyOrId);
             return;
         }
 
         // Load the scenario into the editor
         this.actions = scenarioData.actions || [];
-        this.macroName = scenarioData.name || key;
+        this.macroName = scenarioData.name || '';
         this.macroDescription = scenarioData.description || '';
 
-        // Store current scenario key for saving
-        this.currentScenarioKey = key;
+        // Store current file path and scenario ID for saving
+        this.currentFilePath = scenarioData.filePath;
+        this.currentScenarioId = scenarioData.id; // Use the actual scenario ID from data
+        this.currentScenarioKey = scenarioData.id; // Backward compatibility
 
         // Update UI
         const macroNameInput = document.getElementById('macro-name-input');
@@ -3613,8 +3840,14 @@ class MacroBuilderApp {
             macroDescriptionInput.value = this.macroDescription;
         }
 
+        // Update filename preview
+        this.updateFilenamePreview();
+
         // Switch to action sequence view
         this.renderActionSequence();
+
+        // Mark as saved (loaded from storage)
+        this.markAsSaved();
 
         // Enable toolbar buttons and action list
         this.updateToolbarButtons(true);
@@ -3768,22 +4001,14 @@ class MacroBuilderApp {
     }
 
     saveMacro() {
-        // Save to current file (overwrite if loaded from file, otherwise prompt for location)
-        if (this.currentFilePath) {
-            // Overwrite existing file
-            const macroData = {
-                name: this.macroName,
-                actions: this.actions,
-                updatedAt: new Date().toISOString(),
-                version: '1.0'
-            };
-
-            // For now, just use save-as since we can't directly write to files from browser
-            // In a real Electron app, this would use fs.writeFile
-            console.log('Saving to existing file:', this.currentFilePath);
-            this.saveAsMacro();
+        // Save to current scenario (overwrite if loaded from registry, otherwise prompt for new name)
+        if (this.currentScenarioKey) {
+            // Save to existing scenario in registry
+            console.log('[saveMacro] Saving to existing scenario:', this.currentScenarioKey);
+            this.saveToRegistry(this.currentScenarioKey);
         } else {
-            // No file loaded - use save as
+            // No scenario loaded - use save as (prompt for name)
+            console.log('[saveMacro] No current scenario, using save as');
             this.saveAsMacro();
         }
     }
@@ -4099,6 +4324,336 @@ class MacroBuilderApp {
             const markers = screenPreview.querySelectorAll('.action-marker, .action-marker-line, .region-marker');
             markers.forEach(m => m.remove());
         }
+    }
+
+    toggleScreenMarkers(show) {
+        const screenPreview = document.getElementById('screen-preview-canvas');
+        if (screenPreview) {
+            if (show) {
+                screenPreview.classList.remove('hide-markers');
+            } else {
+                screenPreview.classList.add('hide-markers');
+            }
+        }
+    }
+
+    // Condition Management
+    handleConditionDrop(event, targetActionId) {
+        const draggedActionId = event.dataTransfer.getData('actionId');
+        if (!draggedActionId) return;
+
+        const draggedAction = this.actions.find(a => a.id === draggedActionId);
+        if (!draggedAction) return;
+
+        // Only allow certain action types as conditions
+        const allowedTypes = ['image-match', 'click', 'long-press', 'wait'];
+        if (!allowedTypes.includes(draggedAction.type)) {
+            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다. (image-match, click, long-press, wait만 가능)`);
+            return;
+        }
+
+        // Copy action parameters to condition
+        this.addConditionFromAction(targetActionId, draggedAction);
+    }
+
+    addConditionFromAction(targetActionId, sourceAction) {
+        const targetAction = this.actions.find(a => a.id === targetActionId);
+        if (!targetAction || !targetAction.conditions) return;
+
+        // Copy all params from source action (not just specific ones)
+        const params = { ...sourceAction };
+        delete params.id;
+        delete params.type;
+
+        const newCondition = {
+            id: `cond-${Date.now()}`,
+            actionType: sourceAction.type,
+            params: params,
+            operator: targetAction.conditions.length > 0 ? 'AND' : null
+        };
+
+        targetAction.conditions.push(newCondition);
+
+        // Remove source action from scenario (MOVE, not COPY)
+        const sourceIndex = this.actions.findIndex(a => a.id === sourceAction.id);
+        if (sourceIndex !== -1) {
+            this.actions.splice(sourceIndex, 1);
+        }
+
+        // Auto-create tap-matched-image action if image-match is added to IF/ELSE-IF/WHILE
+        if (sourceAction.type === 'image-match' && (targetAction.type === 'if' || targetAction.type === 'else-if' || targetAction.type === 'while')) {
+            // Check if there's already a tap-matched-image action in the TRUE block
+            const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+            const nextAction = this.actions[targetIndex + 1];
+
+            // Only add if the next action is NOT already tap-matched-image
+            if (!nextAction || nextAction.type !== 'tap-matched-image') {
+                const tapAction = {
+                    id: `action-${Date.now()}-tap`,
+                    type: 'tap-matched-image',
+                    depth: (targetAction.depth || 0) + 1,
+                    autoGenerated: true // Mark as auto-generated for easy identification
+                };
+
+                // Insert tap-matched-image right after the IF/ELSE-IF/WHILE
+                this.actions.splice(targetIndex + 1, 0, tapAction);
+                this.addLog('info', '찾은 영역 클릭 액션이 자동으로 추가되었습니다');
+            }
+        }
+
+        this.renderActionSequence();
+        this.addLog('success', `조건 추가: ${this.getActionTypeLabel(sourceAction.type)}`);
+    }
+
+    removeCondition(actionId, conditionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const index = action.conditions.findIndex(c => c.id === conditionId);
+        if (index === -1) return;
+
+        const removedCondition = action.conditions[index];
+        action.conditions.splice(index, 1);
+
+        // Update operator for last condition
+        if (action.conditions.length > 0) {
+            action.conditions[action.conditions.length - 1].operator = null;
+        }
+
+        // Auto-delete tap-matched-image if image-match is removed and no more image-match conditions exist
+        if (removedCondition.actionType === 'image-match') {
+            const hasImageMatch = action.conditions.some(c => c.actionType === 'image-match');
+
+            if (!hasImageMatch) {
+                // Find and remove auto-generated tap-matched-image action
+                const actionIndex = this.actions.findIndex(a => a.id === actionId);
+                const nextAction = this.actions[actionIndex + 1];
+
+                if (nextAction && nextAction.type === 'tap-matched-image' && nextAction.autoGenerated) {
+                    this.actions.splice(actionIndex + 1, 1);
+                    this.addLog('info', '찾은 영역 클릭 액션이 자동으로 제거되었습니다');
+                }
+            }
+        }
+
+        this.renderActionSequence();
+    }
+
+    toggleConditionNegate(actionId, conditionId, negate) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.negate = negate;
+        this.renderActionSequence();
+    }
+
+    updateConditionParam(actionId, conditionId, paramName, paramValue) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.params[paramName] = paramValue;
+        this.renderActionSequence();
+    }
+
+    updateConditionOperator(actionId, conditionId, operator) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        condition.operator = operator;
+        this.renderActionSequence();
+    }
+
+    renderConditionCard(actionId, condition, index, totalConditions) {
+        const isLast = index === totalConditions - 1;
+        const isFirst = index === 0;
+        const config = this.getActionConfig(condition.actionType);
+
+        // Create temporary action object for description
+        const tempAction = {
+            type: condition.actionType,
+            ...condition.params
+        };
+        const description = this.getActionDescription(tempAction);
+
+        const isExpanded = this.expandedConditionId === condition.id;
+
+        return `
+            <div>
+                <!-- Condition Block -->
+                <div class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                    <div class="p-3">
+                        <div class="flex items-center gap-3">
+                            <!-- Icon -->
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
+                                <div style="width: 1.25rem; height: 1.25rem;">
+                                    ${config.icon}
+                                </div>
+                            </div>
+
+                            <!-- Content -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="text-slate-900 font-medium">${config.label}</h3>
+                                    <!-- NOT Toggle -->
+                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
+                                        <input
+                                            type="checkbox"
+                                            ${condition.negate ? 'checked' : ''}
+                                            onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
+                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
+                                        />
+                                        <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
+                                            NOT
+                                        </span>
+                                    </label>
+                                </div>
+                                ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-1 flex-shrink-0">
+                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
+                                    ${this.getIconSVG('settings')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
+                                    ${this.getIconSVG('chevron-up')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
+                                    ${this.getIconSVG('chevron-down')}
+                                </button>
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
+                                    ${this.getIconSVG('trash')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expandable Settings -->
+                    ${isExpanded ? this.renderConditionSettings(actionId, condition) : ''}
+                </div>
+
+                <!-- AND/OR Connector -->
+                ${!isLast ? `
+                    <div class="flex items-center justify-center my-2">
+                        <select
+                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
+                            value="${condition.operator || 'AND'}"
+                            onclick="event.stopPropagation()"
+                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                            style="cursor: pointer;"
+                        >
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
+                        </select>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    renderConditionSettings(actionId, condition) {
+        // Create a temporary action object from condition
+        const tempAction = {
+            id: condition.id,
+            type: condition.actionType,
+            ...condition.params
+        };
+
+        // Get the same settings HTML as regular actions
+        let settingsHTML = this.getSettingsHTML(tempAction);
+
+        // Replace updateActionValue calls with updateConditionParam calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateActionValue\('([^']+)',\s*'([^']+)',/g,
+            `window.macroApp.updateConditionParam('${actionId}', '${condition.id}', '$2',`
+        );
+
+        // Replace updateRegionProperty calls with updateConditionRegionProperty calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateRegionProperty\('([^']+)',/g,
+            `window.macroApp.updateConditionRegionProperty('${actionId}', '${condition.id}',`
+        );
+
+        // Replace autoCropRegion calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.autoCropRegion\('([^']+)'\)/g,
+            `window.macroApp.autoCropConditionRegion('${actionId}', '${condition.id}')`
+        );
+
+        // Replace resetActionRegion calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.resetActionRegion\('([^']+)'\)/g,
+            `window.macroApp.resetConditionRegion('${actionId}', '${condition.id}')`
+        );
+
+        return `
+            <div class="settings-panel border-t border-slate-200 bg-slate-50 px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
+                ${settingsHTML}
+            </div>
+        `;
+    }
+
+    toggleConditionSettings(conditionId) {
+        if (this.expandedConditionId === conditionId) {
+            this.expandedConditionId = null;
+            this.selectedCondition = null;
+
+            // Clear markers from screen
+            this.clearScreenMarkers();
+        } else {
+            this.expandedConditionId = conditionId;
+
+            // Find the action and condition
+            let foundAction = null;
+            let foundCondition = null;
+            for (const action of this.actions) {
+                if (action.conditions) {
+                    const condition = action.conditions.find(c => c.id === conditionId);
+                    if (condition) {
+                        foundAction = action;
+                        foundCondition = condition;
+                        break;
+                    }
+                }
+            }
+
+            // If image-match condition, enable region selection
+            if (foundCondition && foundCondition.actionType === 'image-match') {
+                this.selectedCondition = {
+                    actionId: foundAction.id,
+                    conditionId: conditionId
+                };
+            } else {
+                this.selectedCondition = null;
+            }
+        }
+        this.renderActionSequence();
+    }
+
+    moveCondition(actionId, conditionId, direction) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const index = action.conditions.findIndex(c => c.id === conditionId);
+        if (index === -1) return;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= action.conditions.length) return;
+
+        // Swap conditions
+        [action.conditions[index], action.conditions[newIndex]] =
+            [action.conditions[newIndex], action.conditions[index]];
+
+        this.renderActionSequence();
     }
 
     // Log management methods
@@ -4940,6 +5495,14 @@ class MacroBuilderApp {
         this.renderActionSequence();
     }
 
+    closeScenarioModal() {
+        console.log('[closeScenarioModal] Closing scenario modal');
+        const modal = document.getElementById('scenario-list-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
     showAddActionPrompt() {
         const dialog = document.getElementById('add-action-prompt-dialog');
         if (!dialog) return;
@@ -4996,6 +5559,17 @@ class MacroBuilderApp {
         this.updateToolbarButtons(true);
     }
 
+    checkUnsavedChanges() {
+        // Check if there are unsaved changes
+        this.checkForChanges();
+
+        if (this.hasUnsavedChanges) {
+            return confirm('저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?');
+        }
+
+        return true;
+    }
+
     checkForChanges() {
         if (!this.savedState) {
             // No saved state means this is a new scenario with actions
@@ -5008,16 +5582,33 @@ class MacroBuilderApp {
     }
 
     updateToolbarButtons(hasScenario) {
+        // Toolbar buttons (hide save buttons, keep run button)
         const saveBtn = document.getElementById('btn-save-macro');
         const saveAsBtn = document.getElementById('btn-save-as-macro');
         const runBtn = document.getElementById('btn-run-macro');
+
+        // Save buttons row (below toolbar)
+        const saveButtonsRow = document.getElementById('save-buttons-row');
+        const saveBtnInline = document.getElementById('btn-save-macro-inline');
+        const saveAsBtnInline = document.getElementById('btn-save-as-macro-inline');
+
         const actionListContainer = document.getElementById('action-list-container');
 
-        if (saveBtn) {
-            saveBtn.style.display = hasScenario ? 'inline-flex' : 'none';
-            saveBtn.disabled = !this.hasUnsavedChanges;
+        // Hide toolbar save buttons (we use inline buttons instead)
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (saveAsBtn) saveAsBtn.style.display = 'none';
+
+        // Show/hide save buttons row
+        if (saveButtonsRow) {
+            saveButtonsRow.style.display = hasScenario ? 'block' : 'none';
         }
-        if (saveAsBtn) saveAsBtn.style.display = hasScenario ? 'inline-flex' : 'none';
+
+        // Update inline save button states
+        if (saveBtnInline) {
+            saveBtnInline.disabled = !this.hasUnsavedChanges;
+        }
+
+        // Show run button in toolbar
         if (runBtn) runBtn.style.display = hasScenario ? 'inline-flex' : 'none';
 
         // Enable/disable action list panel
@@ -5040,32 +5631,16 @@ class MacroBuilderApp {
             return;
         }
 
-        // Get both registry and execution results from localStorage
+        // Get new structure data from localStorage
+        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
         const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
         const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
-        console.log('[renderScenarioList] Registry:', registry);
-        console.log('[renderScenarioList] Results:', results);
 
-        // Merge registry with execution results
-        const scenarios = Object.entries(registry).map(([key, registryData]) => {
-            const executionResult = results[key];
-            return {
-                key,
-                name: registryData.name,
-                filename: registryData.filename,
-                savedAt: registryData.savedAt,
-                actionsCount: registryData.actionsCount,
-                status: executionResult ? executionResult.status : 'never_run',
-                message: executionResult ? executionResult.message : '미실행',
-                timestamp: executionResult ? executionResult.timestamp : registryData.savedAt
-            };
-        });
+        console.log('[renderScenarioList] Files:', Object.keys(scenarioData).length);
 
-        // Sort by most recently saved/executed
-        scenarios.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        console.log('[renderScenarioList] Found', scenarios.length, 'scenarios');
-
-        if (scenarios.length === 0) {
+        // Check if we have any files
+        const fileCount = Object.keys(scenarioData).length;
+        if (fileCount === 0) {
             container.innerHTML = `
                 <div class="text-center py-12 text-slate-500">
                     <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5078,44 +5653,84 @@ class MacroBuilderApp {
             return;
         }
 
-        // Render scenario list
-        container.innerHTML = scenarios.map(scenario => {
-            const statusIcon = this.getStatusIcon(scenario.status);
-            const statusColor = this.getStatusColor(scenario.status);
-            const statusText = this.getStatusText(scenario.status);
-            const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
+        // Build hierarchical structure: files -> scenarios
+        const files = Object.entries(scenarioData).map(([filePath, fileData]) => {
+            const fileRegistry = registry[filePath] || {};
+            const scenarios = (fileData.scenarios || []).map(scenario => {
+                const executionResult = results[scenario.id];
+                return {
+                    id: scenario.id,
+                    name: scenario.name,
+                    actionsCount: scenario.actions?.length || 0,
+                    status: executionResult ? executionResult.status : 'never_run',
+                    message: executionResult ? executionResult.message : '미실행',
+                    timestamp: executionResult ? executionResult.timestamp : fileRegistry.timestamp
+                };
+            });
+
+            return {
+                filePath,
+                fileName: fileData.name,
+                scenarios,
+                timestamp: fileRegistry.timestamp || Date.now()
+            };
+        });
+
+        // Sort files by most recent
+        files.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Render files and their scenarios
+        container.innerHTML = files.map(file => {
+            const scenariosHTML = file.scenarios.map(scenario => {
+                const statusIcon = this.getStatusIcon(scenario.status);
+                const statusColor = this.getStatusColor(scenario.status);
+                const statusText = this.getStatusText(scenario.status);
+                const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
+
+                return `
+                    <div class="border-l-2 border-slate-200 pl-4 ml-4 mb-2 hover:bg-slate-50 rounded transition-colors p-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="window.macroApp.editScenario('${scenario.id}')">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-sm font-medium text-slate-900">${scenario.name}</h4>
+                                        <span class="px-2 py-0.5 text-xs font-medium rounded ${statusColor}">
+                                            ${statusIcon} ${statusText}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">${scenario.actionsCount}개 액션 • ${timestamp}</p>
+                                </div>
+                            </div>
+                            <button class="btn-outline btn-sm" onclick="event.stopPropagation(); window.macroApp.runSingleScenario('${scenario.id}')">
+                                실행
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
 
             return `
-                <div class="border rounded-lg p-4 mb-3 hover:bg-slate-50 transition-colors">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3 flex-1">
-                            <input type="checkbox" class="scenario-checkbox w-4 h-4 rounded border-slate-300" data-key="${scenario.key}" data-filename="${scenario.filename}">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2">
-                                    <h3 class="font-medium text-slate-900">${scenario.filename}</h3>
-                                    <span class="px-2 py-1 text-xs font-medium rounded ${statusColor}">
-                                        ${statusIcon} ${statusText}
-                                    </span>
-                                </div>
-                                <p class="text-sm text-slate-600 mt-1">${scenario.message}</p>
-                                <p class="text-xs text-slate-500 mt-1">${timestamp} • ${scenario.actionsCount}개 액션</p>
-                            </div>
+                <div class="border rounded-lg mb-3 overflow-hidden">
+                    <!-- File Header -->
+                    <div class="bg-slate-100 px-4 py-3 border-b">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                            </svg>
+                            <h3 class="font-medium text-slate-900">${file.fileName}</h3>
+                            <span class="text-xs text-slate-500">(${file.scenarios.length}개 시나리오)</span>
                         </div>
-                        <button class="btn-outline btn-sm" onclick="window.macroApp.runSingleScenario('${scenario.key}')">
-                            실행
-                        </button>
+                    </div>
+                    <!-- Scenarios List -->
+                    <div class="p-3">
+                        ${scenariosHTML}
                     </div>
                 </div>
             `;
         }).join('');
 
-        // Update selected count
+        // Update selected count (if needed for checkbox functionality)
         this.updateSelectedCount();
-
-        // Add change listeners to checkboxes
-        container.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', () => this.updateSelectedCount());
-        });
     }
 
     getStatusIcon(status) {
@@ -5260,6 +5875,16 @@ class MacroBuilderApp {
         // Show dialog
         dialog.style.display = 'flex';
         input.value = '';
+
+        // Initialize filename preview
+        this.updateDialogFilenamePreview('');
+
+        // Add input event listener for real-time filename preview
+        const handleInput = () => {
+            this.updateDialogFilenamePreview(input.value);
+        };
+        input.addEventListener('input', handleInput);
+
         input.focus();
 
         // Setup event listeners (remove old ones first)
@@ -5270,6 +5895,7 @@ class MacroBuilderApp {
         const closeDialog = () => {
             dialog.style.display = 'none';
             input.value = '';
+            input.removeEventListener('input', handleInput); // Clean up event listener
         };
 
         const createScenario = () => {
@@ -5295,21 +5921,45 @@ class MacroBuilderApp {
             // Reset current state
             this.actions = [];
             this.macroName = scenarioName;
-            this.currentFilePath = null;
 
-            // Generate unique key for the scenario
-            const key = scenarioName.replace(/\s+/g, '_');
+            // Generate new file path and scenario ID
+            const filePath = this.generateFilePath(scenarioName);
+            const scenarioId = this.generateScenarioId();
 
-            // Create initial macro data
-            const macroData = {
-                name: scenarioName,
-                actions: [],
-                createdAt: new Date().toISOString(),
-                version: '1.0'
+            // Create new file structure with scenarios array
+            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+            scenarioData[filePath] = {
+                name: scenarioName, // File name (used for display)
+                scenarios: [{
+                    id: scenarioId,
+                    name: scenarioName,
+                    actions: [],
+                    description: ''
+                }]
             };
 
-            // Add to registry and localStorage
-            this.addScenarioToRegistry(key, `${key}.json`, macroData);
+            // Update registry (file metadata)
+            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+            registry[filePath] = {
+                name: scenarioName,
+                filename: filePath, // Add filename for display in scenario list
+                timestamp: Date.now(),
+                scenarioCount: 1
+            };
+
+            // Update index (fast lookup)
+            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+            index[scenarioId] = { filePath, scenarioId };
+
+            // Save to localStorage
+            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
+            localStorage.setItem('scenario_registry', JSON.stringify(registry));
+            localStorage.setItem('scenario_index', JSON.stringify(index));
+
+            // Set current file and scenario
+            this.currentFilePath = filePath;
+            this.currentScenarioId = scenarioId;
+            this.currentScenarioKey = scenarioId; // Backward compatibility
 
             // Update UI
             this.renderActionSequence();
@@ -5317,6 +5967,9 @@ class MacroBuilderApp {
             if (macroNameInput) {
                 macroNameInput.value = scenarioName;
             }
+
+            // Update filename preview
+            this.updateFilenamePreview();
 
             // Mark as saved (new scenario with no actions)
             this.markAsSaved();
@@ -5333,6 +5986,8 @@ class MacroBuilderApp {
 
             // Show prompt to add actions
             this.showAddActionPrompt();
+
+            console.log('[createNewScenario] Created:', { filePath, scenarioId });
         };
 
         // Remove old listeners by cloning
@@ -5371,6 +6026,12 @@ class MacroBuilderApp {
     }
 
     renderScenarioListInPanel() {
+        // Check for unsaved changes before navigating away
+        if (!this.checkUnsavedChanges()) {
+            console.log('[renderScenarioListInPanel] User cancelled due to unsaved changes');
+            return;
+        }
+
         const actionList = document.getElementById('action-sequence-list');
         if (!actionList) return;
 
@@ -6199,6 +6860,230 @@ class MacroBuilderApp {
         });
 
         console.log('Drag ended');
+    }
+
+    // ========================================
+    // HELPER FUNCTIONS - Multi-scenario File Support
+    // ========================================
+
+    /**
+     * Sanitize scenario name to create filesystem-safe filename
+     * Korean/special characters -> transliteration/removal
+     */
+    sanitizeFilename(scenarioName) {
+        // Remove or replace special characters
+        let filename = scenarioName
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // Replace illegal chars
+            .replace(/\s+/g, '_') // Replace spaces with underscore
+            .trim();
+
+        // Limit length to 100 characters
+        if (filename.length > 100) {
+            filename = filename.substring(0, 100);
+        }
+
+        return filename || 'untitled';
+    }
+
+    /**
+     * Generate unique scenario ID within a file
+     * Format: scenario_<timestamp>_<random>
+     */
+    generateScenarioId() {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        return `scenario_${timestamp}_${random}`;
+    }
+
+    /**
+     * Generate unique file path
+     * Format: <sanitized_name>.json or <sanitized_name>_<number>.json if duplicate exists
+     */
+    generateFilePath(scenarioName) {
+        // Use the same logic as generateUniqueFilename to ensure consistency
+        return this.generateUniqueFilename(scenarioName);
+    }
+
+    /**
+     * Migrate existing scenarios to new multi-scenario file structure
+     * Old structure: scenario_registry[key] = { name, actions, timestamp }
+     * New structure:
+     *   - scenario_data[filePath] = { name, scenarios: [{ id, name, actions }] }
+     *   - scenario_registry[filePath] = { name, timestamp, scenarioCount }
+     *   - scenario_index[scenarioId] = { filePath, scenarioId }
+     */
+    migrateExistingScenarios() {
+        console.log('[Migration] Starting scenario migration...');
+
+        try {
+            // Load existing scenario_registry
+            const oldRegistryRaw = localStorage.getItem('scenario_registry');
+            if (!oldRegistryRaw) {
+                console.log('[Migration] No existing scenarios found');
+                return;
+            }
+
+            const oldRegistry = JSON.parse(oldRegistryRaw);
+            const oldKeys = Object.keys(oldRegistry);
+
+            if (oldKeys.length === 0) {
+                console.log('[Migration] No scenarios to migrate');
+                return;
+            }
+
+            console.log(`[Migration] Found ${oldKeys.length} scenarios to migrate`);
+
+            // Initialize new storage structures
+            const newScenarioData = {};
+            const newRegistry = {};
+            const newIndex = {};
+
+            // Migrate each old scenario
+            for (const oldKey of oldKeys) {
+                const oldScenario = oldRegistry[oldKey];
+
+                // Load full scenario data from scenario_data
+                const oldDataRaw = localStorage.getItem('scenario_data');
+                const oldData = oldDataRaw ? JSON.parse(oldDataRaw) : {};
+                const scenarioActions = oldData[oldKey]?.actions || oldScenario.actions || [];
+
+                // Generate new identifiers
+                const scenarioName = oldScenario.name || oldKey;
+                const filePath = this.generateFilePath(scenarioName);
+                const scenarioId = this.generateScenarioId();
+
+                // Create new file structure
+                newScenarioData[filePath] = {
+                    name: scenarioName,
+                    scenarios: [{
+                        id: scenarioId,
+                        name: scenarioName,
+                        actions: scenarioActions
+                    }]
+                };
+
+                // Create registry entry
+                newRegistry[filePath] = {
+                    name: scenarioName,
+                    filename: filePath, // Add filename for display
+                    timestamp: oldScenario.timestamp || Date.now(),
+                    scenarioCount: 1
+                };
+
+                // Create index entry
+                newIndex[scenarioId] = {
+                    filePath: filePath,
+                    scenarioId: scenarioId
+                };
+
+                console.log(`[Migration] Migrated: ${oldKey} -> ${filePath} (${scenarioId})`);
+            }
+
+            // Backup old data
+            localStorage.setItem('scenario_registry_backup', oldRegistryRaw);
+            localStorage.setItem('scenario_data_backup', localStorage.getItem('scenario_data') || '{}');
+            console.log('[Migration] Backed up old data');
+
+            // Save new structures
+            localStorage.setItem('scenario_data', JSON.stringify(newScenarioData));
+            localStorage.setItem('scenario_registry', JSON.stringify(newRegistry));
+            localStorage.setItem('scenario_index', JSON.stringify(newIndex));
+
+            console.log('[Migration] Migration completed successfully');
+            console.log(`[Migration] Migrated ${oldKeys.length} scenarios into ${Object.keys(newScenarioData).length} files`);
+
+        } catch (error) {
+            console.error('[Migration] Migration failed:', error);
+            alert('시나리오 마이그레이션 중 오류가 발생했습니다. 콘솔을 확인하세요.');
+        }
+    }
+
+    /**
+     * Save scenario by scenarioId
+     * Updates the scenario within its file
+     * @param {string} scenarioId - The unique scenario ID
+     */
+    saveToRegistry(scenarioId) {
+        console.log('[saveToRegistry] Saving scenario:', scenarioId);
+
+        if (!scenarioId || !this.currentFilePath) {
+            console.error('[saveToRegistry] Missing scenarioId or filePath');
+            return false;
+        }
+
+        try {
+            // Load current file data
+            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+            const fileData = scenarioData[this.currentFilePath];
+
+            if (!fileData) {
+                console.error('[saveToRegistry] File not found:', this.currentFilePath);
+                return false;
+            }
+
+            // Find and update the scenario
+            const scenarioIndex = fileData.scenarios.findIndex(s => s.id === scenarioId);
+
+            if (scenarioIndex === -1) {
+                console.error('[saveToRegistry] Scenario not found in file:', scenarioId);
+                return false;
+            }
+
+            // Update scenario data
+            fileData.scenarios[scenarioIndex] = {
+                id: scenarioId,
+                name: this.macroName || 'Untitled',
+                actions: this.actions,
+                description: this.macroDescription || ''
+            };
+
+            // Save back to localStorage
+            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
+
+            // Update registry timestamp and filename
+            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+            if (registry[this.currentFilePath]) {
+                registry[this.currentFilePath].timestamp = Date.now();
+                registry[this.currentFilePath].filename = this.currentFilePath; // Ensure filename is set
+                localStorage.setItem('scenario_registry', JSON.stringify(registry));
+            }
+
+            console.log('[saveToRegistry] Scenario saved successfully');
+            this.markAsSaved();
+            return true;
+
+        } catch (error) {
+            console.error('[saveToRegistry] Failed to save scenario:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Add filename field to existing registry entries
+     * This is a one-time migration to fix undefined filenames
+     */
+    addFilenameToRegistry() {
+        try {
+            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+            let updated = false;
+
+            for (const [filePath, data] of Object.entries(registry)) {
+                if (!data.filename) {
+                    data.filename = filePath;
+                    updated = true;
+                    console.log('[addFilenameToRegistry] Added filename to:', filePath);
+                }
+            }
+
+            if (updated) {
+                localStorage.setItem('scenario_registry', JSON.stringify(registry));
+                console.log('[addFilenameToRegistry] Registry updated successfully');
+            } else {
+                console.log('[addFilenameToRegistry] No updates needed');
+            }
+        } catch (error) {
+            console.error('[addFilenameToRegistry] Failed to update registry:', error);
+        }
     }
 }
 

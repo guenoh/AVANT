@@ -68,48 +68,25 @@ class ActionSettingsBuilder {
      * Drag settings
      */
     buildDragSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4 space-y-4">
-                <div>
-                    <label class="text-xs text-slate-600 mb-2 block">시작점</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs">X</label>
-                            <input type="number" value="${action.x || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'x', parseInt(this.value))">
-                        </div>
-                        <div>
-                            <label class="text-xs">Y</label>
-                            <input type="number" value="${action.y || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'y', parseInt(this.value))">
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-xs text-slate-600 mb-2 block">종료점</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs">X</label>
-                            <input type="number" value="${action.endX || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'endX', parseInt(this.value))">
-                        </div>
-                        <div>
-                            <label class="text-xs">Y</label>
-                            <input type="number" value="${action.endY || 0}"
-                                onclick="event.stopPropagation()"
-                                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'endY', parseInt(this.value))">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        const UI = UIComponents;
+        const startPoint = UI.coordinateInputs({
+            x: action.x || 0,
+            y: action.y || 0,
+            actionId: action.id,
+            label: '시작점',
+            xField: 'x',
+            yField: 'y'
+        });
+        const endPoint = UI.coordinateInputs({
+            x: action.endX || 0,
+            y: action.endY || 0,
+            actionId: action.id,
+            label: '종료점',
+            xField: 'endX',
+            yField: 'endY'
+        });
+
+        return UI.section(startPoint + endPoint);
     }
 
     /**
@@ -162,27 +139,82 @@ class ActionSettingsBuilder {
 
     /**
      * Image match settings
-     * TODO: Refactor to use TemplateHelpers
-     * This is one of the most complex builders - kept simplified for now
      */
     buildImageMatchSettings(action) {
-        // This would be the large image-match settings panel
-        // For now, return a placeholder - full implementation would be extracted from original code
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <p class="text-xs text-slate-600">이미지 매칭 설정 (구현 예정)</p>
-            </div>
-        `;
+        const UI = UIComponents;
+        const threshold = action.threshold || 0.95;
+        const imagePath = action.imagePath || action.image;
+        const hasImage = imagePath && imagePath !== 'image.png';
+
+        const imageSection = hasImage
+            ? UI.formGroup('캡처된 이미지', UI.imageThumbnail(imagePath, 'Captured region'))
+            : UI.alert('화면에서 영역을 선택하여 이미지를 캡처하세요', 'info');
+
+        const thresholdSlider = UI.slider({
+            value: Math.round(threshold * 100),
+            min: 50,
+            max: 100,
+            actionId: action.id,
+            field: 'threshold',
+            label: '매칭 임계값',
+            unit: '%',
+            helper: '낮을수록 유사한 이미지도 매칭됩니다'
+        });
+
+        return UI.section(imageSection + thresholdSlider);
     }
 
     /**
      * Conditional settings (if/else-if/while)
-     * TODO: Refactor to use TemplateHelpers
+     * Uses MacroBuilderApp's renderConditionCard for rendering condition list
      */
     buildConditionalSettings(action) {
         return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <p class="text-xs text-slate-600">조건문 설정 (구현 예정)</p>
+            <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                <!-- Condition Operator Selection -->
+                ${action.conditions && action.conditions.length > 1 ? `
+                    <div class="flex items-center gap-2 pb-2 border-b border-slate-200">
+                        <label class="text-xs text-slate-600">조건 연산:</label>
+                        <div class="flex gap-1">
+                            <button
+                                onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'AND');"
+                                class="px-2 py-1 text-xs rounded transition-colors ${(action.conditionOperator || 'AND') === 'AND' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
+                            >
+                                모든 조건 (AND)
+                            </button>
+                            <button
+                                onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'OR');"
+                                class="px-2 py-1 text-xs rounded transition-colors ${action.conditionOperator === 'OR' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
+                            >
+                                하나라도 (OR)
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs">조건 목록</label>
+                    <span class="text-xs text-slate-500">${action.conditions?.length || 0}개</span>
+                </div>
+
+                ${action.conditions && action.conditions.length > 0 ? `
+                    <div class="space-y-2">
+                        ${action.conditions.map((cond, index) => window.macroApp.renderConditionCard(action.id, cond, index, action.conditions.length)).join('')}
+                    </div>
+                ` : ''}
+
+                <!-- Drop Zone -->
+                <div
+                    class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
+                    ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-slate-400', 'bg-slate-100')"
+                    ondragleave="event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100')"
+                    ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
+                    onclick="event.stopPropagation()"
+                >
+                    <p class="text-xs text-slate-500">
+                        <span style="opacity: 0.5;">+</span> 액션을 드래그하여 조건 추가
+                    </p>
+                </div>
             </div>
         `;
     }
@@ -247,15 +279,151 @@ class ActionSettingsBuilder {
     }
 
     /**
-     * Test settings
-     * TODO: Refactor to use TemplateHelpers
+     * Test settings - UI Component Guide
+     * Demonstrates UIComponents library usage
      */
     buildTestSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <p class="text-xs text-slate-600">테스트 설정 (구현 예정)</p>
-            </div>
-        `;
+        const UI = UIComponents;
+
+        const header = UI.alert(
+            `<div><strong class="block mb-1">UI 컴포넌트 라이브러리</strong>
+            <span>UIComponents 클래스를 사용하여 일관된 디자인의 설정 패널을 구현할 수 있습니다</span></div>`,
+            'info'
+        );
+
+        const alertsSection = UI.formGroup('알림 박스',
+            UI.alert('정보 메시지', 'info') +
+            UI.alert('성공 메시지', 'success') +
+            UI.alert('경고 메시지', 'warning') +
+            UI.alert('에러 메시지', 'error')
+        );
+
+        const inputsSection = UI.formGroup('텍스트 입력',
+            UI.textInput({
+                value: '',
+                placeholder: '텍스트 입력...',
+                actionId: action.id,
+                field: 'testText'
+            })
+        );
+
+        const numberSection = UI.formGroup('숫자 입력',
+            UI.numberInput({
+                value: 0,
+                min: 0,
+                max: 100,
+                actionId: action.id,
+                field: 'testNumber'
+            })
+        );
+
+        const incrementSection = UI.incrementControl({
+            value: 1000,
+            min: 0,
+            max: 5000,
+            step: 100,
+            actionId: action.id,
+            field: 'testIncrement',
+            unit: 'ms',
+            label: '증감 컨트롤'
+        });
+
+        const sliderSection = UI.slider({
+            value: 75,
+            min: 0,
+            max: 100,
+            actionId: action.id,
+            field: 'testSlider',
+            label: '슬라이더',
+            unit: '%',
+            helper: '슬라이더 예제입니다'
+        });
+
+        const coordinatesSection = UI.coordinateInputs({
+            x: 100,
+            y: 200,
+            actionId: action.id,
+            label: '좌표 입력'
+        });
+
+        const selectSection = UI.formGroup('선택 박스',
+            UI.select({
+                value: 'option2',
+                options: [
+                    { value: 'option1', label: '옵션 1' },
+                    { value: 'option2', label: '옵션 2' },
+                    { value: 'option3', label: '옵션 3' }
+                ],
+                actionId: action.id,
+                field: 'testSelect'
+            })
+        );
+
+        const checkboxSection = UI.formGroup('체크박스',
+            UI.checkbox({
+                checked: false,
+                label: '체크박스 옵션',
+                actionId: action.id,
+                field: 'testCheckbox'
+            })
+        );
+
+        const buttonGroupSection = UI.formGroup('버튼 그룹',
+            UI.buttonGroup({
+                value: 'AND',
+                options: [
+                    { value: 'AND', label: '모든 조건 (AND)' },
+                    { value: 'OR', label: '하나라도 (OR)' }
+                ],
+                actionId: action.id,
+                field: 'testButtonGroup'
+            })
+        );
+
+        const codeExample = UI.formGroup('사용 예제',
+            UI.codeBlock(
+`const UI = UIComponents;
+
+// Alert box
+UI.alert('메시지', 'info')
+
+// Text input
+UI.textInput({
+  value: '',
+  placeholder: '입력...',
+  actionId: action.id,
+  field: 'fieldName'
+})
+
+// Slider
+UI.slider({
+  value: 50,
+  min: 0,
+  max: 100,
+  actionId: action.id,
+  field: 'threshold',
+  label: '임계값',
+  unit: '%'
+})`
+            )
+        );
+
+        return UI.section(
+            header +
+            UI.divider() +
+            alertsSection +
+            inputsSection +
+            numberSection +
+            incrementSection +
+            sliderSection +
+            coordinatesSection +
+            selectSection +
+            checkboxSection +
+            buttonGroupSection +
+            UI.divider() +
+            codeExample,
+            'relaxed'
+        );
     }
 
     /**

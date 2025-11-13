@@ -85,7 +85,9 @@ contextBridge.exposeInMainWorld('api', {
   // File APIs
   file: {
     saveLogs: (logsText) => ipcRenderer.invoke('file:save-logs', logsText),
-    saveScreenshot: (dataUrl) => ipcRenderer.invoke('file:save-screenshot', dataUrl)
+    saveScreenshot: (dataUrl) => ipcRenderer.invoke('file:save-screenshot', dataUrl),
+    showSaveDialog: (options) => ipcRenderer.invoke('file:show-save-dialog', options),
+    writeFile: (filePath, data) => ipcRenderer.invoke('file:write-file', filePath, data)
   },
 
   // ADB APIs

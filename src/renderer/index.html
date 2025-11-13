@@ -6,6 +6,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' data:">
     <title>AVANT</title>
     <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/typography.css">
+    <link rel="stylesheet" href="styles/colors.css">
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/macro-builder.css">
     <link rel="stylesheet" href="styles/sound-check.css">
@@ -60,6 +62,9 @@
                 <div class="modal-body">
                     <label class="input-label">시나리오 이름</label>
                     <input type="text" id="scenario-name-input" class="input" placeholder="시나리오 이름을 입력하세요..." />
+                    <div id="dialog-filename-preview" style="margin-top: 8px; font-size: 12px; color: #64748b;">
+                        파일명: <span id="dialog-filename-preview-text" style="font-family: 'Courier New', monospace; color: #64748b;">unnamed.json</span>
+                    </div>
                     <p id="scenario-name-error" class="input-error" style="display: none;"></p>
                 </div>
                 <div class="modal-footer">
@@ -101,8 +106,8 @@
             <div id="screen-preview-panel" class="flex-[5] bg-white border-r flex flex-col">
                 <div class="px-6 py-4 border-b flex items-center justify-between">
                     <div>
-                        <h2 class="text-slate-900">스크린 프리뷰</h2>
-                        <p class="text-sm text-slate-600">화면을 클릭하여 좌표 설정</p>
+                        <h2 class="text-slate-900" style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">스크린 프리뷰</h2>
+                        <p class="text-sm text-slate-600" style="font-size: 14px; color: #64748b;">화면을 클릭하여 좌표 설정</p>
                     </div>
                     <div class="device-status-container" id="device-status">
                         <!-- Device status will be rendered here when connected -->
@@ -180,7 +185,7 @@
 
                     <!-- Macro Name & Description Input (hidden in list view by default) -->
                     <div id="macro-name-container" style="display: none; margin-bottom: 16px;">
-                        <div style="margin-bottom: 8px;">
+                        <div style="margin-bottom: 4px;">
                             <input
                                 type="text"
                                 id="macro-name-input"
@@ -189,6 +194,9 @@
                                 value="새 시나리오"
                                 style="font-size: 20px; font-weight: 600; color: #1e293b; width: 100%;"
                             />
+                        </div>
+                        <div id="filename-preview" style="margin-bottom: 8px; font-size: 12px; color: #94a3b8; padding-left: 0;">
+                            파일명: <span id="filename-preview-text" style="font-family: 'Courier New', monospace; color: #64748b;">새_시나리오.json</span>
                         </div>
                         <div>
                             <input
@@ -211,7 +219,7 @@
                         </button>
 
                         <!-- List View: New scenario button (shown only in list view) -->
-                        <button class="btn-outline btn-sm" id="btn-new-scenario" style="display: none;">
+                        <button class="btn-outline btn-sm" id="btn-new-scenario" onclick="window.macroApp.createNewScenario()">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -222,18 +230,6 @@
                         <button class="btn-outline btn-sm" id="btn-select-all">
                             전체 선택
                         </button>
-
-                        <!-- Always visible: Delay select -->
-                        <div class="flex items-center gap-2">
-                            <label for="toolbar-delay-select" style="font-size: 14px; color: #64748b; white-space: nowrap;">지연:</label>
-                            <select id="toolbar-delay-select" class="btn-outline btn-sm" style="padding: 4px 8px; min-width: 90px;">
-                                <option value="0">없음</option>
-                                <option value="100">100ms</option>
-                                <option value="300" selected>300ms</option>
-                                <option value="500">500ms</option>
-                                <option value="1000">1s</option>
-                            </select>
-                        </div>
 
                         <!-- Spacer to push action buttons to the right -->
                         <div class="flex-1"></div>
@@ -264,6 +260,18 @@
                             다른 이름으로 저장
                         </button>
 
+                        <!-- Always visible: Delay select (before Run button) -->
+                        <div class="flex items-center gap-2">
+                            <label for="toolbar-delay-select" style="font-size: 14px; color: #64748b; white-space: nowrap;">지연:</label>
+                            <select id="toolbar-delay-select" class="btn-outline btn-sm" style="padding: 4px 8px; min-width: 90px;">
+                                <option value="0">없음</option>
+                                <option value="100">100ms</option>
+                                <option value="300" selected>300ms</option>
+                                <option value="500">500ms</option>
+                                <option value="1000">1s</option>
+                            </select>
+                        </div>
+
                         <!-- Edit View: Run button (shown only in edit view) -->
                         <button class="btn-primary btn-sm" id="btn-run-macro" style="display: none;">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,6 +280,24 @@
                             </svg>
                             실행
                         </button>
+                    </div>
+
+                    <!-- Save buttons row (below toolbar) -->
+                    <div id="save-buttons-row" style="display: none; padding-top: 12px;">
+                        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                            <button class="btn-outline btn-sm" id="btn-save-macro-inline">
+                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                                </svg>
+                                저장
+                            </button>
+                            <button class="btn-outline btn-sm" id="btn-save-as-macro-inline">
+                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                </svg>
+                                다른 이름으로 저장
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -397,6 +423,7 @@
     <script src="utils/TemplateHelpers.js"></script>
 
     <!-- Builders - Phase 2 Refactoring -->
+    <script src="builders/UIComponents.js"></script>
     <script src="builders/ActionSettingsBuilder.js"></script>
 
     <!-- Coordinate System -->
@@ -430,12 +457,11 @@
 
             <!-- Modal Footer -->
             <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 14px; color: #666;">
-                    <span id="selected-count">0</span>개 선택됨
-                </div>
+                <button class="btn btn-secondary" id="btn-new-scenario-from-list" onclick="window.macroApp.createNewScenario()">
+                    새 시나리오
+                </button>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-secondary" id="btn-select-all">전체 선택</button>
-                    <button class="btn btn-primary" id="btn-add-selected-scenarios">선택한 시나리오 추가</button>
+                    <button class="btn btn-secondary" id="btn-close-scenario-modal">닫기</button>
                 </div>
             </div>
         </div>
