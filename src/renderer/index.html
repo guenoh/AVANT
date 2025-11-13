@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles/base.css">
     <link rel="stylesheet" href="styles/typography.css">
     <link rel="stylesheet" href="styles/colors.css">
+    <link rel="stylesheet" href="styles/panels.css">
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/macro-builder.css">
     <link rel="stylesheet" href="styles/sound-check.css">
@@ -104,13 +105,37 @@
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Panel - Screen Preview (flex-[5]) -->
             <div id="screen-preview-panel" class="flex-[5] bg-white border-r flex flex-col">
-                <div class="px-6 py-4 border-b flex items-center justify-between">
+                <!-- Panel Header -->
+                <div class="panel-header">
                     <div>
-                        <h2 class="text-slate-900" style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">스크린 프리뷰</h2>
-                        <p class="text-sm text-slate-600" style="font-size: 14px; color: #64748b;">화면을 클릭하여 좌표 설정</p>
+                        <h2 class="panel-title">스크린 프리뷰</h2>
+                        <p class="panel-subtitle">화면을 클릭하여 좌표 설정</p>
                     </div>
-                    <div class="device-status-container" id="device-status">
-                        <!-- Device status will be rendered here when connected -->
+                </div>
+
+                <!-- Panel Toolbar -->
+                <div class="panel-toolbar" id="screen-toolbar">
+                    <div class="flex items-center gap-3">
+                        <!-- Device Info -->
+                        <div class="device-status-container" id="device-status">
+                            <!-- Device status will be rendered here when connected -->
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Marker Toggle (moved from action panel) -->
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" id="option-show-markers" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>좌표 마커</span>
+                        </label>
+
+                        <!-- Screen Controls -->
+                        <button class="btn-outline btn-sm" id="btn-refresh-screen">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            새로고침
+                        </button>
                     </div>
                 </div>
                 <div class="flex-1 overflow-auto p-6" id="screen-preview-container">
