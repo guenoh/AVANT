@@ -84,7 +84,8 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-3);
-    min-height: 56px;
+    height: 56px;
+    flex-shrink: 0;
 }
 
 .panel-toolbar-left {

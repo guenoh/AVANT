@@ -379,42 +379,68 @@ input[type="text"]:hover {
 input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
+    width: 100%;
+    height: 6px;
     background: transparent;
     cursor: pointer;
+    outline: none;
 }
 
+/* Track styles */
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(to right,
+        var(--color-primary) 0%,
+        var(--color-primary) var(--value, 50%),
+        #e2e8f0 var(--value, 50%),
+        #e2e8f0 100%);
+    border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+}
+
+/* Thumb styles */
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: var(--slate-600);
+    background: white;
     cursor: pointer;
-    border: 3px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
+    margin-top: -7px;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform: scale(1.15);
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3);
+    border-width: 4px;
 }
 
 input[type="range"]::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: var(--slate-600);
+    background: white;
     cursor: pointer;
-    border: 3px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
 }
 
 input[type="range"]::-moz-range-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform: scale(1.15);
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3);
+    border-width: 4px;
 }
 
 /* Buttons */
@@ -1565,6 +1591,50 @@ svg {
 .action-block.expanded:hover {
     transform: none;
     box-shadow: none;
+}
+
+/* Drag and Drop States */
+.action-block.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+}
+
+/* Placeholder space that appears when dragging over */
+.drag-over-before::before {
+    content: '';
+    display: block !important;
+    height: 80px !important;
+    margin: 12px 0 !important;
+    border: 3px dashed #3b82f6 !important;
+    border-radius: 10px !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+    animation: placeholderPulse 1.5s ease-in-out infinite !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15) !important;
+}
+
+.drag-over-after::after {
+    content: '';
+    display: block !important;
+    height: 80px !important;
+    margin: 12px 0 !important;
+    border: 3px dashed #3b82f6 !important;
+    border-radius: 10px !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+    animation: placeholderPulse 1.5s ease-in-out infinite !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15) !important;
+}
+
+@keyframes placeholderPulse {
+    0%, 100% {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: rgba(59, 130, 246, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        background: rgba(59, 130, 246, 0.15);
+        border-color: #3b82f6;
+        transform: scale(1.01);
+    }
 }
 
 /* Connector lines between actions */

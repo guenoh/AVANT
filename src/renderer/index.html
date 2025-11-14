@@ -123,18 +123,18 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <!-- Marker Toggle (moved from action panel) -->
+                        <!-- Marker Toggle -->
                         <label class="flex items-center gap-2 text-sm text-slate-600">
                             <input type="checkbox" id="option-show-markers" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
                             <span>좌표 마커</span>
                         </label>
 
-                        <!-- Screen Controls -->
-                        <button class="btn-outline btn-sm" id="btn-refresh-screen">
+                        <!-- Screen Pause Toggle -->
+                        <button class="btn-outline btn-sm" id="btn-pause-screen">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            새로고침
+                            일시정지
                         </button>
                     </div>
                 </div>
@@ -200,42 +200,26 @@
 
             <!-- Middle Panel - Macro Sequence (flex-[3]) -->
             <div class="flex-[3] bg-slate-50 flex flex-col" id="macro-sequence-container">
-                <!-- Header with Macro Name and Controls -->
-                <div class="px-6 py-4 bg-white border-b">
-                    <!-- Scenario List Header (shown in list view by default) -->
-                    <div id="scenario-list-header" style="margin-bottom: 16px;">
-                        <h2 class="text-slate-900" style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">시나리오 목록</h2>
-                        <p class="text-sm text-slate-600" style="font-size: 14px; color: #64748b;">시나리오를 선택하여 편집하거나 실행할 수 있습니다</p>
+                <!-- Panel Header: List View -->
+                <div class="panel-header" id="scenario-list-header">
+                    <div>
+                        <h2 class="panel-title">시나리오 목록</h2>
+                        <p class="panel-subtitle">시나리오를 선택하여 편집하거나 실행할 수 있습니다</p>
                     </div>
+                </div>
 
-                    <!-- Macro Name & Description Input (hidden in list view by default) -->
-                    <div id="macro-name-container" style="display: none; margin-bottom: 16px;">
-                        <div style="margin-bottom: 4px;">
-                            <input
-                                type="text"
-                                id="macro-name-input"
-                                class="text-lg border-0 px-0 focus-visible:ring-0 macro-name-input"
-                                placeholder="시나리오 이름"
-                                value="새 시나리오"
-                                style="font-size: 20px; font-weight: 600; color: #1e293b; width: 100%;"
-                            />
-                        </div>
-                        <div id="filename-preview" style="margin-bottom: 8px; font-size: 12px; color: #94a3b8; padding-left: 0;">
-                            파일명: <span id="filename-preview-text" style="font-family: 'Courier New', monospace; color: #64748b;">새_시나리오.json</span>
-                        </div>
-                        <div>
-                            <input
-                                type="text"
-                                id="macro-description-input"
-                                class="text-sm border-0 px-0 focus-visible:ring-0"
-                                placeholder="시나리오 설명 (선택사항)"
-                                style="font-size: 14px; color: #64748b; width: 100%;"
-                            />
-                        </div>
+                <!-- Panel Header: Edit View (hidden by default) -->
+                <div class="panel-header" id="scenario-edit-header" style="display: none;">
+                    <div>
+                        <h2 class="panel-title">시나리오 편집</h2>
+                        <p class="panel-subtitle">액션을 추가하여 시나리오를 구성하세요</p>
                     </div>
-                    <!-- Unified Toolbar (single row) -->
-                    <div class="flex items-center gap-2" id="toolbar-buttons">
-                        <!-- Edit View: Back button (shown only in edit view) -->
+                </div>
+                <!-- Panel Toolbar -->
+                <div class="panel-toolbar" id="toolbar-buttons">
+                    <!-- Left side: Primary actions -->
+                    <div class="flex items-center gap-2">
+                        <!-- Edit View: Back button -->
                         <button class="btn-outline btn-sm" id="btn-back-to-list" style="display: none;">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -243,7 +227,7 @@
                             목록으로
                         </button>
 
-                        <!-- List View: New scenario button (shown only in list view) -->
+                        <!-- List View: New scenario button -->
                         <button class="btn-outline btn-sm" id="btn-new-scenario" onclick="window.macroApp.createNewScenario()">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -251,27 +235,15 @@
                             새 시나리오
                         </button>
 
-                        <!-- List View: Select all button (shown only in list view) -->
+                        <!-- List View: Select all button -->
                         <button class="btn-outline btn-sm" id="btn-select-all">
                             전체 선택
                         </button>
+                    </div>
 
-                        <!-- Spacer to push action buttons to the right -->
-                        <div class="flex-1"></div>
-
-                        <!-- List View: Run and Delete selected buttons (shown only in list view) -->
-                        <button class="btn-primary btn-sm" id="btn-run-selected">
-                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            선택 실행
-                        </button>
-                        <button class="btn-danger btn-sm" id="btn-delete-selected">
-                            선택 삭제
-                        </button>
-
-                        <!-- Edit View: Save buttons (shown only in edit view) -->
+                    <!-- Right side: Secondary actions -->
+                    <div class="flex items-center gap-2">
+                        <!-- Edit View: Save buttons -->
                         <button class="btn-outline btn-sm" id="btn-save-macro" style="display: none;">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
@@ -285,19 +257,17 @@
                             다른 이름으로 저장
                         </button>
 
-                        <!-- Always visible: Delay select (before Run button) -->
-                        <div class="flex items-center gap-2">
-                            <label for="toolbar-delay-select" style="font-size: 14px; color: #64748b; white-space: nowrap;">지연:</label>
-                            <select id="toolbar-delay-select" class="btn-outline btn-sm" style="padding: 4px 8px; min-width: 90px;">
-                                <option value="0">없음</option>
-                                <option value="100">100ms</option>
-                                <option value="300" selected>300ms</option>
-                                <option value="500">500ms</option>
-                                <option value="1000">1s</option>
-                            </select>
-                        </div>
+                        <!-- Delay select -->
+                        <label class="toolbar-label">지연:</label>
+                        <select id="toolbar-delay-select" class="btn-outline btn-sm" style="min-width: 90px;">
+                            <option value="0">없음</option>
+                            <option value="100">100ms</option>
+                            <option value="300" selected>300ms</option>
+                            <option value="500">500ms</option>
+                            <option value="1000">1s</option>
+                        </select>
 
-                        <!-- Edit View: Run button (shown only in edit view) -->
+                        <!-- Run buttons -->
                         <button class="btn-primary btn-sm" id="btn-run-macro" style="display: none;">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
@@ -305,29 +275,47 @@
                             </svg>
                             실행
                         </button>
-                    </div>
-
-                    <!-- Save buttons row (below toolbar) -->
-                    <div id="save-buttons-row" style="display: none; padding-top: 12px;">
-                        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                            <button class="btn-outline btn-sm" id="btn-save-macro-inline">
-                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
-                                </svg>
-                                저장
-                            </button>
-                            <button class="btn-outline btn-sm" id="btn-save-as-macro-inline">
-                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                                </svg>
-                                다른 이름으로 저장
-                            </button>
-                        </div>
+                        <button class="btn-primary btn-sm" id="btn-run-selected">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            선택 실행
+                        </button>
+                        <button class="btn-danger btn-sm" id="btn-delete-selected">
+                            선택 삭제
+                        </button>
                     </div>
                 </div>
 
-                <!-- Action List -->
-                <div class="flex-1 overflow-auto p-6" id="action-sequence-list">
+
+                <!-- Panel Content -->
+                <div class="panel-content" id="action-sequence-list">
+                    <!-- Scenario Info (Edit View only, hidden by default) -->
+                    <div id="macro-name-container" style="display: none; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); margin-bottom: 20px;">
+                        <div class="flex-1">
+                            <label class="setting-label" style="display: block; margin-bottom: 8px;">시나리오 이름</label>
+                            <input
+                                type="text"
+                                id="macro-name-input"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="시나리오 이름"
+                                value="새 시나리오"
+                            />
+                            <div id="filename-preview" class="text-xs text-slate-400 mt-1 font-mono">
+                                파일명: <span id="filename-preview-text">새_시나리오.json</span>
+                            </div>
+
+                            <label class="setting-label" style="display: block; margin-top: 12px; margin-bottom: 8px;">시나리오 설명 (선택사항)</label>
+                            <input
+                                type="text"
+                                id="macro-description-input"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="시나리오 설명"
+                            />
+                        </div>
+                    </div>
+
                     <!-- Empty state (hidden by default, shown by JavaScript) -->
                     <div class="empty-state" id="empty-state" style="display: none;">
                         <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -342,53 +330,26 @@
 
             <!-- Right Panel - Action List (flex-[2]) -->
             <div id="action-panel" class="flex-[2] bg-white border-l flex flex-col hidden">
-                <div class="px-6 py-4 border-b">
-                    <h2 class="text-slate-900">액션 목록</h2>
-                    <p class="text-sm text-slate-600">시나리오에 추가할 액션 선택</p>
-                </div>
-                <div class="flex-1 overflow-auto p-6" id="action-list-container">
-                    <!-- Options Box -->
-                    <div class="options-box mb-4">
-                        <div class="options-box-content">
-                            <div class="option-item">
-                                <div class="option-label">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                    <span>즉시 실행</span>
-                                    <div class="option-info">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <span class="option-tooltip">액션을 추가할 때 바로 장치에 전송하여 실행합니다. 다음 페이지를 보면서 시나리오를 작성할 수 있습니다.</span>
-                                    </div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="option-instant-execute" checked>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="option-item">
-                                <div class="option-label">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    <span>스크린 마커 표시</span>
-                                    <div class="option-info">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <span class="option-tooltip">스크린 프리뷰에 액션 좌표 마커를 표시합니다.</span>
-                                    </div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="option-show-markers" checked>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
+                <!-- Panel Header -->
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">액션 목록</h2>
+                        <p class="panel-subtitle">시나리오에 추가할 액션 선택</p>
                     </div>
+                </div>
+
+                <!-- Panel Toolbar -->
+                <div class="panel-toolbar">
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" id="option-instant-execute" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>즉시 실행</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Panel Content -->
+                <div class="panel-content" id="action-list-container">
 
                     <!-- Tabs -->
                     <div class="tabs mb-4">

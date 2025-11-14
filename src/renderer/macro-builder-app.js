@@ -997,9 +997,9 @@ class MacroBuilderApp {
     renderSelectionOverlay() {
         // This will be called by updateSelectedActionMarker
         const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
-        if (selectedAction) {
-            this.updateSelectedActionMarker(selectedAction);
-        }
+        // Always call updateSelectedActionMarker to render live selection overlay
+        // Even if there's no selected action (e.g., when selecting for a condition)
+        this.updateSelectedActionMarker(selectedAction || {});
     }
 
     updateSelectedActionMarker(action) {
