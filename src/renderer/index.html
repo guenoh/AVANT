@@ -316,6 +316,24 @@
                         </div>
                     </div>
 
+                    <!-- Save buttons row (shown in edit view) -->
+                    <div id="save-buttons-row" style="display: none; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); margin-bottom: 16px;">
+                        <div class="flex gap-2">
+                            <button class="btn-primary btn-sm flex-1" id="btn-save-macro-inline" disabled>
+                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                                </svg>
+                                저장
+                            </button>
+                            <button class="btn-outline btn-sm flex-1" id="btn-save-as-macro-inline">
+                                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                </svg>
+                                다른 이름으로 저장
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Empty state (hidden by default, shown by JavaScript) -->
                     <div class="empty-state" id="empty-state" style="display: none;">
                         <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
