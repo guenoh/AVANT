@@ -1515,6 +1515,13 @@ class MacroBuilderApp {
         if (scenarioEditHeader) {
             scenarioEditHeader.style.display = '';
         }
+
+        // Update scenario edit title with current scenario name
+        const scenarioEditTitle = document.getElementById('scenario-edit-title');
+        if (scenarioEditTitle) {
+            const scenarioName = this.macroName || '새 시나리오';
+            scenarioEditTitle.textContent = `${scenarioName}`;
+        }
         // Show macro name input in content area
         if (macroNameContainer) {
             macroNameContainer.style.display = '';
