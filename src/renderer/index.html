@@ -211,9 +211,7 @@
                 <!-- Panel Header: Edit View (hidden by default) -->
                 <div class="panel-header" id="scenario-edit-header" style="display: none;">
                     <div>
-                        <h2 class="panel-title">
-                            <span id="scenario-edit-title">시나리오 편집</span>
-                        </h2>
+                        <h2 class="panel-title">시나리오 편집</h2>
                         <p class="panel-subtitle">액션을 추가하여 시나리오를 구성하세요</p>
                     </div>
                 </div>
@@ -295,6 +293,11 @@
                 <div class="panel-content" id="action-sequence-list">
                     <!-- Scenario Info (Edit View only, hidden by default) -->
                     <div id="macro-name-container" style="display: none; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); margin-bottom: 20px;">
+                        <!-- Scenario Title Display -->
+                        <h3 id="scenario-title-display" style="font-size: 1.25rem; font-weight: 600; color: var(--slate-900); margin-bottom: 16px;">
+                            새 시나리오
+                        </h3>
+
                         <div class="flex-1">
                             <label class="setting-label" style="display: block; margin-bottom: 8px;">시나리오 이름</label>
                             <input
