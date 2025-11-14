@@ -170,21 +170,34 @@ class UIComponents {
      */
     static slider({ value = 50, min = 0, max = 100, actionId, field, label, unit = '%', marks = true, helper = '' }) {
         const percentage = ((value - min) / (max - min)) * 100;
+        const sliderId = `slider-${actionId}-${field}`;
+        const labelId = `label-${actionId}-${field}`;
 
         return `
             <div>
                 <label class="setting-label">
-                    ${label}: <span class="font-mono text-primary-600">${value}${unit}</span>
+                    ${label}: <span class="font-mono text-primary-600" id="${labelId}">${value}${unit}</span>
                 </label>
                 <input
                     type="range"
+                    id="${sliderId}"
                     class="setting-slider mt-2"
                     min="${min}"
                     max="${max}"
                     value="${value}"
                     data-action-id="${actionId}"
                     data-setting="${field}"
-                    onchange="window.macroApp.updateActionSetting('${actionId}', '${field}', parseFloat(this.value))"
+                    data-min="${min}"
+                    data-max="${max}"
+                    data-unit="${unit}"
+                    data-label-id="${labelId}"
+                    style="--value: ${percentage}%"
+                    oninput="
+                        const percent = ((this.value - ${min}) / (${max} - ${min})) * 100;
+                        this.style.setProperty('--value', percent + '%');
+                        document.getElementById('${labelId}').textContent = this.value + '${unit}';
+                    "
+                    onchange="window.macroApp.updateActionSetting('${actionId}', '${field}', parseFloat(this.value) / 100)"
                 >
                 ${marks ? `
                     <div class="flex justify-between text-xs text-slate-500 mt-1">
@@ -306,6 +319,54 @@ class UIComponents {
         return `
             <div class="grid grid-cols-${columns} gap-4">
                 ${items.join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * Comparison Operator Selector
+     * Used for unified condition system (image-match, sound-check, get-volume)
+     */
+    static comparisonOperator({ operator = '>=', value = 0, operators = [], actionId, conditionId = null, label = 'Comparison', unit = '', min, max, step = 1 }) {
+        const updateFunction = conditionId
+            ? `window.macroApp.updateConditionComparison('${actionId}', '${conditionId}', field, newValue)`
+            : `window.macroApp.updateActionComparison('${actionId}', field, newValue)`;
+
+        return `
+            <div class="space-y-3">
+                ${label ? `<label class="setting-label">${label}</label>` : ''}
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Operator Selector -->
+                    <div>
+                        <label class="text-xs text-slate-600 mb-1 block">Operator</label>
+                        <select
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                            onchange="const field = 'operator'; const newValue = this.value; ${updateFunction}"
+                        >
+                            ${operators.map(op => `
+                                <option value="${op.value}" ${operator === op.value ? 'selected' : ''}>
+                                    ${op.label}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+
+                    <!-- Value Input -->
+                    <div>
+                        <label class="text-xs text-slate-600 mb-1 block">Value${unit ? ` (${unit})` : ''}</label>
+                        <input
+                            type="number"
+                            value="${value}"
+                            ${min !== undefined ? `min="${min}"` : ''}
+                            ${max !== undefined ? `max="${max}"` : ''}
+                            ${step !== undefined ? `step="${step}"` : ''}
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                            onchange="const field = 'value'; const newValue = parseFloat(this.value); ${updateFunction}"
+                        >
+                    </div>
+                </div>
             </div>
         `;
     }

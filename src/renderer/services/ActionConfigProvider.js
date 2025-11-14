@@ -150,7 +150,20 @@ class ActionConfigProvider {
                     { name: 'timeout', type: 'number', label: 'Timeout (ms)', required: true, min: 1000, max: 60000, default: 10000 }
                 ],
                 defaultParams: { imagePath: '', threshold: 0.8, region: null, action: 'click', timeout: 10000 },
-                executionTime: null // Variable
+                executionTime: null, // Variable
+
+                // Condition metadata
+                canBeCondition: true,
+                conditionReturnType: 'number', // Returns match confidence (0-1)
+                comparisonOperators: [
+                    { value: '>=', label: '>=' },
+                    { value: '>', label: '>' },
+                    { value: '==', label: '==' },
+                    { value: '<', label: '<' },
+                    { value: '<=', label: '<=' },
+                    { value: '!=', label: '!=' }
+                ],
+                defaultComparison: { operator: '>=', value: 0.95 }
             },
 
             'sound-check': {
@@ -168,7 +181,20 @@ class ActionConfigProvider {
                     { name: 'threshold.max', type: 'number', label: 'Max Threshold (dB)', required: false, min: 0, max: 100, default: 80 }
                 ],
                 defaultParams: { duration: 5000, expectation: 'present', threshold: { min: 40, max: 80 }, audioDeviceId: null },
-                executionTime: null // Variable
+                executionTime: null, // Variable
+
+                // Condition metadata
+                canBeCondition: true,
+                conditionReturnType: 'number', // Returns decibel level (dB)
+                comparisonOperators: [
+                    { value: '>=', label: '>=' },
+                    { value: '>', label: '>' },
+                    { value: '==', label: '==' },
+                    { value: '<', label: '<' },
+                    { value: '<=', label: '<=' },
+                    { value: '!=', label: '!=' }
+                ],
+                defaultComparison: { operator: '>=', value: 50 }
             },
 
             'if': {
@@ -265,6 +291,55 @@ class ActionConfigProvider {
                 defaultParams: { name: '', expectedResult: '' },
                 executionTime: 100,
                 isTesting: true
+            },
+
+            'get-volume': {
+                id: 'get-volume',
+                name: 'Get Volume',
+                category: 'system',
+                description: 'Get current device volume level',
+                icon: '🔊',
+                color: '#8b5cf6',
+                requiresCoordinates: false,
+                protocols: ['adb'],
+                fields: [
+                    {
+                        name: 'streamType',
+                        type: 'select',
+                        label: 'Stream Type',
+                        required: true,
+                        options: [
+                            { value: 'music', label: 'Music/Media' },
+                            { value: 'ring', label: 'Ringtone' },
+                            { value: 'alarm', label: 'Alarm' },
+                            { value: 'notification', label: 'Notification' }
+                        ],
+                        default: 'music'
+                    },
+                    {
+                        name: 'saveToVariable',
+                        type: 'text',
+                        label: 'Save to Variable (optional)',
+                        required: false,
+                        placeholder: 'e.g., currentVolume'
+                    }
+                ],
+                defaultParams: { streamType: 'music', saveToVariable: '' },
+                executionTime: 500,
+                isSystemInfo: true,
+
+                // Condition metadata
+                canBeCondition: true,
+                conditionReturnType: 'number', // Returns volume level (0-100)
+                comparisonOperators: [
+                    { value: '>=', label: '>=' },
+                    { value: '>', label: '>' },
+                    { value: '==', label: '==' },
+                    { value: '<', label: '<' },
+                    { value: '<=', label: '<=' },
+                    { value: '!=', label: '!=' }
+                ],
+                defaultComparison: { operator: '>=', value: 50 }
             }
         };
     }
@@ -322,6 +397,14 @@ class ActionConfigProvider {
                 description: 'Test assertions and utilities',
                 icon: '✅',
                 color: '#16a34a'
+            },
+            system: {
+                id: 'system',
+                name: 'System Info (ADB)',
+                description: 'Device system information (ADB only)',
+                icon: '📊',
+                color: '#8b5cf6',
+                protocols: ['adb']
             }
         };
     }
@@ -559,6 +642,102 @@ class ActionConfigProvider {
 
     getTestingActions() {
         return this.getActionTypesByCategory('testing');
+    }
+
+    /**
+     * Check if action is supported by protocol
+     */
+    isSupportedByProtocol(typeId, protocol) {
+        const actionType = this.actionTypes[typeId];
+        if (!actionType) return false;
+
+        // If no protocol constraint, support all protocols
+        if (!actionType.protocols) return true;
+
+        // If protocol constraint exists, only support specified protocols
+        return actionType.protocols.includes(protocol);
+    }
+
+    /**
+     * Get actions by protocol
+     */
+    getActionsByProtocol(protocol) {
+        return Object.values(this.actionTypes).filter(action =>
+            !action.protocols || action.protocols.includes(protocol)
+        );
+    }
+
+    /**
+     * Get category info with protocol support
+     */
+    getCategoryWithProtocolInfo(categoryId, currentProtocol) {
+        const category = this.actionCategories[categoryId];
+        if (!category) return null;
+
+        const isSupported = !category.protocols ||
+                           category.protocols.includes(currentProtocol);
+
+        return {
+            ...category,
+            isSupported,
+            protocolHint: category.protocols ?
+                `(${category.protocols.join(', ')} only)` : ''
+        };
+    }
+
+    /**
+     * Check if action is system info type
+     */
+    isSystemInfo(typeId) {
+        const actionType = this.actionTypes[typeId];
+        return actionType ? actionType.isSystemInfo === true : false;
+    }
+
+    /**
+     * Check if action can be used as a condition
+     */
+    canBeCondition(typeId) {
+        const actionType = this.actionTypes[typeId];
+        return actionType ? actionType.canBeCondition === true : false;
+    }
+
+    /**
+     * Get condition metadata for an action type
+     */
+    getConditionMetadata(typeId) {
+        const actionType = this.actionTypes[typeId];
+        if (!actionType || !actionType.canBeCondition) {
+            return null;
+        }
+
+        return {
+            returnType: actionType.conditionReturnType,
+            operators: actionType.comparisonOperators,
+            defaultComparison: actionType.defaultComparison
+        };
+    }
+
+    /**
+     * Get all action types that can be used as conditions
+     */
+    getConditionCapableActions() {
+        return Object.values(this.actionTypes).filter(action => action.canBeCondition === true);
+    }
+
+    /**
+     * Get comparison operators for a specific action type
+     */
+    getComparisonOperators(typeId) {
+        const actionType = this.actionTypes[typeId];
+        return actionType?.comparisonOperators || [];
+    }
+
+    /**
+     * Get default comparison for an action type
+     */
+    getDefaultComparison(typeId) {
+        const actionType = this.actionTypes[typeId];
+        return actionType?.defaultComparison || { operator: '>=', value: 0 };
     }
 }
 

@@ -304,6 +304,14 @@ class MacroBuilderApp {
             });
         }
 
+        // Screen pause toggle
+        const pauseScreenBtn = document.getElementById('btn-pause-screen');
+        if (pauseScreenBtn) {
+            pauseScreenBtn.addEventListener('click', () => {
+                this.toggleScreenPause();
+            });
+        }
+
         // Handle multiple "new scenario" buttons (there are 2 in the UI)
         document.querySelectorAll('#btn-new-scenario').forEach(btn => {
             btn.addEventListener('click', () => this.createNewScenario());
@@ -1321,6 +1329,7 @@ class MacroBuilderApp {
                 { type: 'home', icon: this.getIconSVG('home'), label: '홈', description: '홈 버튼', color: 'bg-cyan-500' },
                 { type: 'back', icon: this.getIconSVG('arrow-left'), label: '뒤로', description: '뒤로가기', color: 'bg-pink-500' },
                 { type: 'sound-check', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>', label: '사운드 체크', description: '데시벨 측정', color: 'bg-indigo-600' },
+                { type: 'get-volume', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.414a2 2 0 002.828 0L16 8V5l-3 3-8.586 8.586z"></path></svg>', label: 'Get Volume', description: 'ADB 볼륨 정보', color: 'bg-purple-600' },
             ],
             image: [
                 { type: 'screenshot', icon: this.getIconSVG('camera'), label: '스크린샷', description: '화면 저장', color: 'bg-violet-500' },
@@ -1329,13 +1338,13 @@ class MacroBuilderApp {
             ],
             logic: [
                 { type: 'if', icon: this.getIconSVG('git-branch'), label: 'If', description: '조건문', color: 'bg-emerald-500' },
-                { type: 'else-if', icon: this.getIconSVG('code'), label: 'Else If', description: '추가 조건', color: 'bg-teal-500' },
-                { type: 'else', icon: this.getIconSVG('code'), label: 'Else', description: '기본 실행', color: 'bg-sky-500' },
-                { type: 'end-if', icon: this.getIconSVG('x'), label: 'End If', description: '조건 종료', color: 'bg-red-500' },
+                { type: 'else-if', icon: this.getIconSVG('code'), label: 'Else If', description: '추가 조건', color: 'bg-emerald-500' },
+                { type: 'else', icon: this.getIconSVG('code'), label: 'Else', description: '기본 실행', color: 'bg-emerald-500' },
+                // end-if removed - auto-generated with if
                 { type: 'loop', icon: this.getIconSVG('repeat'), label: 'Loop', description: '반복문', color: 'bg-pink-500' },
-                { type: 'end-loop', icon: this.getIconSVG('x'), label: 'End Loop', description: '반복 종료', color: 'bg-red-500' },
+                // end-loop removed - auto-generated with loop
                 { type: 'while', icon: this.getIconSVG('rotate-cw'), label: 'While', description: '조건 반복', color: 'bg-cyan-500' },
-                { type: 'end-while', icon: this.getIconSVG('x'), label: 'End While', description: 'While 종료', color: 'bg-red-500' },
+                // end-while removed - auto-generated with while
                 { type: 'log', icon: this.getIconSVG('file-text'), label: '로그', description: '로그 저장', color: 'bg-amber-500' },
                 { type: 'success', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', label: 'Success', description: '성공 종료', color: 'bg-green-500' },
                 { type: 'skip', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>', label: 'Skip', description: '시나리오 스킵', color: 'bg-yellow-500' },
@@ -1460,20 +1469,26 @@ class MacroBuilderApp {
             }),
         };
 
-        this.actions.push(newAction);
-
-        // Mark as changed
-        this.markAsChanged();
-
-        // Auto-add END block for control flow structures
+        // Auto-add END block for control flow structures with pairId
         if (type === 'if' || type === 'while' || type === 'loop') {
+            const pairId = `pair-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            newAction.pairId = pairId;
+
             const endType = type === 'if' ? 'end-if' : type === 'while' ? 'end-while' : 'end-loop';
             const endAction = {
                 id: `action-${Date.now() + 1}`,
-                type: endType
+                type: endType,
+                pairId: pairId
             };
+
+            this.actions.push(newAction);
             this.actions.push(endAction);
+        } else {
+            this.actions.push(newAction);
         }
+
+        // Mark as changed
+        this.markAsChanged();
 
         this.selectedActionId = newAction.id;
         this.renderActionSequence();
@@ -1490,12 +1505,17 @@ class MacroBuilderApp {
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
         const scenarioListHeader = document.getElementById('scenario-list-header');
+        const scenarioEditHeader = document.getElementById('scenario-edit-header');
         const macroNameContainer = document.getElementById('macro-name-container');
 
-        // Hide scenario list header, show macro name input
+        // Switch headers: hide list header, show edit header
         if (scenarioListHeader) {
             scenarioListHeader.style.display = 'none';
         }
+        if (scenarioEditHeader) {
+            scenarioEditHeader.style.display = '';
+        }
+        // Show macro name input in content area
         if (macroNameContainer) {
             macroNameContainer.style.display = '';
         }
@@ -1781,18 +1801,22 @@ class MacroBuilderApp {
     // Drag and Drop handlers
     handleActionBlockDragStart(event, actionId) {
         this.isDraggingAction = true;
+        this.draggedActionId = actionId; // Store for use in dragover
+
         const action = this.actions.find(a => a.id === actionId);
         if (!action) return;
 
         event.dataTransfer.setData('actionId', actionId);
         event.dataTransfer.setData('actionType', action.type);
-        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.effectAllowed = 'move';
 
         // Set custom drag image to the action block itself
         const actionBlock = event.target.closest('[data-action-id]');
         if (actionBlock) {
             const dragImage = actionBlock.querySelector('.action-block');
             if (dragImage) {
+                // Add dragging class for visual feedback
+                dragImage.classList.add('dragging');
                 event.dataTransfer.setDragImage(dragImage, 20, 20);
             }
         }
@@ -1801,7 +1825,241 @@ class MacroBuilderApp {
     handleActionDragEnd(event) {
         setTimeout(() => {
             this.isDraggingAction = false;
+            this.draggedActionId = null; // Clear dragged action
         }, 100);
+
+        // Remove dragging class from all blocks
+        document.querySelectorAll('.action-block').forEach(block => {
+            block.classList.remove('dragging');
+        });
+
+        // Remove drag-over classes from all containers
+        document.querySelectorAll('[data-action-id]').forEach(container => {
+            container.classList.remove('drag-over-before', 'drag-over-after');
+        });
+
+        // Remove placeholder
+        this.removeDragPlaceholder();
+    }
+
+    handleActionDragOver(event, targetActionId) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Use stored draggedActionId (getData doesn't work in dragover for security reasons)
+        const draggedActionId = this.draggedActionId;
+        if (!draggedActionId || draggedActionId === targetActionId) return;
+
+        const targetElement = event.currentTarget;
+        const actionBlock = targetElement.querySelector('.action-block');
+        if (!actionBlock) return;
+
+        // Get dragged and target actions
+        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const draggedAction = this.actions[draggedIndex];
+        const targetAction = this.actions[targetIndex];
+
+        // Determine if dropping before or after based on mouse position
+        const rect = actionBlock.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        let isAfter = event.clientY > midpoint;
+
+        // Smart position adjustment for END blocks
+        // If target is an END block (end-if, end-loop, end-while), always insert AFTER it
+        if (targetAction.type.startsWith('end-')) {
+            isAfter = true;
+        }
+
+        // Check if this would be a no-op move (same position)
+        // Case 1: Dragging to position immediately after itself (next block)
+        if (!isAfter && targetIndex === draggedIndex + 1) {
+            return; // No-op, same position
+        }
+        // Case 2: Dragging to position immediately before itself
+        if (isAfter && targetIndex === draggedIndex - 1) {
+            return; // No-op, same position
+        }
+
+        // Remove existing placeholder
+        this.removeDragPlaceholder();
+
+        // Create and insert placeholder element
+        const placeholder = document.createElement('div');
+        placeholder.className = 'drag-placeholder';
+        placeholder.setAttribute('data-target-id', targetActionId);
+        placeholder.setAttribute('data-insert-after', isAfter);
+        placeholder.style.cssText = `
+            height: 80px;
+            margin: 12px 0;
+            border: 3px dashed #3b82f6;
+            border-radius: 10px;
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            animation: placeholderPulse 1.5s ease-in-out infinite;
+        `;
+
+        // Make placeholder accept drop events
+        placeholder.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        placeholder.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetId = placeholder.getAttribute('data-target-id');
+            const insertAfter = placeholder.getAttribute('data-insert-after') === 'true';
+            this.handleActionDropOnPlaceholder(e, targetId, insertAfter);
+        });
+
+        if (isAfter) {
+            targetElement.insertAdjacentElement('afterend', placeholder);
+        } else {
+            targetElement.insertAdjacentElement('beforebegin', placeholder);
+        }
+    }
+
+    removeDragPlaceholder() {
+        const existingPlaceholder = document.querySelector('.drag-placeholder');
+        if (existingPlaceholder) {
+            existingPlaceholder.remove();
+        }
+    }
+
+    handleActionDragLeave(event, targetActionId) {
+        // Note: We don't remove placeholder on drag leave because
+        // the user might be moving between nested elements
+        // Placeholder will be updated or removed on next dragover or drop
+    }
+
+    handleActionDropOnPlaceholder(event, targetActionId, insertAfter) {
+        // Reuse the main drop handler with the stored position
+        const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
+        if (!draggedActionId || draggedActionId === targetActionId) {
+            this.removeDragPlaceholder();
+            return;
+        }
+
+        // Find the dragged action and its pair (if exists)
+        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+
+        if (draggedIndex === -1 || targetIndex === -1) {
+            this.removeDragPlaceholder();
+            return;
+        }
+
+        const draggedAction = this.actions[draggedIndex];
+        let blocksToMove = [draggedAction];
+        let pairAction = null;
+
+        if (draggedAction.pairId) {
+            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
+            if (pairAction) {
+                blocksToMove.push(pairAction);
+            }
+        }
+
+        // Find the range of blocks to move
+        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+
+        // Extract ALL blocks in the range
+        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
+        const blockCount = endIndex - startIndex + 1;
+
+        // Remove all blocks in the range from current position
+        this.actions.splice(startIndex, blockCount);
+
+        // Recalculate target index after removal
+        let insertIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (insertIndex === -1) {
+            this.removeDragPlaceholder();
+            return;
+        }
+
+        if (insertAfter) {
+            insertIndex++;
+        }
+
+        // Insert all blocks at new position
+        this.actions.splice(insertIndex, 0, ...movingBlocks);
+
+        // Remove placeholder
+        this.removeDragPlaceholder();
+
+        // Mark as changed and re-render
+        this.markAsChanged();
+        this.renderActionSequence();
+
+        console.log(`Reordered (via placeholder): moved ${blockCount} block(s) to position ${insertIndex}`);
+    }
+
+    handleActionDrop(event, targetActionId) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Use stored draggedActionId for consistency
+        const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
+        if (!draggedActionId || draggedActionId === targetActionId) return;
+
+        // Find the dragged action and its pair (if exists)
+        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const draggedAction = this.actions[draggedIndex];
+        let blocksToMove = [draggedAction];
+        let pairAction = null;
+
+        if (draggedAction.pairId) {
+            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
+            if (pairAction) {
+                blocksToMove.push(pairAction);
+            }
+        }
+
+        // Find the range of blocks to move (from start to end, including everything in between)
+        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+
+        // Extract ALL blocks in the range (including any actions between pair blocks)
+        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
+        const blockCount = endIndex - startIndex + 1;
+
+        // Determine if dropping before or after target
+        const targetElement = event.currentTarget;
+        const actionBlock = targetElement.querySelector('.action-block');
+        const rect = actionBlock.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isAfter = event.clientY > midpoint;
+
+        // Remove all blocks in the range from current position
+        this.actions.splice(startIndex, blockCount);
+
+        // Recalculate target index after removal
+        let insertIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (insertIndex === -1) return;
+
+        if (isAfter) {
+            insertIndex++;
+        }
+
+        // Insert all blocks at new position (maintaining their order)
+        this.actions.splice(insertIndex, 0, ...movingBlocks);
+
+        // Remove placeholder
+        this.removeDragPlaceholder();
+
+        // Mark as changed and re-render
+        this.markAsChanged();
+        this.renderActionSequence();
+
+        console.log(`Reordered: moved ${blockCount} block(s) (entire range) to position ${insertIndex}`);
     }
 
     handleConditionDrop(event, targetActionId) {
@@ -1961,6 +2219,35 @@ class MacroBuilderApp {
         if (!condition) return;
 
         condition.operator = operator;
+        this.renderActionSequence();
+    }
+
+    updateConditionComparison(actionId, conditionId, field, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action || !action.conditions) return;
+
+        const condition = action.conditions.find(c => c.id === conditionId);
+        if (!condition) return;
+
+        // Initialize comparison object if not exists
+        if (!condition.comparison) {
+            condition.comparison = { operator: '>=', value: 0 };
+        }
+
+        condition.comparison[field] = value;
+        this.renderActionSequence();
+    }
+
+    updateActionComparison(actionId, field, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        // Initialize comparison object if not exists
+        if (!action.comparison) {
+            action.comparison = { operator: '>=', value: 0 };
+        }
+
+        action.comparison[field] = value;
         this.renderActionSequence();
     }
 
@@ -2356,7 +2643,11 @@ class MacroBuilderApp {
         const ringClass = isRunning ? 'ring-4 ring-blue-400 ring-opacity-50 animate-pulse' : '';
 
         return `
-            <div style="margin-left: ${depth * 24}px; position: relative;" data-action-id="${action.id}">
+            <div style="margin-left: ${depth * 24}px; position: relative;"
+                 data-action-id="${action.id}"
+                 ondragover="window.macroApp.handleActionDragOver(event, '${action.id}')"
+                 ondragleave="window.macroApp.handleActionDragLeave(event, '${action.id}')"
+                 ondrop="window.macroApp.handleActionDrop(event, '${action.id}')">
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
 
@@ -2526,19 +2817,20 @@ class MacroBuilderApp {
             'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderClass: 'border-indigo-500', bgClass: 'bg-indigo-50', icon: this.getIconSVG('image') },
             'tap-matched-image': { label: '찾은 영역 클릭', color: 'bg-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-50', icon: this.getIconSVG('target') },
             'if': { label: 'If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('git-branch') },
-            'else-if': { label: 'Else If', color: 'bg-teal-500', borderClass: 'border-teal-500', bgClass: 'bg-teal-50', icon: this.getIconSVG('code') },
-            'else': { label: 'Else', color: 'bg-sky-500', borderClass: 'border-sky-500', bgClass: 'bg-sky-50', icon: this.getIconSVG('code') },
+            'else-if': { label: 'Else If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('code') },
+            'else': { label: 'Else', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('code') },
             'log': { label: '로그', color: 'bg-amber-500', borderClass: 'border-amber-500', bgClass: 'bg-amber-50', icon: this.getIconSVG('file-text') },
             'loop': { label: 'Loop', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('repeat') },
             'while': { label: 'While', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('rotate-cw') },
-            'end-if': { label: 'End If', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
-            'end-loop': { label: 'End Loop', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
-            'end-while': { label: 'End While', color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50', icon: this.getIconSVG('x') },
+            'end-if': { label: 'End If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('x') },
+            'end-loop': { label: 'End Loop', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('x') },
+            'end-while': { label: 'End While', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('x') },
             'success': { label: 'Success', color: 'bg-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-50', icon: this.getIconSVG('check-circle') },
             'skip': { label: 'Skip', color: 'bg-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-50', icon: this.getIconSVG('skip-forward') },
             'fail': { label: 'Fail', color: 'bg-red-600', borderClass: 'border-red-600', bgClass: 'bg-red-50', icon: this.getIconSVG('x-circle') },
             'test': { label: '테스트', color: 'bg-fuchsia-500', borderClass: 'border-fuchsia-500', bgClass: 'bg-fuchsia-50', icon: this.getIconSVG('settings') },
             'sound-check': { label: '사운드 체크', color: 'bg-indigo-600', borderClass: 'border-indigo-600', bgClass: 'bg-indigo-50', icon: this.getIconSVG('mic') },
+            'get-volume': { label: 'Get Volume', color: 'bg-purple-600', borderClass: 'border-purple-600', bgClass: 'bg-purple-50', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.414a2 2 0 002.828 0L16 8V5l-3 3-8.586 8.586z"></path></svg>' },
         };
         return configs[type] || configs['click'];
     }
@@ -2620,6 +2912,12 @@ class MacroBuilderApp {
                     return `${duration}초간 ${action.threshold?.min || 0}~${action.threshold?.max || 100}dB`;
                 }
                 return `${duration}초간 측정`;
+            case 'get-volume':
+                const streamType = action.streamType || 'music';
+                const streamLabels = { music: 'Music', ring: 'Ring', alarm: 'Alarm', notification: 'Notification' };
+                const streamLabel = streamLabels[streamType] || streamType;
+                const variable = action.saveToVariable ? ` → ${action.saveToVariable}` : '';
+                return `${streamLabel} 볼륨${variable}`;
             default:
                 return '';
         }
@@ -2660,7 +2958,16 @@ class MacroBuilderApp {
     }
 
     deleteAction(id) {
-        this.actions = this.actions.filter(a => a.id !== id);
+        // Find the action to delete
+        const actionToDelete = this.actions.find(a => a.id === id);
+        if (!actionToDelete) return;
+
+        // If action has a pairId, delete its pair as well
+        if (actionToDelete.pairId) {
+            this.actions = this.actions.filter(a => a.pairId !== actionToDelete.pairId);
+        } else {
+            this.actions = this.actions.filter(a => a.id !== id);
+        }
 
         // Mark as changed
         this.markAsChanged();
@@ -2681,13 +2988,55 @@ class MacroBuilderApp {
     }
 
     moveAction(id, direction) {
+        const action = this.actions.find(a => a.id === id);
+        if (!action) return;
+
         const index = this.actions.findIndex(a => a.id === id);
         if (index === -1) return;
 
-        const newIndex = direction === 'up' ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= this.actions.length) return;
+        // Check if this action has a pair
+        let blocksToMove = [action];
+        let pairAction = null;
 
-        [this.actions[index], this.actions[newIndex]] = [this.actions[newIndex], this.actions[index]];
+        if (action.pairId) {
+            pairAction = this.actions.find(a => a.pairId === action.pairId && a.id !== action.id);
+            if (pairAction) {
+                blocksToMove.push(pairAction);
+            }
+        }
+
+        // Find the range of blocks to move (start and end indices)
+        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const blockCount = endIndex - startIndex + 1;
+
+        // Calculate new position for the entire block
+        let newStartIndex;
+        if (direction === 'up') {
+            newStartIndex = startIndex - 1;
+            if (newStartIndex < 0) return;
+        } else {
+            newStartIndex = endIndex + 1;
+            if (newStartIndex >= this.actions.length) return;
+        }
+
+        // Extract all blocks in the range (including any actions between pair blocks)
+        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
+
+        // Remove them from current position
+        this.actions.splice(startIndex, blockCount);
+
+        // Calculate insertion index after removal
+        let insertIndex;
+        if (direction === 'up') {
+            insertIndex = startIndex - 1;
+        } else {
+            // When moving down, the insertion point doesn't change because we already removed the blocks
+            insertIndex = startIndex + 1;
+        }
+
+        // Insert all blocks at new position
+        this.actions.splice(insertIndex, 0, ...movingBlocks);
 
         // Mark as changed
         this.markAsChanged();
@@ -5145,17 +5494,51 @@ class MacroBuilderApp {
 
             if (result) {
                 this.addLog('success', '화면 스트리밍이 시작되었습니다');
+                this.isScreenPaused = false;
 
                 // Listen for stream data
                 window.api.screen.onStreamData((data) => {
-                    const img = document.getElementById('screen-stream-image');
-                    if (img && data.dataUrl) {
-                        img.src = data.dataUrl;
+                    // Only update image if not paused
+                    if (!this.isScreenPaused) {
+                        const img = document.getElementById('screen-stream-image');
+                        if (img && data.dataUrl) {
+                            img.src = data.dataUrl;
+                        }
                     }
                 });
             }
         } catch (error) {
             this.addLog('error', `화면 스트리밍 실패: ${error.message}`);
+        }
+    }
+
+    toggleScreenPause() {
+        this.isScreenPaused = !this.isScreenPaused;
+
+        const pauseBtn = document.getElementById('btn-pause-screen');
+        if (!pauseBtn) return;
+
+        if (this.isScreenPaused) {
+            // Update button to show "Resume" state
+            pauseBtn.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                재개
+            `;
+            pauseBtn.classList.remove('btn-outline');
+            pauseBtn.classList.add('btn-primary');
+        } else {
+            // Update button to show "Pause" state
+            pauseBtn.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                일시정지
+            `;
+            pauseBtn.classList.remove('btn-primary');
+            pauseBtn.classList.add('btn-outline');
         }
     }
 
@@ -6192,13 +6575,18 @@ class MacroBuilderApp {
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
         const scenarioListHeader = document.getElementById('scenario-list-header');
+        const scenarioEditHeader = document.getElementById('scenario-edit-header');
         const macroNameContainer = document.getElementById('macro-name-container');
         const isDeviceConnected = this.adbDevices && this.adbDevices.length > 0;
 
-        // Show scenario list header, hide macro name input
+        // Switch headers: show list header, hide edit header
         if (scenarioListHeader) {
             scenarioListHeader.style.display = '';
         }
+        if (scenarioEditHeader) {
+            scenarioEditHeader.style.display = 'none';
+        }
+        // Hide macro name input in content area
         if (macroNameContainer) {
             macroNameContainer.style.display = 'none';
         }
@@ -6831,22 +7219,43 @@ class MacroBuilderApp {
 
         if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Reorder blocks
-        const [draggedBlock] = this.scenarioBlocks.splice(draggedIndex, 1);
-        let insertIndex = targetIndex;
+        // Find dragged block and its pair if exists
+        const draggedBlock = this.scenarioBlocks[draggedIndex];
+        let blocksToMove = [draggedBlock];
+        let pairBlock = null;
 
-        // Adjust insert index if needed
-        if (draggedIndex < targetIndex && !isAfter) {
-            insertIndex--;
-        } else if (draggedIndex > targetIndex && isAfter) {
-            insertIndex++;
-        } else if (isAfter) {
+        if (draggedBlock.pairId) {
+            pairBlock = this.scenarioBlocks.find(b =>
+                b.pairId === draggedBlock.pairId && b.id !== draggedBlock.id
+            );
+            if (pairBlock) {
+                blocksToMove.push(pairBlock);
+            }
+        }
+
+        // Find the range of blocks to move (from start to end, including everything in between)
+        const startIndex = Math.min(...blocksToMove.map(b => this.scenarioBlocks.findIndex(sb => sb.id === b.id)));
+        const endIndex = Math.max(...blocksToMove.map(b => this.scenarioBlocks.findIndex(sb => sb.id === b.id)));
+
+        // Extract ALL blocks in the range (including any actions between pair blocks)
+        const movingBlocks = this.scenarioBlocks.slice(startIndex, endIndex + 1);
+        const blockCount = endIndex - startIndex + 1;
+
+        // Remove all blocks in the range from current position
+        this.scenarioBlocks.splice(startIndex, blockCount);
+
+        // Recalculate target index after removal
+        let insertIndex = this.scenarioBlocks.findIndex(b => b.id === targetBlockId);
+        if (insertIndex === -1) return;
+
+        if (isAfter) {
             insertIndex++;
         }
 
-        this.scenarioBlocks.splice(insertIndex, 0, draggedBlock);
+        // Insert all blocks at new position (maintaining their order)
+        this.scenarioBlocks.splice(insertIndex, 0, ...movingBlocks);
 
-        console.log(`Reordered: moved block from ${draggedIndex} to ${insertIndex}`);
+        console.log(`Reordered: moved ${blockCount} block(s) (entire range) to position ${insertIndex}`);
 
         // Re-render
         this.renderScenarioBlocks();

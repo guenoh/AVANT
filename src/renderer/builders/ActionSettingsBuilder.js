@@ -27,7 +27,8 @@ class ActionSettingsBuilder {
             ['test', this.buildTestSettings.bind(this)],
             ['home', this.buildNoSettings.bind(this)],
             ['back', this.buildNoSettings.bind(this)],
-            ['sound-check', this.buildSoundCheckSettings.bind(this)]
+            ['sound-check', this.buildSoundCheckSettings.bind(this)],
+            ['get-volume', this.buildGetVolumeSettings.bind(this)]
         ]);
     }
 
@@ -143,25 +144,42 @@ class ActionSettingsBuilder {
     buildImageMatchSettings(action) {
         const UI = UIComponents;
         const threshold = action.threshold || 0.95;
-        const imagePath = action.imagePath || action.image;
+        const imagePath = action.regionImage || action.imagePath || action.image;
         const hasImage = imagePath && imagePath !== 'image.png';
 
         const imageSection = hasImage
             ? UI.formGroup('캡처된 이미지', UI.imageThumbnail(imagePath, 'Captured region'))
             : UI.alert('화면에서 영역을 선택하여 이미지를 캡처하세요', 'info');
 
-        const thresholdSlider = UI.slider({
-            value: Math.round(threshold * 100),
-            min: 50,
-            max: 100,
+        // Get comparison data (backward compatible)
+        const comparison = action.comparison || { operator: '>=', value: threshold };
+
+        // Get operators from ActionConfigProvider
+        const metadata = window.actionConfigProvider?.getConditionMetadata('image-match');
+        const operators = metadata?.operators || [
+            { value: '>=', label: '>=' },
+            { value: '>', label: '>' },
+            { value: '==', label: '==' },
+            { value: '<', label: '<' },
+            { value: '<=', label: '<=' },
+            { value: '!=', label: '!=' }
+        ];
+
+        const comparisonUI = UI.comparisonOperator({
+            operator: comparison.operator,
+            value: comparison.value,
+            operators: operators,
             actionId: action.id,
-            field: 'threshold',
-            label: '매칭 임계값',
-            unit: '%',
-            helper: '낮을수록 유사한 이미지도 매칭됩니다'
+            label: '매칭 조건',
+            unit: '신뢰도',
+            min: 0,
+            max: 1,
+            step: 0.01
         });
 
-        return UI.section(imageSection + thresholdSlider);
+        const helperText = UI.alert('조건이 참일 때 다음 액션들이 실행됩니다', 'info');
+
+        return UI.section(imageSection + comparisonUI + helperText);
     }
 
     /**
@@ -436,6 +454,77 @@ UI.slider({
                 <p class="text-xs text-slate-600">사운드 체크 설정 (구현 예정)</p>
             </div>
         `;
+    }
+
+    /**
+     * Get volume settings
+     */
+    buildGetVolumeSettings(action) {
+        const UI = UIComponents;
+
+        const streamTypeSelect = UI.formGroup('스트림 타입',
+            UI.select({
+                value: action.streamType || 'music',
+                options: [
+                    { value: 'music', label: 'Music/Media' },
+                    { value: 'ring', label: 'Ringtone' },
+                    { value: 'alarm', label: 'Alarm' },
+                    { value: 'notification', label: 'Notification' }
+                ],
+                actionId: action.id,
+                field: 'streamType'
+            }),
+            '가져올 볼륨 스트림 종류를 선택하세요'
+        );
+
+        const variableInput = UI.formGroup('변수명 (선택사항)',
+            UI.textInput({
+                value: action.saveToVariable || '',
+                placeholder: 'e.g., currentVolume',
+                actionId: action.id,
+                field: 'saveToVariable'
+            }),
+            '볼륨 값을 저장할 변수명을 입력하세요'
+        );
+
+        // Get comparison data (for condition usage)
+        const comparison = action.comparison || { operator: '>=', value: 50 };
+
+        // Get operators from ActionConfigProvider
+        const metadata = window.actionConfigProvider?.getConditionMetadata('get-volume');
+        const operators = metadata?.operators || [
+            { value: '>=', label: '>=' },
+            { value: '>', label: '>' },
+            { value: '==', label: '==' },
+            { value: '<', label: '<' },
+            { value: '<=', label: '<=' },
+            { value: '!=', label: '!=' }
+        ];
+
+        const comparisonUI = UI.comparisonOperator({
+            operator: comparison.operator,
+            value: comparison.value,
+            operators: operators,
+            actionId: action.id,
+            label: '볼륨 조건 (조건문 사용시)',
+            unit: '레벨 (0-100)',
+            min: 0,
+            max: 100,
+            step: 1
+        });
+
+        const infoAlert = UI.alert(
+            'ADB 전용: 디바이스의 볼륨 정보를 가져옵니다',
+            'info'
+        );
+
+        return UI.section(
+            infoAlert +
+            streamTypeSelect +
+            variableInput +
+            UI.divider() +
+            comparisonUI
+        );
     }
 
     /**
