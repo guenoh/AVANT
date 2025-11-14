@@ -6408,9 +6408,9 @@ class MacroBuilderApp {
         return backToListBtn && backToListBtn.style.display === 'none';
     }
 
-    renderScenarioListInPanel() {
-        // Check for unsaved changes before navigating away
-        if (!this.checkUnsavedChanges()) {
+    renderScenarioListInPanel(skipUnsavedCheck = false) {
+        // Check for unsaved changes before navigating away (skip if called after delete/save operations)
+        if (!skipUnsavedCheck && !this.checkUnsavedChanges()) {
             console.log('[renderScenarioListInPanel] User cancelled due to unsaved changes');
             return;
         }
@@ -6722,8 +6722,8 @@ class MacroBuilderApp {
 
             this.addLog('success', `${selectedItems.length}개 시나리오 삭제 완료`);
 
-            // Refresh scenario list
-            this.renderScenarioListInPanel();
+            // Refresh scenario list (skip unsaved check since we just deleted scenarios)
+            this.renderScenarioListInPanel(true);
         } catch (error) {
             console.error('[deleteSelectedScenarios] Error:', error);
             this.addLog('error', `시나리오 삭제 실패: ${error.message}`);
