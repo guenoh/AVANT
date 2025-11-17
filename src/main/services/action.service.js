@@ -585,6 +585,54 @@ class ActionService extends EventEmitter {
   }
 
   /**
+   * Get device volume level
+   * Returns volume as percentage (0-100)
+   */
+  async getVolume(action) {
+    try {
+      // Get the current media volume using dumpsys audio
+      const output = await this._execAdb('shell dumpsys audio');
+
+      // Parse the output to find the current media volume
+      // The output contains lines like: "- STREAM_MUSIC:\n     Muted: false\n     Min: 0\n     Max: 15\n     Current: 2 (speaker): 10, 40000 (default): 10"
+      const streamMusicMatch = output.match(/- STREAM_MUSIC:[\s\S]*?Current:.*?:\s*(\d+)/);
+
+      if (!streamMusicMatch) {
+        throw new Error('Could not parse volume from device');
+      }
+
+      const currentVolume = parseInt(streamMusicMatch[1], 10);
+
+      // Get max volume to calculate percentage
+      const maxMatch = output.match(/- STREAM_MUSIC:[\s\S]*?Max:\s*(\d+)/);
+      const maxVolume = maxMatch ? parseInt(maxMatch[1], 10) : 15; // Default to 15 if not found
+
+      // Calculate percentage (0-100)
+      const volumePercentage = Math.round((currentVolume / maxVolume) * 100);
+
+      this._addToHistory({
+        type: 'get-volume',
+        volume: volumePercentage
+      });
+
+      this.emit('action-executed', {
+        type: 'get-volume',
+        volume: volumePercentage
+      });
+
+      return {
+        success: true,
+        volume: volumePercentage,
+        raw: currentVolume,
+        max: maxVolume
+      };
+    } catch (error) {
+      console.error('Get volume failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Single action execution (for IPC handler)
    */
   async execute(action) {
@@ -611,6 +659,8 @@ class ActionService extends EventEmitter {
         // This is just a placeholder that returns success
         // The actual sound check will be performed by the AudioService in main process
         return { success: true, message: 'Sound check action triggered' };
+      case 'get-volume':
+        return await this.getVolume(action);
       default:
         throw new Error(`Unknown action type: ${action.type}`);
     }

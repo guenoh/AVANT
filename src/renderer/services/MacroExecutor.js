@@ -312,22 +312,77 @@ class MacroExecutor {
             return true;
         }
 
-        if (condition.type === 'image-match') {
-            try {
-                const screenImage = await this._captureScreen(context.deviceId);
-                const result = await this.actionService.executeImageMatchAction(
-                    condition,
-                    screenImage,
-                    context
-                );
-                return result.success;
-            } catch (error) {
-                return false;
-            }
-        }
+        try {
+            // Handle different condition types
+            switch (condition.type) {
+                case 'image-match':
+                    const screenImage = await this._captureScreen(context.deviceId);
+                    const imageResult = await this.actionService.executeImageMatchAction(
+                        condition,
+                        screenImage,
+                        context
+                    );
+                    return imageResult.success;
 
-        // Other condition types can be added here
-        return true;
+                case 'get-volume':
+                    // Execute get-volume action and evaluate condition
+                    const volumeResult = await window.visionAuto.action.execute(condition);
+                    if (!volumeResult.success) {
+                        return false;
+                    }
+                    // Evaluate the comparison operator
+                    return this._evaluateComparison(
+                        volumeResult.volume,
+                        condition.operator || '>=',
+                        condition.value || 0
+                    );
+
+                case 'sound-check':
+                    // Execute sound-check action and evaluate condition
+                    const soundResult = await this.actionService.executeSoundCheckAction(condition, context);
+                    if (!soundResult.success) {
+                        return false;
+                    }
+                    // Evaluate the comparison operator
+                    return this._evaluateComparison(
+                        soundResult.similarity,
+                        condition.operator || '>=',
+                        condition.threshold || 0.8
+                    );
+
+                default:
+                    console.warn(`Unknown condition type: ${condition.type}`);
+                    return true;
+            }
+        } catch (error) {
+            console.error(`Condition evaluation failed:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Evaluate comparison operator
+     */
+    _evaluateComparison(actualValue, operator, expectedValue) {
+        switch (operator) {
+            case '>=':
+                return actualValue >= expectedValue;
+            case '<=':
+                return actualValue <= expectedValue;
+            case '>':
+                return actualValue > expectedValue;
+            case '<':
+                return actualValue < expectedValue;
+            case '==':
+            case '===':
+                return actualValue === expectedValue;
+            case '!=':
+            case '!==':
+                return actualValue !== expectedValue;
+            default:
+                console.warn(`Unknown operator: ${operator}`);
+                return false;
+        }
     }
 
     /**

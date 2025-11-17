@@ -101,105 +101,10 @@
             </div>
         </div>
 
-        <!-- Main Content - 3 Column Layout -->
+        <!-- Main Content - 3 Column Layout: Scenario | Action (slide) | Preview -->
         <div class="flex-1 flex overflow-hidden">
-            <!-- Left Panel - Screen Preview (flex-[5]) -->
-            <div id="screen-preview-panel" class="flex-[5] bg-white border-r flex flex-col">
-                <!-- Panel Header -->
-                <div class="panel-header">
-                    <div>
-                        <h2 class="panel-title">스크린 프리뷰</h2>
-                        <p class="panel-subtitle">화면을 클릭하여 좌표 설정</p>
-                    </div>
-                </div>
-
-                <!-- Panel Toolbar -->
-                <div class="panel-toolbar" id="screen-toolbar">
-                    <div class="flex items-center gap-3">
-                        <!-- Device Info -->
-                        <div class="device-status-container" id="device-status">
-                            <!-- Device status will be rendered here when connected -->
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <!-- Marker Toggle -->
-                        <label class="flex items-center gap-2 text-sm text-slate-600">
-                            <input type="checkbox" id="option-show-markers" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
-                            <span>좌표 마커</span>
-                        </label>
-
-                        <!-- Screen Pause Toggle -->
-                        <button class="btn-outline btn-sm" id="btn-pause-screen">
-                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            일시정지
-                        </button>
-                    </div>
-                </div>
-                <div class="flex-1 overflow-auto p-6" id="screen-preview-container">
-                    <!-- Device Connection UI (shown when no device connected) -->
-                    <div id="device-connection-ui" class="device-connection-container">
-                        <div class="device-connection-content">
-                            <svg class="device-connection-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                            </svg>
-                            <h3 class="device-connection-title">장치 연결이 필요합니다</h3>
-                            <p class="device-connection-description">AVN 검증을 시작하려면 테스트 장치를 연결하세요</p>
-
-                            <div class="device-connection-methods">
-                                <div class="device-method-card">
-                                    <div class="device-method-header">
-                                        <svg class="device-method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                        </svg>
-                                        <div>
-                                            <h4 class="device-method-title">ADB 장치</h4>
-                                            <p class="device-method-description">connect-S</p>
-                                        </div>
-                                    </div>
-                                    <button class="device-connect-button" id="btn-connect-adb">
-                                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                        </svg>
-                                        ADB 연결
-                                    </button>
-                                </div>
-
-                                <div class="device-method-card">
-                                    <div class="device-method-header">
-                                        <svg class="device-method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                                        </svg>
-                                        <div>
-                                            <h4 class="device-method-title">iSAP 장치</h4>
-                                            <p class="device-method-description">ccNC, ccRC, ccIC 등</p>
-                                        </div>
-                                    </div>
-                                    <button class="device-connect-button" id="btn-connect-isap">
-                                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                        </svg>
-                                        iSAP 연결
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="device-connection-note">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span>장치를 USB로 연결하거나 무선 네트워크에서 연결 가능합니다</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Screen preview will be rendered here when device connected -->
-                </div>
-            </div>
-
-            <!-- Middle Panel - Macro Sequence (flex-[3]) -->
-            <div class="flex-[3] bg-slate-50 flex flex-col" id="macro-sequence-container">
+            <!-- Left Panel - Scenario Section -->
+            <div class="flex-1 bg-slate-50 border-r flex flex-col" id="macro-sequence-container" style="min-width: 400px;">
                 <!-- Panel Header: List View -->
                 <div class="panel-header" id="scenario-list-header">
                     <div>
@@ -351,8 +256,8 @@
                 </div>
             </div>
 
-            <!-- Right Panel - Action List (flex-[2]) -->
-            <div id="action-panel" class="flex-[2] bg-white border-l flex flex-col hidden">
+            <!-- Middle Panel - Action List (slides in from right) -->
+            <div id="action-panel" class="flex-1 bg-white border-r flex flex-col hidden" style="min-width: 450px;">
                 <!-- Panel Header -->
                 <div class="panel-header">
                     <div>
@@ -397,6 +302,101 @@
                     <div class="tab-content hidden" data-tab="logic" id="logic-actions">
                         <!-- Logic actions will be rendered here -->
                     </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Screen Preview -->
+            <div id="screen-preview-panel" class="flex-1 bg-white flex flex-col">
+                <!-- Panel Header -->
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">스크린 프리뷰</h2>
+                        <p class="panel-subtitle">화면을 클릭하여 좌표 설정</p>
+                    </div>
+                </div>
+
+                <!-- Panel Toolbar -->
+                <div class="panel-toolbar" id="screen-toolbar">
+                    <div class="flex items-center gap-3">
+                        <!-- Device Info -->
+                        <div class="device-status-container" id="device-status">
+                            <!-- Device status will be rendered here when connected -->
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Marker Toggle -->
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" id="option-show-markers" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>좌표 마커</span>
+                        </label>
+
+                        <!-- Screen Pause Toggle -->
+                        <button class="btn-outline btn-sm" id="btn-pause-screen">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            일시정지
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto p-6" id="screen-preview-container">
+                    <!-- Device Connection UI (shown when no device connected) -->
+                    <div id="device-connection-ui" class="device-connection-container">
+                        <div class="device-connection-content">
+                            <svg class="device-connection-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <h3 class="device-connection-title">장치 연결이 필요합니다</h3>
+                            <p class="device-connection-description">AVN 검증을 시작하려면 테스트 장치를 연결하세요</p>
+
+                            <div class="device-connection-methods">
+                                <div class="device-method-card">
+                                    <div class="device-method-header">
+                                        <svg class="device-method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                        </svg>
+                                        <div>
+                                            <h4 class="device-method-title">ADB 장치</h4>
+                                            <p class="device-method-description">connect-S</p>
+                                        </div>
+                                    </div>
+                                    <button class="device-connect-button" id="btn-connect-adb">
+                                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                        </svg>
+                                        ADB 연결
+                                    </button>
+                                </div>
+
+                                <div class="device-method-card">
+                                    <div class="device-method-header">
+                                        <svg class="device-method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                        </svg>
+                                        <div>
+                                            <h4 class="device-method-title">iSAP 장치</h4>
+                                            <p class="device-method-description">ccNC, ccRC, ccIC 등</p>
+                                        </div>
+                                    </div>
+                                    <button class="device-connect-button" id="btn-connect-isap">
+                                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                        </svg>
+                                        iSAP 연결
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="device-connection-note">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span>장치를 USB로 연결하거나 무선 네트워크에서 연결 가능합니다</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Screen preview will be rendered here when device connected -->
                 </div>
             </div>
         </div>

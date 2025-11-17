@@ -424,6 +424,11 @@ function setupIpcHandlers() {
           await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
           return { success: true };
 
+        case 'get-volume':
+          // Get device volume using ADB
+          const volumeResult = await actionService.getVolume(action);
+          return volumeResult;
+
         default:
           throw new Error(`Unsupported action type: ${action.type}`);
       }
@@ -492,6 +497,11 @@ function setupIpcHandlers() {
             case 'wait':
               await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
               results.push({ success: true });
+              break;
+
+            case 'get-volume':
+              const volumeResult = await actionService.getVolume(action);
+              results.push(volumeResult);
               break;
 
             default:
@@ -777,6 +787,17 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('file:show-open-dialog', async (event, options) => {
+    try {
+      const { dialog } = require('electron');
+      const result = await dialog.showOpenDialog(mainWindow, options);
+      return result;
+    } catch (error) {
+      console.error('[File] showOpenDialog error:', error.message);
+      return { canceled: true, error: error.message };
+    }
+  });
+
   ipcMain.handle('file:write-file', async (event, filePath, data) => {
     try {
       const fs = require('fs').promises;
@@ -784,6 +805,17 @@ function setupIpcHandlers() {
       return { success: true, path: filePath };
     } catch (error) {
       console.error('[File] writeFile error:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('file:read-file', async (event, filePath) => {
+    try {
+      const fs = require('fs').promises;
+      const data = await fs.readFile(filePath, 'utf8');
+      return { success: true, data };
+    } catch (error) {
+      console.error('[File] readFile error:', error.message);
       return { success: false, error: error.message };
     }
   });

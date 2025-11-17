@@ -915,9 +915,9 @@ svg {
 .screen-preview.portrait {
     aspect-ratio: 9 / 20 !important; /* Force exact portrait aspect ratio */
     width: auto !important;
-    height: 85% !important; /* Use most of the container height */
+    height: 60% !important; /* Reduced to ensure tabs are always visible */
     max-width: none !important;
-    max-height: 85% !important;
+    max-height: 60% !important;
 }
 
 .screen-preview.landscape {
