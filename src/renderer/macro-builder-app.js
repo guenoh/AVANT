@@ -1515,13 +1515,6 @@ class MacroBuilderApp {
         if (scenarioEditHeader) {
             scenarioEditHeader.style.display = '';
         }
-
-        // Update scenario title in content area
-        const scenarioTitleDisplay = document.getElementById('scenario-title-display');
-        if (scenarioTitleDisplay) {
-            const scenarioName = this.macroName || '새 시나리오';
-            scenarioTitleDisplay.textContent = scenarioName;
-        }
         // Show macro name input in content area
         if (macroNameContainer) {
             macroNameContainer.style.display = '';
@@ -1936,6 +1929,155 @@ class MacroBuilderApp {
         }
     }
 
+    // Condition drag handlers
+    handleConditionDragStart(event, parentActionId, conditionId) {
+        event.stopPropagation();
+        this.draggedCondition = { parentActionId, conditionId };
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', conditionId);
+    }
+
+    handleConditionDragOver(event, parentActionId, targetConditionId) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!this.draggedCondition) return;
+
+        // Can't drop on itself
+        if (this.draggedCondition.conditionId === targetConditionId) return;
+
+        // Can only reorder within same parent action
+        if (this.draggedCondition.parentActionId !== parentActionId) return;
+
+        const targetElement = event.currentTarget;
+        const rect = targetElement.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isAfter = event.clientY > midpoint;
+
+        // Remove existing placeholder
+        this.removeDragPlaceholder();
+
+        // Create placeholder
+        const placeholder = document.createElement('div');
+        placeholder.className = 'drag-placeholder';
+        placeholder.style.cssText = `
+            height: 60px;
+            margin: 8px 0;
+            border: 3px dashed #3b82f6;
+            border-radius: 8px;
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            animation: placeholderPulse 1.5s ease-in-out infinite;
+        `;
+
+        if (isAfter) {
+            targetElement.parentElement.insertAdjacentElement('afterend', placeholder);
+        } else {
+            targetElement.parentElement.insertAdjacentElement('beforebegin', placeholder);
+        }
+
+        this.conditionDropTarget = { parentActionId, targetConditionId, isAfter };
+    }
+
+    handleConditionDragLeave(event, parentActionId, conditionId) {
+        // Don't remove placeholder on leave, handle in drop
+    }
+
+    handleConditionDrop(event, parentActionId, targetConditionId) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.removeDragPlaceholder();
+
+        if (!this.draggedCondition) return;
+        if (!this.conditionDropTarget) return;
+
+        const { parentActionId: sourceParentId, conditionId } = this.draggedCondition;
+        const { targetConditionId: targetId, isAfter } = this.conditionDropTarget;
+
+        // Reorder conditions within the same parent
+        if (sourceParentId === parentActionId) {
+            const action = this.actions.find(a => a.id === parentActionId);
+            if (!action || !action.conditions) return;
+
+            const sourceIndex = action.conditions.findIndex(c => c.id === conditionId);
+            let targetIndex = action.conditions.findIndex(c => c.id === targetId);
+
+            if (sourceIndex === -1 || targetIndex === -1) return;
+
+            // Adjust target index if dropping after
+            if (isAfter) targetIndex++;
+
+            // Adjust if moving down
+            if (sourceIndex < targetIndex) targetIndex--;
+
+            // Perform the move
+            const [movedCondition] = action.conditions.splice(sourceIndex, 1);
+            action.conditions.splice(targetIndex, 0, movedCondition);
+
+            this.renderActionSettings();
+        }
+
+        this.draggedCondition = null;
+        this.conditionDropTarget = null;
+    }
+
+    // Convert condition back to regular action
+    handleConditionToActionDrop(event, targetActionId) {
+        this.removeDragPlaceholder();
+
+        if (!this.draggedCondition) return;
+
+        const { parentActionId, conditionId } = this.draggedCondition;
+
+        // Find parent action and condition
+        const parentAction = this.actions.find(a => a.id === parentActionId);
+        if (!parentAction || !parentAction.conditions) return;
+
+        const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
+        if (conditionIndex === -1) return;
+
+        const condition = parentAction.conditions[conditionIndex];
+
+        // Create new action from condition
+        const newAction = {
+            id: this.generateId(),
+            type: condition.actionType,
+            ...condition.params
+        };
+
+        // Remove condition from parent
+        parentAction.conditions.splice(conditionIndex, 1);
+
+        // Find target action index
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (targetIndex === -1) return;
+
+        // Determine if dropping before or after target
+        const targetElement = event.currentTarget;
+        const actionBlock = targetElement.querySelector('.action-block');
+        const rect = actionBlock.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isAfter = event.clientY > midpoint;
+
+        // Insert action at target position
+        let insertIndex = targetIndex;
+        if (isAfter) insertIndex++;
+
+        this.actions.splice(insertIndex, 0, newAction);
+
+        // Clear drag state
+        this.draggedCondition = null;
+        this.conditionDropTarget = null;
+
+        // Update UI
+        this.markAsChanged();
+        this.renderActionSettings();
+        this.renderActionSequence();
+
+        console.log(`Converted condition to action at position ${insertIndex}`);
+    }
+
     handleActionDragLeave(event, targetActionId) {
         // Note: We don't remove placeholder on drag leave because
         // the user might be moving between nested elements
@@ -2009,6 +2151,12 @@ class MacroBuilderApp {
         event.preventDefault();
         event.stopPropagation();
 
+        // Check if a condition is being dragged
+        if (this.draggedCondition) {
+            this.handleConditionToActionDrop(event, targetActionId);
+            return;
+        }
+
         // Use stored draggedActionId for consistency
         const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
         if (!draggedActionId || draggedActionId === targetActionId) return;
@@ -2077,9 +2225,9 @@ class MacroBuilderApp {
         if (!draggedAction) return;
 
         // Only allow certain action types as conditions
-        const allowedTypes = ['image-match', 'click', 'long-press', 'wait'];
+        const allowedTypes = ['image-match', 'sound-check', 'get-volume', 'click', 'long-press', 'wait'];
         if (!allowedTypes.includes(draggedAction.type)) {
-            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다. (image-match, click, long-press, wait만 가능)`);
+            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다.`);
             return;
         }
 
@@ -2249,13 +2397,20 @@ class MacroBuilderApp {
         const action = this.actions.find(a => a.id === actionId);
         if (!action) return;
 
-        // Initialize comparison object if not exists
+        // Initialize comparison object if not exists (matching default in ActionSettingsBuilder)
         if (!action.comparison) {
-            action.comparison = { operator: '>=', value: 0 };
+            action.comparison = { operator: '>=', value: 50 };
         }
 
         action.comparison[field] = value;
-        this.renderActionSequence();
+        this.markAsModified();
+        this.saveMacro();
+
+        // Update the settings panel without full re-render to avoid resetting the UI
+        const settingsPanel = document.querySelector(`[data-action-id="${actionId}"] .settings-panel`);
+        if (settingsPanel) {
+            settingsPanel.innerHTML = this.getSettingsHTML(action);
+        }
     }
 
     updateConditionRegionProperty(actionId, conditionId, property, value) {
@@ -2424,7 +2579,18 @@ class MacroBuilderApp {
         return `
             <div>
                 <!-- Condition Block -->
-                <div class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                <div
+                    class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
+                    draggable="true"
+                    ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
+                    ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
+                    ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
+                    ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
+                    onclick="event.stopPropagation()"
+                    style="transition: all 0.2s; cursor: grab;"
+                    onmousedown="this.style.cursor='grabbing'"
+                    onmouseup="this.style.cursor='grab'"
+                >
                     <div class="p-3">
                         <div class="flex items-center gap-3">
                             <!-- Icon -->
@@ -2530,6 +2696,12 @@ class MacroBuilderApp {
             `window.macroApp.resetConditionRegion('${actionId}', '${condition.id}')`
         );
 
+        // Replace updateActionComparison calls with updateConditionComparison calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateActionComparison\('([^']+)',/g,
+            `window.macroApp.updateConditionComparison('${actionId}', '${condition.id}',`
+        );
+
         return `
             <div class="settings-panel border-t border-slate-200 bg-slate-50 px-8 py-5" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${settingsHTML}
@@ -2595,6 +2767,38 @@ class MacroBuilderApp {
                             onclick="event.stopPropagation()"
                             oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))"
                             onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))">
+                    </div>
+                `;
+            case 'get-volume':
+                return `
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-xs mb-1 block text-slate-600">Comparison Operator</label>
+                            <select
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                                onclick="event.stopPropagation()"
+                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'operator', this.value)"
+                            >
+                                <option value=">=" ${(condition.params.operator || '>=') === '>=' ? 'selected' : ''}>Greater than or equal (>=)</option>
+                                <option value="<=" ${(condition.params.operator || '>=') === '<=' ? 'selected' : ''}>Less than or equal (<=)</option>
+                                <option value=">" ${(condition.params.operator || '>=') === '>' ? 'selected' : ''}>Greater than (>)</option>
+                                <option value="<" ${(condition.params.operator || '>=') === '<' ? 'selected' : ''}>Less than (<)</option>
+                                <option value="==" ${(condition.params.operator || '>=') === '==' ? 'selected' : ''}>Equal (==)</option>
+                                <option value="!=" ${(condition.params.operator || '>=') === '!=' ? 'selected' : ''}>Not equal (!=)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs mb-1 block text-slate-600">Volume Value: ${condition.params.value || 0}%</label>
+                            <input type="range"
+                                value="${condition.params.value || 0}"
+                                min="0"
+                                max="100"
+                                step="5"
+                                class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
+                                onclick="event.stopPropagation()"
+                                oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'value', parseInt(this.value))"
+                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'value', parseInt(this.value))">
+                        </div>
                     </div>
                 `;
             default:
@@ -3432,8 +3636,34 @@ class MacroBuilderApp {
             // Execute condition action
             const result = await this.executeAction(conditionAction);
 
+            // Evaluate condition based on action type
+            let conditionMet = false;
+
+            if (condition.actionType === 'get-volume') {
+                // For get-volume, compare the actual volume value
+                if (result.success && result.volume !== undefined) {
+                    const actualValue = result.volume;
+                    const operator = condition.params.operator || '>=';
+                    const expectedValue = condition.params.value || 0;
+                    conditionMet = this._evaluateComparison(actualValue, operator, expectedValue);
+                    this.addLog('info', `볼륨 조건: ${actualValue} ${operator} ${expectedValue} = ${conditionMet}`);
+                }
+            } else if (condition.actionType === 'sound-check') {
+                // For sound-check, compare the similarity value
+                if (result.success && result.similarity !== undefined) {
+                    const actualValue = result.similarity;
+                    const operator = condition.params.operator || '>=';
+                    const expectedValue = condition.params.threshold || 0.8;
+                    conditionMet = this._evaluateComparison(actualValue, operator, expectedValue);
+                    this.addLog('info', `사운드 조건: ${actualValue} ${operator} ${expectedValue} = ${conditionMet}`);
+                }
+            } else {
+                // For other actions (like image-match), use success status
+                conditionMet = result.success;
+            }
+
             // Apply negation if needed
-            const finalResult = condition.negate ? !result.success : result.success;
+            const finalResult = condition.negate ? !conditionMet : conditionMet;
 
             this.addLog('info', `조건 평가: ${condition.negate ? 'NOT ' : ''}${condition.actionType} = ${finalResult ? 'true' : 'false'}`);
 
@@ -3453,6 +3683,31 @@ class MacroBuilderApp {
         this.addLog('info', `최종 조건 결과 (${conditionOperator}): ${finalResult ? 'true' : 'false'}`);
 
         return finalResult;
+    }
+
+    /**
+     * Evaluate comparison operator for numeric conditions
+     */
+    _evaluateComparison(actualValue, operator, expectedValue) {
+        switch (operator) {
+            case '>=':
+                return actualValue >= expectedValue;
+            case '<=':
+                return actualValue <= expectedValue;
+            case '>':
+                return actualValue > expectedValue;
+            case '<':
+                return actualValue < expectedValue;
+            case '==':
+            case '===':
+                return actualValue === expectedValue;
+            case '!=':
+            case '!==':
+                return actualValue !== expectedValue;
+            default:
+                console.warn(`Unknown operator: ${operator}`);
+                return false;
+        }
     }
 
     async executeAction(action) {
@@ -4702,9 +4957,9 @@ class MacroBuilderApp {
         if (!draggedAction) return;
 
         // Only allow certain action types as conditions
-        const allowedTypes = ['image-match', 'click', 'long-press', 'wait'];
+        const allowedTypes = ['image-match', 'sound-check', 'get-volume', 'click', 'long-press', 'wait'];
         if (!allowedTypes.includes(draggedAction.type)) {
-            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다. (image-match, click, long-press, wait만 가능)`);
+            this.addLog('warning', `${this.getActionTypeLabel(draggedAction.type)} 액션은 조건으로 사용할 수 없습니다.`);
             return;
         }
 
@@ -4845,7 +5100,18 @@ class MacroBuilderApp {
         return `
             <div>
                 <!-- Condition Block -->
-                <div class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg" onclick="event.stopPropagation()" style="transition: all 0.2s;">
+                <div
+                    class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
+                    draggable="true"
+                    ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
+                    ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
+                    ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
+                    ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
+                    onclick="event.stopPropagation()"
+                    style="transition: all 0.2s; cursor: grab;"
+                    onmousedown="this.style.cursor='grabbing'"
+                    onmouseup="this.style.cursor='grab'"
+                >
                     <div class="p-3">
                         <div class="flex items-center gap-3">
                             <!-- Icon -->
@@ -4949,6 +5215,12 @@ class MacroBuilderApp {
         settingsHTML = settingsHTML.replace(
             /window\.macroApp\.resetActionRegion\('([^']+)'\)/g,
             `window.macroApp.resetConditionRegion('${actionId}', '${condition.id}')`
+        );
+
+        // Replace updateActionComparison calls with updateConditionComparison calls
+        settingsHTML = settingsHTML.replace(
+            /window\.macroApp\.updateActionComparison\('([^']+)',/g,
+            `window.macroApp.updateConditionComparison('${actionId}', '${condition.id}',`
         );
 
         return `
@@ -5972,9 +6244,9 @@ class MacroBuilderApp {
     }
 
     updateToolbarButtons(hasScenario) {
-        // Toolbar buttons (hide save buttons, keep run button)
-        const saveBtn = document.getElementById('btn-save-macro');
-        const saveAsBtn = document.getElementById('btn-save-as-macro');
+        // Sub-toolbar with save buttons
+        const subToolbar = document.getElementById('scenario-sub-toolbar');
+        const filenameDisplay = document.getElementById('scenario-filename-display');
         const runBtn = document.getElementById('btn-run-macro');
 
         // Save buttons row (below toolbar)
@@ -5984,9 +6256,25 @@ class MacroBuilderApp {
 
         const actionListContainer = document.getElementById('action-list-container');
 
-        // Hide toolbar save buttons (we use inline buttons instead)
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (saveAsBtn) saveAsBtn.style.display = 'none';
+        // Show sub-toolbar with save buttons when scenario exists
+        if (subToolbar) {
+            subToolbar.style.display = hasScenario ? '' : 'none';
+        }
+
+        // Update filename display
+        if (filenameDisplay && hasScenario) {
+            let displayName = '';
+            if (this.currentFilePath) {
+                displayName = this.currentFilePath.includes('/')
+                    ? this.currentFilePath.split('/').pop()
+                    : this.currentFilePath;
+            } else if (this.macroName) {
+                displayName = this.macroName.replace(/[<>:"/\\|?*]/g, '_') + '.json';
+            } else {
+                displayName = '새_시나리오.json';
+            }
+            filenameDisplay.textContent = displayName;
+        }
 
         // Show/hide save buttons row
         if (saveButtonsRow) {
@@ -6596,6 +6884,12 @@ class MacroBuilderApp {
         // Hide macro name input in content area
         if (macroNameContainer) {
             macroNameContainer.style.display = 'none';
+        }
+
+        // Hide sub-toolbar in scenario list view
+        const subToolbar = document.getElementById('scenario-sub-toolbar');
+        if (subToolbar) {
+            subToolbar.style.display = 'none';
         }
 
         // Hide "back to list" button, show "new scenario" button in scenario list view
@@ -7471,6 +7765,49 @@ class MacroBuilderApp {
         } catch (error) {
             console.error('[saveToRegistry] Failed to save scenario:', error);
             return false;
+        }
+    }
+
+    /**
+     * Select audio file for sound-check action
+     */
+    async selectAudioFile(actionId) {
+        try {
+            const result = await api.file.showOpenDialog({
+                title: 'Select Audio File',
+                filters: [
+                    { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ],
+                properties: ['openFile']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                const filePath = result.filePaths[0];
+                const action = this.actions.find(a => a.id === actionId);
+
+                if (action) {
+                    action.audioFile = filePath;
+                    this.renderActionSettings(action);
+                    this.markAsModified();
+                }
+            }
+        } catch (error) {
+            console.error('[selectAudioFile] Failed to select audio file:', error);
+            this.addLog('error', `Failed to select audio file: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove audio file from sound-check action
+     */
+    removeAudioFile(actionId) {
+        const action = this.actions.find(a => a.id === actionId);
+
+        if (action) {
+            delete action.audioFile;
+            this.renderActionSettings(action);
+            this.markAsModified();
         }
     }
 

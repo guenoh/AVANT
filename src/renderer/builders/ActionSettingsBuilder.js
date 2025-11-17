@@ -224,9 +224,9 @@ class ActionSettingsBuilder {
                 <!-- Drop Zone -->
                 <div
                     class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
-                    ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.add('border-slate-400', 'bg-slate-100')"
-                    ondragleave="event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100')"
-                    ondrop="event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('border-slate-400', 'bg-slate-100'); window.macroApp.handleConditionDrop(event, '${action.id}')"
+                    ondragover="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = '#3b82f6'; el.style.borderWidth = '3px'; el.style.background = 'rgba(59, 130, 246, 0.08)'; el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)'; el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite';"
+                    ondragleave="const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = '';"
+                    ondrop="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = ''; window.macroApp.handleConditionDrop(event, '${action.id}')"
                     onclick="event.stopPropagation()"
                 >
                     <p class="text-xs text-slate-500">
@@ -446,14 +446,72 @@ UI.slider({
 
     /**
      * Sound check settings
-     * TODO: Refactor to use TemplateHelpers
      */
     buildSoundCheckSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <p class="text-xs text-slate-600">사운드 체크 설정 (구현 예정)</p>
+        const H = TemplateHelpers;
+
+        const content = `
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-medium text-slate-700 mb-1 block">Audio File</label>
+                    ${action.audioFile ? `
+                        <div class="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <span class="text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                                    </svg>
+                                </span>
+                                <span class="text-xs text-slate-700 truncate" title="${action.audioFile}">${action.audioFile.split('/').pop()}</span>
+                            </div>
+                            <button
+                                onclick="app.removeAudioFile('${action.id}')"
+                                class="ml-2 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Remove audio file"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    ` : `
+                        <button
+                            onclick="app.selectAudioFile('${action.id}')"
+                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded hover:bg-slate-50 text-xs text-slate-700 transition-colors"
+                        >
+                            <div class="flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <span>Select Audio File</span>
+                            </div>
+                        </button>
+                    `}
+                </div>
+                ${H.incrementControl({
+                    value: action.threshold || 0.8,
+                    min: 0,
+                    max: 1,
+                    step: 0.05,
+                    actionId: action.id,
+                    field: 'threshold',
+                    unit: '',
+                    label: 'Similarity Threshold'
+                })}
+                ${H.incrementControl({
+                    value: action.duration || 3000,
+                    min: 1000,
+                    max: 10000,
+                    step: 500,
+                    actionId: action.id,
+                    field: 'duration',
+                    unit: 'ms',
+                    label: 'Check Duration'
+                })}
             </div>
         `;
+
+        return H.settingsContainer(content);
     }
 
     /**
