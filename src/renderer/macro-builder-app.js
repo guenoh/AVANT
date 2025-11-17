@@ -2041,7 +2041,7 @@ class MacroBuilderApp {
 
         // Create new action from condition
         const newAction = {
-            id: this.generateId(),
+            id: `action-${Date.now()}`,
             type: condition.actionType,
             ...condition.params
         };
