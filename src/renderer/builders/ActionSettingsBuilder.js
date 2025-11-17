@@ -224,9 +224,9 @@ class ActionSettingsBuilder {
                 <!-- Drop Zone -->
                 <div
                     class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
-                    ondragover="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = '#3b82f6'; el.style.borderWidth = '3px'; el.style.background = 'rgba(59, 130, 246, 0.08)'; el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)'; el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite';"
+                    ondragover="if (!window.macroApp.draggedCondition) { event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = '#3b82f6'; el.style.borderWidth = '3px'; el.style.background = 'rgba(59, 130, 246, 0.08)'; el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)'; el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite'; }"
                     ondragleave="const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = '';"
-                    ondrop="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = ''; window.macroApp.handleConditionDrop(event, '${action.id}')"
+                    ondrop="if (!window.macroApp.draggedCondition) { event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = ''; window.macroApp.handleConditionDrop(event, '${action.id}'); }"
                     onclick="event.stopPropagation()"
                 >
                     <p class="text-xs text-slate-500">
