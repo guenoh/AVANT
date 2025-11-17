@@ -1498,65 +1498,6 @@ class MacroBuilderApp {
         const container = document.getElementById('action-sequence-list');
         if (!container) return;
 
-        // Add drag and drop handlers for empty space (to handle conditions being dropped)
-        container.ondragover = (e) => {
-            if (this.draggedCondition) {
-                e.preventDefault();
-                console.log('[CONTAINER DRAGOVER] Condition drag detected over container');
-            }
-        };
-
-        container.ondrop = (e) => {
-            if (this.draggedCondition) {
-                e.preventDefault();
-                console.log('[CONTAINER DROP] === Condition drop on container ===');
-
-                // Add condition as new action at the end
-                const { parentActionId, conditionId } = this.draggedCondition;
-
-                // Find parent action and condition
-                const parentAction = this.actions.find(a => a.id === parentActionId);
-                if (!parentAction || !parentAction.conditions) {
-                    console.log('[CONTAINER DROP] ERROR: Parent action not found');
-                    return;
-                }
-
-                const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
-                if (conditionIndex === -1) {
-                    console.log('[CONTAINER DROP] ERROR: Condition not found');
-                    return;
-                }
-
-                const condition = parentAction.conditions[conditionIndex];
-
-                // Create new action from condition
-                const cleanParams = { ...condition.params };
-                delete cleanParams.depth;
-                delete cleanParams.conditions;
-                delete cleanParams.negate;
-                delete cleanParams.operator;
-
-                const newAction = {
-                    id: `action-${Date.now()}`,
-                    type: condition.type,
-                    ...cleanParams
-                };
-
-                // Remove condition from parent
-                parentAction.conditions.splice(conditionIndex, 1);
-
-                // Add new action at the end
-                this.actions.push(newAction);
-
-                // Clean up and re-render
-                this.draggedCondition = null;
-                this.renderActionSequence();
-                this.renderActionSettings();
-
-                console.log('[CONTAINER DROP] Converted condition to action at end of list');
-            }
-        };
-
         // Show/hide UI elements for action editing view (MUST be at the top, before any return)
         const btnBackToList = document.getElementById('btn-back-to-list');
         const btnNewScenario = document.getElementById('btn-new-scenario');
@@ -1885,6 +1826,8 @@ class MacroBuilderApp {
         setTimeout(() => {
             this.isDraggingAction = false;
             this.draggedActionId = null; // Clear dragged action
+            this.draggedCondition = null; // Clear dragged condition
+            this.conditionDropTarget = null; // Clear condition drop target
         }, 100);
 
         // Remove dragging class from all blocks
@@ -1905,47 +1848,59 @@ class MacroBuilderApp {
         event.preventDefault();
         event.stopPropagation();
 
-        // Check if dragging an action or a condition
-        const draggedActionId = this.draggedActionId;
-        const isDraggingCondition = !!this.draggedCondition;
-
-        console.log('[ACTION DRAG OVER] Target action:', targetActionId);
-        console.log('[ACTION DRAG OVER] draggedActionId:', draggedActionId);
-        console.log('[ACTION DRAG OVER] this.draggedCondition:', this.draggedCondition);
-        console.log('[ACTION DRAG OVER] isDraggingCondition:', isDraggingCondition);
-
-        // If dragging action, check for no-op
-        if (draggedActionId && !isDraggingCondition) {
-            if (draggedActionId === targetActionId) return;
-
-            const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
-            const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-            if (draggedIndex === -1 || targetIndex === -1) return;
-
-            const targetAction = this.actions[targetIndex];
-            const actionBlock = event.currentTarget.querySelector('.action-block');
+        // Check if dragging a condition
+        if (this.draggedCondition) {
+            // Handle condition drag over action
+            const targetElement = event.currentTarget;
+            const actionBlock = targetElement.querySelector('.action-block');
             if (!actionBlock) return;
 
+            // Determine if dropping before or after based on mouse position
             const rect = actionBlock.getBoundingClientRect();
             const midpoint = rect.top + rect.height / 2;
-            let isAfter = event.clientY > midpoint;
+            const isAfter = event.clientY > midpoint;
 
-            // Smart position adjustment for END blocks
-            if (targetAction && targetAction.type.startsWith('end-')) {
-                isAfter = true;
+            // Remove existing placeholder
+            this.removeDragPlaceholder();
+
+            // Create and insert placeholder element
+            const placeholder = document.createElement('div');
+            placeholder.className = 'drag-placeholder';
+            placeholder.setAttribute('data-target-id', targetActionId);
+            placeholder.setAttribute('data-insert-after', isAfter);
+            placeholder.style.cssText = `
+                height: 80px;
+                margin: 12px 0;
+                border: 3px dashed #3b82f6;
+                border-radius: 10px;
+                background: rgba(59, 130, 246, 0.08);
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+                animation: placeholderPulse 1.5s ease-in-out infinite;
+            `;
+
+            if (isAfter) {
+                targetElement.insertAdjacentElement('afterend', placeholder);
+            } else {
+                targetElement.insertAdjacentElement('beforebegin', placeholder);
             }
-
-            // Check if this would be a no-op move
-            if (!isAfter && targetIndex === draggedIndex + 1) return;
-            if (isAfter && targetIndex === draggedIndex - 1) return;
+            return;
         }
 
-        // If not dragging anything, return
-        if (!draggedActionId && !isDraggingCondition) return;
+        // Use stored draggedActionId (getData doesn't work in dragover for security reasons)
+        const draggedActionId = this.draggedActionId;
+        if (!draggedActionId || draggedActionId === targetActionId) return;
 
         const targetElement = event.currentTarget;
         const actionBlock = targetElement.querySelector('.action-block');
         if (!actionBlock) return;
+
+        // Get dragged and target actions
+        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const draggedAction = this.actions[draggedIndex];
+        const targetAction = this.actions[targetIndex];
 
         // Determine if dropping before or after based on mouse position
         const rect = actionBlock.getBoundingClientRect();
@@ -1953,9 +1908,19 @@ class MacroBuilderApp {
         let isAfter = event.clientY > midpoint;
 
         // Smart position adjustment for END blocks
-        const targetAction = this.actions.find(a => a.id === targetActionId);
-        if (targetAction && targetAction.type.startsWith('end-')) {
+        // If target is an END block (end-if, end-loop, end-while), always insert AFTER it
+        if (targetAction.type.startsWith('end-')) {
             isAfter = true;
+        }
+
+        // Check if this would be a no-op move (same position)
+        // Case 1: Dragging to position immediately after itself (next block)
+        if (!isAfter && targetIndex === draggedIndex + 1) {
+            return; // No-op, same position
+        }
+        // Case 2: Dragging to position immediately before itself
+        if (isAfter && targetIndex === draggedIndex - 1) {
+            return; // No-op, same position
         }
 
         // Remove existing placeholder
@@ -2006,31 +1971,25 @@ class MacroBuilderApp {
 
     // Condition drag handlers
     handleConditionDragStart(event, parentActionId, conditionId) {
-        console.log('[CONDITION DRAG] === START ===');
-        console.log('[CONDITION DRAG] parentActionId:', parentActionId);
-        console.log('[CONDITION DRAG] conditionId:', conditionId);
         event.stopPropagation();
         this.draggedCondition = { parentActionId, conditionId };
-        console.log('[CONDITION DRAG] State set:', this.draggedCondition);
         event.dataTransfer.effectAllowed = 'move';
+        // Set both to ensure compatibility
         event.dataTransfer.setData('text/plain', conditionId);
+        event.dataTransfer.setData('conditionDrag', 'true');  // Mark as condition drag
     }
 
     handleConditionDragOver(event, parentActionId, targetConditionId) {
+        event.preventDefault();
+        event.stopPropagation();
+
         if (!this.draggedCondition) return;
 
         // Can't drop on itself
         if (this.draggedCondition.conditionId === targetConditionId) return;
 
-        // If dragging to a different parent, don't handle it here - let it bubble up
-        if (this.draggedCondition.parentActionId !== parentActionId) {
-            console.log('[CONDITION DRAG OVER] Different parent - letting event bubble');
-            return;
-        }
-
-        // Only prevent default and stop propagation if we're handling it
-        event.preventDefault();
-        event.stopPropagation();
+        // Can only reorder within same parent action
+        if (this.draggedCondition.parentActionId !== parentActionId) return;
 
         const targetElement = event.currentTarget;
         const rect = targetElement.getBoundingClientRect();
@@ -2067,34 +2026,15 @@ class MacroBuilderApp {
     }
 
     handleConditionDrop(event, parentActionId, targetConditionId) {
-        console.log('[CONDITION DROP] Called (for reordering within same parent)');
-        console.log('[CONDITION DROP] parentActionId:', parentActionId);
-        console.log('[CONDITION DROP] targetConditionId:', targetConditionId);
-
-        if (!this.draggedCondition) {
-            console.log('[CONDITION DROP] No draggedCondition');
-            return;
-        }
-
-        const { parentActionId: sourceParentId, conditionId } = this.draggedCondition;
-
-        // If dragging to a different parent, don't handle it here - let it bubble up to action drop
-        if (sourceParentId !== parentActionId) {
-            console.log('[CONDITION DROP] Different parent - letting event bubble to action drop handler');
-            return;
-        }
-
-        // Only prevent default and stop propagation if we're handling it
         event.preventDefault();
         event.stopPropagation();
 
         this.removeDragPlaceholder();
 
-        if (!this.conditionDropTarget) {
-            console.log('[CONDITION DROP] No conditionDropTarget');
-            return;
-        }
+        if (!this.draggedCondition) return;
+        if (!this.conditionDropTarget) return;
 
+        const { parentActionId: sourceParentId, conditionId } = this.draggedCondition;
         const { targetConditionId: targetId, isAfter } = this.conditionDropTarget;
 
         // Reorder conditions within the same parent
@@ -2126,61 +2066,51 @@ class MacroBuilderApp {
 
     // Convert condition back to regular action
     handleConditionToActionDrop(event, targetActionId) {
-        console.log('[CONDITION TO ACTION] === START ===');
-        console.log('[CONDITION TO ACTION] targetActionId:', targetActionId);
         this.removeDragPlaceholder();
 
+        console.log('handleConditionToActionDrop called', { draggedCondition: this.draggedCondition, targetActionId });
+
         if (!this.draggedCondition) {
-            console.log('[CONDITION TO ACTION] ERROR: No draggedCondition state');
+            console.log('No draggedCondition found');
             return;
         }
 
         const { parentActionId, conditionId } = this.draggedCondition;
-        console.log('[CONDITION TO ACTION] parentActionId:', parentActionId);
-        console.log('[CONDITION TO ACTION] conditionId:', conditionId);
 
         // Find parent action and condition
         const parentAction = this.actions.find(a => a.id === parentActionId);
-        console.log('[CONDITION TO ACTION] Found parent action:', !!parentAction);
-        console.log('[CONDITION TO ACTION] Parent action.conditions:', parentAction?.conditions);
         if (!parentAction || !parentAction.conditions) {
-            console.log('[CONDITION TO ACTION] ERROR: Parent action or conditions not found');
+            console.log('Parent action not found or no conditions', { parentAction });
             return;
         }
 
-        console.log('[CONDITION TO ACTION] Looking for conditionId:', conditionId);
-        console.log('[CONDITION TO ACTION] Condition IDs in array:', parentAction.conditions.map(c => c.id));
-        console.log('[CONDITION TO ACTION] Conditions array length:', parentAction.conditions.length);
-
         const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
-        console.log('[CONDITION TO ACTION] Condition index:', conditionIndex);
         if (conditionIndex === -1) {
-            console.log('[CONDITION TO ACTION] ERROR: Condition not found');
+            console.log('Condition not found in parent', { conditionId, conditions: parentAction.conditions });
             return;
         }
 
         const condition = parentAction.conditions[conditionIndex];
-        console.log('[CONDITION TO ACTION] Found condition:', condition);
+        console.log('Found condition to convert', { condition });
 
-        // Create new action from condition (clean params)
-        const cleanParams = { ...condition.params };
-        delete cleanParams.depth;
-        delete cleanParams.conditions;
-        delete cleanParams.negate;
-        delete cleanParams.operator;
-
+        // Create new action from condition
         const newAction = {
             id: `action-${Date.now()}`,
-            type: condition.type,
-            ...cleanParams
+            type: condition.actionType,
+            ...condition.params
         };
+        console.log('Created new action', { newAction });
 
         // Remove condition from parent
         parentAction.conditions.splice(conditionIndex, 1);
+        console.log('Removed condition from parent');
 
         // Find target action index
         const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-        if (targetIndex === -1) return;
+        if (targetIndex === -1) {
+            console.log('Target action not found');
+            return;
+        }
 
         // Determine if dropping before or after target
         const targetElement = event.currentTarget;
@@ -2194,23 +2124,17 @@ class MacroBuilderApp {
         if (isAfter) insertIndex++;
 
         this.actions.splice(insertIndex, 0, newAction);
-        console.log('[CONDITION TO ACTION] Inserted new action at index:', insertIndex);
-        console.log('[CONDITION TO ACTION] New action:', newAction);
 
         // Clear drag state
         this.draggedCondition = null;
         this.conditionDropTarget = null;
-
-        // Select the newly created action
-        this.selectedActionId = newAction.id;
-        console.log('[CONDITION TO ACTION] Selected new action');
 
         // Update UI
         this.markAsChanged();
         this.renderActionSettings();
         this.renderActionSequence();
 
-        console.log('[CONDITION TO ACTION] === SUCCESS ===');
+        console.log(`Converted condition to action at position ${insertIndex}`);
     }
 
     handleActionDragLeave(event, targetActionId) {
@@ -2283,15 +2207,13 @@ class MacroBuilderApp {
     }
 
     handleActionDrop(event, targetActionId) {
-        console.log('[ACTION DROP] === CALLED ===');
-        console.log('[ACTION DROP] targetActionId:', targetActionId);
-        console.log('[ACTION DROP] this.draggedCondition:', this.draggedCondition);
         event.preventDefault();
         event.stopPropagation();
 
-        // Check if a condition is being dragged
-        if (this.draggedCondition) {
-            console.log('[ACTION DROP] Routing to handleConditionToActionDrop');
+        // Check if a condition is being dragged first
+        const isConditionDrag = event.dataTransfer.getData('conditionDrag') === 'true';
+        if (isConditionDrag || this.draggedCondition) {
+            console.log('Handling condition drop to action', { draggedCondition: this.draggedCondition, targetActionId });
             this.handleConditionToActionDrop(event, targetActionId);
             return;
         }
@@ -2722,6 +2644,7 @@ class MacroBuilderApp {
                     class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
                     draggable="true"
                     ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
+                    ondragend="window.macroApp.handleActionDragEnd(event)"
                     ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
                     ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
                     ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
@@ -2730,48 +2653,47 @@ class MacroBuilderApp {
                     onmousedown="this.style.cursor='grabbing'"
                     onmouseup="this.style.cursor='grab'"
                 >
-                    <div class="p-3" draggable="false">
-                        <div class="flex items-center gap-3" draggable="false">
+                    <div class="p-3">
+                        <div class="flex items-center gap-3">
                             <!-- Icon -->
-                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem; pointer-events: none;">
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
                                 <div style="width: 1.25rem; height: 1.25rem;">
                                     ${config.icon}
                                 </div>
                             </div>
 
                             <!-- Content -->
-                            <div class="flex-1 min-w-0" draggable="false">
-                                <div class="flex items-center gap-2 mb-1" draggable="false">
-                                    <h3 class="text-slate-900 font-medium" style="pointer-events: none;">${config.label}</h3>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="text-slate-900 font-medium">${config.label}</h3>
                                     <!-- NOT Toggle -->
-                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()" draggable="false" style="pointer-events: auto;">
+                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
                                         <input
                                             type="checkbox"
                                             ${condition.negate ? 'checked' : ''}
                                             onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
                                             class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
-                                            draggable="false"
                                         />
                                         <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
                                             NOT
                                         </span>
                                     </label>
                                 </div>
-                                ${description ? `<p class="text-sm text-slate-600 truncate" style="pointer-events: none;">${description}</p>` : ''}
+                                ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
 
                             <!-- Actions -->
-                            <div class="flex gap-1 flex-shrink-0" draggable="false" style="pointer-events: auto;">
-                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')" draggable="false">
+                            <div class="flex gap-1 flex-shrink-0">
+                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
                                     ${this.getIconSVG('settings')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
@@ -5244,6 +5166,7 @@ class MacroBuilderApp {
                     class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
                     draggable="true"
                     ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
+                    ondragend="window.macroApp.handleActionDragEnd(event)"
                     ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
                     ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
                     ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
@@ -5252,48 +5175,47 @@ class MacroBuilderApp {
                     onmousedown="this.style.cursor='grabbing'"
                     onmouseup="this.style.cursor='grab'"
                 >
-                    <div class="p-3" draggable="false">
-                        <div class="flex items-center gap-3" draggable="false">
+                    <div class="p-3">
+                        <div class="flex items-center gap-3">
                             <!-- Icon -->
-                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem; pointer-events: none;">
+                            <div class="${config.color} p-2 rounded-lg text-white flex-shrink-0 flex items-center justify-center" style="width: 2.5rem; height: 2.5rem;">
                                 <div style="width: 1.25rem; height: 1.25rem;">
                                     ${config.icon}
                                 </div>
                             </div>
 
                             <!-- Content -->
-                            <div class="flex-1 min-w-0" draggable="false">
-                                <div class="flex items-center gap-2 mb-1" draggable="false">
-                                    <h3 class="text-slate-900 font-medium" style="pointer-events: none;">${config.label}</h3>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="text-slate-900 font-medium">${config.label}</h3>
                                     <!-- NOT Toggle -->
-                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()" draggable="false" style="pointer-events: auto;">
+                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
                                         <input
                                             type="checkbox"
                                             ${condition.negate ? 'checked' : ''}
                                             onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
                                             class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
-                                            draggable="false"
                                         />
                                         <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
                                             NOT
                                         </span>
                                     </label>
                                 </div>
-                                ${description ? `<p class="text-sm text-slate-600 truncate" style="pointer-events: none;">${description}</p>` : ''}
+                                ${description ? `<p class="text-sm text-slate-600 truncate">${description}</p>` : ''}
                             </div>
 
                             <!-- Actions -->
-                            <div class="flex gap-1 flex-shrink-0" draggable="false" style="pointer-events: auto;">
-                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')" draggable="false">
+                            <div class="flex gap-1 flex-shrink-0">
+                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
                                     ${this.getIconSVG('settings')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')" draggable="false">
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
