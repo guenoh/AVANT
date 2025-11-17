@@ -1586,7 +1586,10 @@ class MacroBuilderApp {
                 <p class="empty-title">시나리오가 비어있습니다</p>
                 <p class="empty-description">오른쪽에서 액션을 선택하여 시작하세요</p>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2"
+                 ondragover="window.macroApp.handleContainerDragOver(event)"
+                 ondrop="window.macroApp.handleContainerDrop(event)"
+                 style="min-height: 100px;">
                 ${actionsWithDepth.map((action, index) => this.renderActionBlock(action, index, actionsWithDepth.length)).join('')}
             </div>
         `;
@@ -1823,7 +1826,15 @@ class MacroBuilderApp {
     }
 
     handleActionDragEnd(event) {
+        console.log('🟢 [DEBUG] handleActionDragEnd CALLED', {
+            isDraggingAction: this.isDraggingAction,
+            draggedActionId: this.draggedActionId,
+            draggedCondition: this.draggedCondition,
+            timestamp: new Date().toISOString()
+        });
+
         setTimeout(() => {
+            console.log('🟢 [DEBUG] Clearing drag states in timeout');
             this.isDraggingAction = false;
             this.draggedActionId = null; // Clear dragged action
             this.draggedCondition = null; // Clear dragged condition
@@ -1844,12 +1855,124 @@ class MacroBuilderApp {
         this.removeDragPlaceholder();
     }
 
+    // Container drag handlers for dropping conditions in empty areas
+    handleContainerDragOver(event) {
+        console.log('🔵 [DEBUG] handleContainerDragOver CALLED', {
+            draggedCondition: this.draggedCondition,
+            draggedActionId: this.draggedActionId,
+            timestamp: new Date().toISOString()
+        });
+
+        // Only handle if we're dragging something
+        if (!this.draggedCondition && !this.draggedActionId) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    handleContainerDrop(event) {
+        console.log('💜 [DEBUG] handleContainerDrop CALLED', {
+            draggedCondition: this.draggedCondition,
+            draggedActionId: this.draggedActionId,
+            timestamp: new Date().toISOString()
+        });
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Handle condition being dropped into action sequence
+        if (this.draggedCondition) {
+            const { parentActionId, conditionId } = this.draggedCondition;
+            console.log('💜 [DEBUG] Processing condition drop in container', {
+                parentActionId,
+                conditionId
+            });
+
+            // Find the parent action with the condition
+            const parentAction = this.actions.find(a => a.id === parentActionId);
+            if (!parentAction || !parentAction.conditions) {
+                console.error('💜 [DEBUG] Parent action not found or has no conditions', {
+                    parentActionId,
+                    actions: this.actions,
+                    parentAction
+                });
+                return;
+            }
+
+            console.log('💜 [DEBUG] Parent action found', {
+                parentAction,
+                conditions: parentAction.conditions,
+                searchingForId: conditionId
+            });
+
+            // Find and remove the condition from parent
+            const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
+            if (conditionIndex === -1) {
+                console.error('💜 [DEBUG] Condition not found in parent', {
+                    conditionId,
+                    availableConditions: parentAction.conditions.map(c => ({
+                        id: c.id,
+                        actionType: c.actionType
+                    }))
+                });
+                return;
+            }
+
+            const condition = parentAction.conditions[conditionIndex];
+            parentAction.conditions.splice(conditionIndex, 1);
+
+            // Convert condition back to action
+            const newAction = {
+                id: `action-${Date.now()}`,
+                type: condition.actionType,
+                ...condition.params
+            };
+
+            console.log('💜 [DEBUG] Created new action from condition', {
+                condition,
+                newAction
+            });
+
+            // Add to end of actions array
+            this.actions.push(newAction);
+
+            // Clear drag state
+            this.draggedCondition = null;
+
+            // Re-render
+            this.renderActionSequence();
+            this.saveToLocalStorage();
+        }
+        // Handle regular action drops
+        else if (this.draggedActionId) {
+            console.log('💜 [DEBUG] Processing regular action drop in container');
+            // For regular actions dropped in empty area, move to end
+            const draggedIndex = this.actions.findIndex(a => a.id === this.draggedActionId);
+            if (draggedIndex !== -1) {
+                const [draggedAction] = this.actions.splice(draggedIndex, 1);
+                this.actions.push(draggedAction);
+                this.renderActionSequence();
+                this.saveToLocalStorage();
+            }
+        }
+    }
+
     handleActionDragOver(event, targetActionId) {
+        console.log('🟠 [DEBUG] handleActionDragOver CALLED', {
+            targetActionId,
+            draggedCondition: this.draggedCondition,
+            draggedActionId: this.draggedActionId,
+            timestamp: new Date().toISOString()
+        });
+
         event.preventDefault();
         event.stopPropagation();
 
         // Check if dragging a condition
         if (this.draggedCondition) {
+            console.log('🟠 [DEBUG] Handling condition dragover');
             // Handle condition drag over action
             const targetElement = event.currentTarget;
             const actionBlock = targetElement.querySelector('.action-block');
@@ -1971,12 +2094,26 @@ class MacroBuilderApp {
 
     // Condition drag handlers
     handleConditionDragStart(event, parentActionId, conditionId) {
+        console.log('🔴 [DEBUG] handleConditionDragStart CALLED', {
+            parentActionId,
+            conditionId,
+            timestamp: new Date().toISOString()
+        });
+
         event.stopPropagation();
         this.draggedCondition = { parentActionId, conditionId };
+
+        console.log('🔴 [DEBUG] draggedCondition SET:', this.draggedCondition);
+
         event.dataTransfer.effectAllowed = 'move';
         // Set both to ensure compatibility
         event.dataTransfer.setData('text/plain', conditionId);
         event.dataTransfer.setData('conditionDrag', 'true');  // Mark as condition drag
+
+        console.log('🔴 [DEBUG] DataTransfer SET:', {
+            'text/plain': conditionId,
+            'conditionDrag': 'true'
+        });
     }
 
     handleConditionDragOver(event, parentActionId, targetConditionId) {
@@ -2026,26 +2163,55 @@ class MacroBuilderApp {
     }
 
     handleConditionDrop(event, parentActionId, targetConditionId) {
+        console.log('🔷 [DEBUG] handleConditionDrop CALLED', {
+            parentActionId,
+            targetConditionId,
+            draggedCondition: this.draggedCondition,
+            conditionDropTarget: this.conditionDropTarget,
+            timestamp: new Date().toISOString()
+        });
+
         event.preventDefault();
         event.stopPropagation();
 
         this.removeDragPlaceholder();
 
-        if (!this.draggedCondition) return;
-        if (!this.conditionDropTarget) return;
+        if (!this.draggedCondition) {
+            console.log('🔷 [DEBUG] No draggedCondition, returning');
+            return;
+        }
+        if (!this.conditionDropTarget) {
+            console.log('🔷 [DEBUG] No conditionDropTarget, returning');
+            return;
+        }
 
         const { parentActionId: sourceParentId, conditionId } = this.draggedCondition;
         const { targetConditionId: targetId, isAfter } = this.conditionDropTarget;
 
+        console.log('🔷 [DEBUG] Reordering conditions:', {
+            sourceParentId,
+            parentActionId,
+            isSameParent: sourceParentId === parentActionId,
+            conditionId,
+            targetId,
+            isAfter
+        });
+
         // Reorder conditions within the same parent
         if (sourceParentId === parentActionId) {
             const action = this.actions.find(a => a.id === parentActionId);
-            if (!action || !action.conditions) return;
+            if (!action || !action.conditions) {
+                console.log('🔷 [DEBUG] Action not found or no conditions');
+                return;
+            }
 
             const sourceIndex = action.conditions.findIndex(c => c.id === conditionId);
             let targetIndex = action.conditions.findIndex(c => c.id === targetId);
 
-            if (sourceIndex === -1 || targetIndex === -1) return;
+            if (sourceIndex === -1 || targetIndex === -1) {
+                console.log('🔷 [DEBUG] Source or target condition not found');
+                return;
+            }
 
             // Adjust target index if dropping after
             if (isAfter) targetIndex++;
@@ -2053,25 +2219,45 @@ class MacroBuilderApp {
             // Adjust if moving down
             if (sourceIndex < targetIndex) targetIndex--;
 
+            console.log('🔷 [DEBUG] Moving condition:', {
+                sourceIndex,
+                targetIndex,
+                conditionsBefore: action.conditions.length
+            });
+
             // Perform the move
             const [movedCondition] = action.conditions.splice(sourceIndex, 1);
             action.conditions.splice(targetIndex, 0, movedCondition);
 
-            this.renderActionSettings();
+            console.log('🔷 [DEBUG] Condition moved successfully:', {
+                conditionsAfter: action.conditions.length
+            });
+
+            // Don't call renderActionSettings() without an action parameter
+            // The UI will be properly updated by renderActionSequence()
+        } else {
+            console.log('🔷 [DEBUG] Different parent actions - cross-parent move not implemented');
         }
 
         this.draggedCondition = null;
         this.conditionDropTarget = null;
+        console.log('🔷 [DEBUG] Drag state cleared');
     }
 
     // Convert condition back to regular action
     handleConditionToActionDrop(event, targetActionId) {
+        console.log('🟡 [DEBUG] handleConditionToActionDrop START', {
+            draggedCondition: this.draggedCondition,
+            targetActionId,
+            timestamp: new Date().toISOString(),
+            eventType: event.type,
+            currentTarget: event.currentTarget?.className
+        });
+
         this.removeDragPlaceholder();
 
-        console.log('handleConditionToActionDrop called', { draggedCondition: this.draggedCondition, targetActionId });
-
         if (!this.draggedCondition) {
-            console.log('No draggedCondition found');
+            console.log('🟡 [DEBUG] ERROR: No draggedCondition found!');
             return;
         }
 
@@ -2079,19 +2265,34 @@ class MacroBuilderApp {
 
         // Find parent action and condition
         const parentAction = this.actions.find(a => a.id === parentActionId);
+        console.log('🟡 [DEBUG] Parent action found:', {
+            found: !!parentAction,
+            parentActionId,
+            parentActionType: parentAction?.type,
+            hasConditions: parentAction?.conditions?.length > 0,
+            conditionsCount: parentAction?.conditions?.length,
+            conditions: parentAction?.conditions
+        });
+
         if (!parentAction || !parentAction.conditions) {
-            console.log('Parent action not found or no conditions', { parentAction });
+            console.log('🟡 [DEBUG] ERROR: Parent action not found or no conditions!');
             return;
         }
 
         const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
+        console.log('🟡 [DEBUG] Condition index:', {
+            conditionIndex,
+            conditionId,
+            allConditionIds: parentAction.conditions.map(c => c.id)
+        });
+
         if (conditionIndex === -1) {
-            console.log('Condition not found in parent', { conditionId, conditions: parentAction.conditions });
+            console.log('🟡 [DEBUG] ERROR: Condition not found in parent!');
             return;
         }
 
         const condition = parentAction.conditions[conditionIndex];
-        console.log('Found condition to convert', { condition });
+        console.log('🟡 [DEBUG] Condition to convert:', condition);
 
         // Create new action from condition
         const newAction = {
@@ -2099,16 +2300,24 @@ class MacroBuilderApp {
             type: condition.actionType,
             ...condition.params
         };
-        console.log('Created new action', { newAction });
+        console.log('🟡 [DEBUG] New action created:', newAction);
 
         // Remove condition from parent
+        const beforeRemove = parentAction.conditions.length;
         parentAction.conditions.splice(conditionIndex, 1);
-        console.log('Removed condition from parent');
+        const afterRemove = parentAction.conditions.length;
+        console.log('🟡 [DEBUG] Condition removed from parent:', {
+            beforeRemove,
+            afterRemove,
+            removed: beforeRemove - afterRemove === 1
+        });
 
         // Find target action index
         const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+        console.log('🟡 [DEBUG] Target index:', targetIndex);
+
         if (targetIndex === -1) {
-            console.log('Target action not found');
+            console.log('🟡 [DEBUG] ERROR: Target action not found!');
             return;
         }
 
@@ -2123,18 +2332,35 @@ class MacroBuilderApp {
         let insertIndex = targetIndex;
         if (isAfter) insertIndex++;
 
+        const beforeInsert = this.actions.length;
         this.actions.splice(insertIndex, 0, newAction);
+        const afterInsert = this.actions.length;
+
+        console.log('🟡 [DEBUG] Action inserted:', {
+            insertIndex,
+            isAfter,
+            beforeInsert,
+            afterInsert,
+            inserted: afterInsert - beforeInsert === 1
+        });
 
         // Clear drag state
         this.draggedCondition = null;
         this.conditionDropTarget = null;
 
+        console.log('🟡 [DEBUG] Drag state cleared');
+
         // Update UI
         this.markAsChanged();
-        this.renderActionSettings();
-        this.renderActionSequence();
+        console.log('🟡 [DEBUG] Marked as changed, rendering UI...');
 
-        console.log(`Converted condition to action at position ${insertIndex}`);
+        // Don't call renderActionSettings() here - the action isn't expanded yet
+        // renderActionSequence() will handle rendering everything properly
+
+        this.renderActionSequence();
+        console.log('🟡 [DEBUG] Action sequence rendered');
+
+        console.log('🟡 [DEBUG] COMPLETE: Converted condition to action at position', insertIndex);
     }
 
     handleActionDragLeave(event, targetActionId) {
@@ -2210,10 +2436,26 @@ class MacroBuilderApp {
         event.preventDefault();
         event.stopPropagation();
 
+        console.log('🔵 [DEBUG] handleActionDrop CALLED', {
+            targetActionId,
+            draggedCondition: this.draggedCondition,
+            draggedActionId: this.draggedActionId,
+            dataTransferTypes: Array.from(event.dataTransfer.types),
+            timestamp: new Date().toISOString()
+        });
+
         // Check if a condition is being dragged first
         const isConditionDrag = event.dataTransfer.getData('conditionDrag') === 'true';
+        console.log('🔵 [DEBUG] Checking if condition drag:', {
+            isConditionDrag,
+            hasCondition: !!this.draggedCondition
+        });
+
         if (isConditionDrag || this.draggedCondition) {
-            console.log('Handling condition drop to action', { draggedCondition: this.draggedCondition, targetActionId });
+            console.log('🔵 [DEBUG] Delegating to handleConditionToActionDrop', {
+                draggedCondition: this.draggedCondition,
+                targetActionId
+            });
             this.handleConditionToActionDrop(event, targetActionId);
             return;
         }
