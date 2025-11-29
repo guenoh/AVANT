@@ -26,6 +26,9 @@ import {
     macroStore
 } from './index.js';
 
+// Import core infrastructure
+import { registry } from '../core/AppRegistry.js';
+
 // Expose classes to global scope for backward compatibility
 window.ScenarioManager = ScenarioManager;
 window.DragDropManager = DragDropManager;
@@ -43,13 +46,24 @@ window.MacroStore = macroStore;
 // Also expose singleton logger
 window.logger = logger;
 
-// Dispatch event to signal modules are ready
-window.dispatchEvent(new CustomEvent('modulesReady', {
-    detail: {
-        managers: { ScenarioManager, DragDropManager, ExecutionController, CoordinatePickerUI },
-        services: { EventBus, LoggerService, eventBus, logger },
-        stores: { ActionStore, DeviceStore, ScreenStore, MacroStore, actionStore, deviceStore, screenStore, macroStore }
-    }
-}));
+// Expose AppRegistry for dependency injection
+window.appRegistry = registry;
 
-console.log('[ModuleBridge] ES6 modules loaded and exposed to global scope');
+// Initialize the registry
+registry.init().then(() => {
+    console.log('[ModuleBridge] AppRegistry initialized');
+
+    // Dispatch event to signal modules are ready
+    window.dispatchEvent(new CustomEvent('modulesReady', {
+        detail: {
+            registry,
+            managers: { ScenarioManager, DragDropManager, ExecutionController, CoordinatePickerUI },
+            services: { EventBus, LoggerService, eventBus, logger },
+            stores: { ActionStore, DeviceStore, ScreenStore, MacroStore, actionStore, deviceStore, screenStore, macroStore }
+        }
+    }));
+
+    console.log('[ModuleBridge] ES6 modules loaded and exposed to global scope');
+}).catch(error => {
+    console.error('[ModuleBridge] Failed to initialize AppRegistry:', error);
+});
