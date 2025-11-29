@@ -424,6 +424,395 @@ class MacroBuilderApp {
                 }
             }
         });
+
+        // Global event delegation for data-action attributes
+        // This replaces inline onclick handlers for better security and maintainability
+        this.setupEventDelegation();
+    }
+
+    /**
+     * Setup global event delegation for data-action attributes
+     * Handles clicks on elements with data-action, data-action-id, etc.
+     */
+    setupEventDelegation() {
+        // Click event delegation
+        document.addEventListener('click', (e) => {
+            // Handle data-stop-propagation attribute
+            const stopPropEl = e.target.closest('[data-stop-propagation]');
+            if (stopPropEl) {
+                e.stopPropagation();
+            }
+
+            // Handle data-action attribute
+            const actionEl = e.target.closest('[data-action]');
+            if (!actionEl) return;
+
+            e.stopPropagation();
+            const action = actionEl.dataset.action;
+            const actionId = actionEl.dataset.actionId;
+            const conditionId = actionEl.dataset.conditionId;
+            const blockId = actionEl.dataset.blockId;
+            const scenarioId = actionEl.dataset.scenarioId;
+            const scenarioKey = actionEl.dataset.scenarioKey;
+            const direction = actionEl.dataset.direction;
+
+            switch (action) {
+                // Condition actions
+                case 'toggle-condition-settings':
+                    this.toggleConditionSettings(conditionId);
+                    break;
+                case 'move-condition':
+                    this.moveCondition(actionId, conditionId, direction);
+                    break;
+                case 'remove-condition':
+                    this.removeCondition(actionId, conditionId);
+                    break;
+
+                // Action block actions
+                case 'toggle-action-settings':
+                    this.toggleActionSettings(actionId);
+                    break;
+
+                // Scenario actions
+                case 'edit-scenario':
+                    this.editScenario(scenarioId || scenarioKey);
+                    break;
+                case 'run-scenario':
+                    this.runSingleScenario(scenarioId || scenarioKey);
+                    break;
+                case 'cancel-scenario':
+                    this.cancelScenario(scenarioKey);
+                    break;
+
+                // Block actions
+                case 'toggle-block-expansion':
+                    this.toggleBlockExpansion(blockId);
+                    break;
+                case 'move-block':
+                    this.moveScenarioBlock(blockId, direction);
+                    break;
+                case 'remove-block':
+                    this.removeScenarioBlock(blockId);
+                    break;
+
+                // Increment/Decrement controls (from UIComponents and TemplateHelpers)
+                case 'decrement-value': {
+                    const field = actionEl.dataset.field;
+                    const min = parseFloat(actionEl.dataset.min || 0);
+                    const step = parseFloat(actionEl.dataset.step || 1);
+                    const current = parseFloat(actionEl.dataset.current || 0);
+                    const newVal = Math.max(min, current - step);
+                    this.updateActionValue(actionId, field, newVal);
+                    break;
+                }
+                case 'increment-value': {
+                    const field = actionEl.dataset.field;
+                    const max = parseFloat(actionEl.dataset.max || 10000);
+                    const step = parseFloat(actionEl.dataset.step || 1);
+                    const current = parseFloat(actionEl.dataset.current || 0);
+                    const newVal = Math.min(max, current + step);
+                    this.updateActionValue(actionId, field, newVal);
+                    break;
+                }
+                case 'set-value': {
+                    const field = actionEl.dataset.field;
+                    const value = actionEl.dataset.value;
+                    this.updateActionValue(actionId, field, value);
+                    break;
+                }
+
+                // Condition operator (AND/OR)
+                case 'set-condition-operator': {
+                    const value = actionEl.dataset.value;
+                    this.updateActionValue(actionId, 'conditionOperator', value);
+                    break;
+                }
+
+                // Sound check audio file actions
+                case 'select-audio-file':
+                    if (typeof app !== 'undefined' && app.selectAudioFile) {
+                        app.selectAudioFile(actionId);
+                    } else if (this.selectAudioFile) {
+                        this.selectAudioFile(actionId);
+                    }
+                    break;
+                case 'remove-audio-file':
+                    if (typeof app !== 'undefined' && app.removeAudioFile) {
+                        app.removeAudioFile(actionId);
+                    } else if (this.removeAudioFile) {
+                        this.removeAudioFile(actionId);
+                    }
+                    break;
+            }
+        });
+
+        // Change event delegation for condition checkboxes and selects
+        document.addEventListener('change', (e) => {
+            // Condition negate checkbox
+            const negateCheckbox = e.target.closest('.condition-negate-checkbox');
+            if (negateCheckbox) {
+                const label = negateCheckbox.closest('.condition-negate-toggle');
+                if (label) {
+                    const actionId = label.dataset.actionId;
+                    const conditionId = label.dataset.conditionId;
+                    this.toggleConditionNegate(actionId, conditionId, negateCheckbox.checked);
+                }
+                return;
+            }
+
+            // Condition operator select
+            const operatorSelect = e.target.closest('.condition-operator-select');
+            if (operatorSelect) {
+                const actionId = operatorSelect.dataset.actionId;
+                const conditionId = operatorSelect.dataset.conditionId;
+                this.updateConditionOperator(actionId, conditionId, operatorSelect.value);
+                return;
+            }
+
+            // Condition param inputs
+            const paramInput = e.target.closest('.condition-param-input');
+            if (paramInput) {
+                const actionId = paramInput.dataset.actionId;
+                const conditionId = paramInput.dataset.conditionId;
+                const param = paramInput.dataset.param;
+                const type = paramInput.dataset.type;
+                let value = paramInput.value;
+
+                // Convert value based on type
+                if (type === 'int') {
+                    value = parseInt(value);
+                } else if (type === 'percentage') {
+                    value = parseFloat(value) / 100;
+                }
+
+                this.updateConditionParam(actionId, conditionId, param, value);
+                return;
+            }
+
+            // Action value inputs (from UIComponents and TemplateHelpers)
+            const actionValueInput = e.target.closest('.action-value-input');
+            if (actionValueInput) {
+                const actionId = actionValueInput.dataset.actionId;
+                const field = actionValueInput.dataset.field;
+                const type = actionValueInput.dataset.type;
+                let value = actionValueInput.type === 'checkbox' ? actionValueInput.checked : actionValueInput.value;
+
+                // Convert value based on type
+                if (type === 'int') {
+                    value = parseInt(value);
+                } else if (type === 'boolean') {
+                    value = Boolean(value);
+                }
+
+                this.updateActionValue(actionId, field, value);
+                return;
+            }
+
+            // Comparison inputs (from UIComponents.comparisonOperator)
+            const comparisonInput = e.target.closest('.comparison-input');
+            if (comparisonInput) {
+                const actionId = comparisonInput.dataset.actionId;
+                const conditionId = comparisonInput.dataset.conditionId;
+                const comparisonField = comparisonInput.dataset.comparisonField;
+                let value = comparisonInput.value;
+
+                // Convert numeric values
+                if (comparisonField === 'value') {
+                    value = parseFloat(value);
+                }
+
+                // Update the comparison object on the action
+                this.updateActionComparison(actionId, conditionId, comparisonField, value);
+                return;
+            }
+        });
+
+        // Input event delegation for range sliders
+        document.addEventListener('input', (e) => {
+            const paramInput = e.target.closest('.condition-param-input');
+            if (paramInput && paramInput.type === 'range') {
+                const actionId = paramInput.dataset.actionId;
+                const conditionId = paramInput.dataset.conditionId;
+                const param = paramInput.dataset.param;
+                const type = paramInput.dataset.type;
+                let value = paramInput.value;
+
+                // Convert value based on type
+                if (type === 'int') {
+                    value = parseInt(value);
+                } else if (type === 'percentage') {
+                    value = parseFloat(value) / 100;
+                }
+
+                this.updateConditionParam(actionId, conditionId, param, value);
+            }
+        });
+
+        // Drag event delegation for condition blocks
+        document.addEventListener('dragstart', (e) => {
+            const conditionBlock = e.target.closest('.condition-block');
+            if (conditionBlock) {
+                const actionId = conditionBlock.dataset.actionId;
+                const conditionId = conditionBlock.dataset.conditionId;
+                this.handleConditionDragStart(e, actionId, conditionId);
+                return;
+            }
+
+            const dragHandle = e.target.closest('.drag-handle');
+            if (dragHandle) {
+                const actionId = dragHandle.dataset.actionId;
+                this.handleActionBlockDragStart(e, actionId);
+                return;
+            }
+
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (scenarioBlock) {
+                this.handleDragStart(e);
+            }
+        });
+
+        document.addEventListener('dragend', (e) => {
+            const conditionBlock = e.target.closest('.condition-block');
+            const dragHandle = e.target.closest('.drag-handle');
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (conditionBlock || dragHandle) {
+                this.handleActionDragEnd(e);
+            } else if (scenarioBlock) {
+                this.handleDragEnd(e);
+            }
+        });
+
+        document.addEventListener('dragover', (e) => {
+            // Condition drop zone (from ActionSettingsBuilder)
+            const conditionDropZone = e.target.closest('[data-drop-zone="condition"]');
+            if (conditionDropZone) {
+                e.preventDefault();
+                e.stopPropagation();
+                const el = conditionDropZone;
+                el.style.borderColor = '#3b82f6';
+                el.style.borderWidth = '3px';
+                el.style.background = 'rgba(59, 130, 246, 0.08)';
+                el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)';
+                el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite';
+                return;
+            }
+
+            // Action sequence container
+            const actionSequenceZone = e.target.closest('[data-drop-zone="action-sequence"]');
+            if (actionSequenceZone) {
+                this.handleContainerDragOver(e);
+                return;
+            }
+
+            // Action block drop zone
+            const actionBlockZone = e.target.closest('[data-drop-zone="action-block"]');
+            if (actionBlockZone) {
+                const actionId = actionBlockZone.dataset.actionId;
+                this.handleActionDragOver(e, actionId);
+                return;
+            }
+
+            const conditionBlock = e.target.closest('.condition-block');
+            if (conditionBlock) {
+                const actionId = conditionBlock.dataset.actionId;
+                const conditionId = conditionBlock.dataset.conditionId;
+                this.handleConditionDragOver(e, actionId, conditionId);
+                return;
+            }
+
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (scenarioBlock) {
+                this.handleDragOver(e);
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            // Condition drop zone (from ActionSettingsBuilder)
+            const conditionDropZone = e.target.closest('[data-drop-zone="condition"]');
+            if (conditionDropZone) {
+                const el = conditionDropZone;
+                el.style.borderColor = '';
+                el.style.borderWidth = '';
+                el.style.background = '';
+                el.style.boxShadow = '';
+                el.style.animation = '';
+                return;
+            }
+
+            // Action block drop zone
+            const actionBlockZone = e.target.closest('[data-drop-zone="action-block"]');
+            if (actionBlockZone) {
+                const actionId = actionBlockZone.dataset.actionId;
+                this.handleActionDragLeave(e, actionId);
+                return;
+            }
+
+            const conditionBlock = e.target.closest('.condition-block');
+            if (conditionBlock) {
+                const actionId = conditionBlock.dataset.actionId;
+                const conditionId = conditionBlock.dataset.conditionId;
+                this.handleConditionDragLeave(e, actionId, conditionId);
+                return;
+            }
+
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (scenarioBlock) {
+                this.handleDragLeave(e);
+            }
+        });
+
+        document.addEventListener('drop', (e) => {
+            // Condition drop zone (from ActionSettingsBuilder)
+            const conditionDropZone = e.target.closest('[data-drop-zone="condition"]');
+            if (conditionDropZone) {
+                e.preventDefault();
+                e.stopPropagation();
+                const el = conditionDropZone;
+                el.style.borderColor = '';
+                el.style.borderWidth = '';
+                el.style.background = '';
+                el.style.boxShadow = '';
+                el.style.animation = '';
+                const actionId = conditionDropZone.dataset.actionId;
+                this.handleConditionDrop(e, actionId);
+                return;
+            }
+
+            // Action sequence container
+            const actionSequenceZone = e.target.closest('[data-drop-zone="action-sequence"]');
+            if (actionSequenceZone) {
+                this.handleContainerDrop(e);
+                return;
+            }
+
+            // Action block drop zone
+            const actionBlockZone = e.target.closest('[data-drop-zone="action-block"]');
+            if (actionBlockZone) {
+                const actionId = actionBlockZone.dataset.actionId;
+                this.handleActionDrop(e, actionId);
+                return;
+            }
+
+            const conditionBlock = e.target.closest('.condition-block');
+            if (conditionBlock) {
+                const actionId = conditionBlock.dataset.actionId;
+                const conditionId = conditionBlock.dataset.conditionId;
+                this.handleConditionDrop(e, actionId, conditionId);
+                return;
+            }
+
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (scenarioBlock) {
+                this.handleDrop(e);
+            }
+        });
+
+        document.addEventListener('dragenter', (e) => {
+            const scenarioBlock = e.target.closest('.scenario-block');
+            if (scenarioBlock) {
+                this.handleDragEnter(e);
+            }
+        });
     }
 
     switchTab(tabName) {
@@ -1598,9 +1987,8 @@ class MacroBuilderApp {
                 <p class="empty-title">시나리오가 비어있습니다</p>
                 <p class="empty-description">오른쪽에서 액션을 선택하여 시작하세요</p>
             </div>
-            <div class="space-y-2"
-                 ondragover="window.macroApp.handleContainerDragOver(event)"
-                 ondrop="window.macroApp.handleContainerDrop(event)"
+            <div class="space-y-2 action-sequence-container"
+                 data-drop-zone="action-sequence"
                  style="min-height: 100px;">
                 ${actionsWithDepth.map((action, index) => this.renderActionBlock(action, index, actionsWithDepth.length)).join('')}
             </div>
@@ -2895,17 +3283,12 @@ class MacroBuilderApp {
             <div>
                 <!-- Condition Block -->
                 <div
-                    class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
+                    class="condition-block bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
                     draggable="true"
-                    ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
-                    ondragend="window.macroApp.handleActionDragEnd(event)"
-                    ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
-                    ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
-                    ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
-                    onclick="event.stopPropagation()"
+                    data-condition-id="${condition.id}"
+                    data-action-id="${actionId}"
+                    data-stop-propagation
                     style="transition: all 0.2s; cursor: grab;"
-                    onmousedown="this.style.cursor='grabbing'"
-                    onmouseup="this.style.cursor='grab'"
                 >
                     <div class="p-3">
                         <div class="flex items-center gap-3">
@@ -2921,12 +3304,11 @@ class MacroBuilderApp {
                                 <div class="flex items-center gap-2 mb-1">
                                     <h3 class="text-slate-900 font-medium">${config.label}</h3>
                                     <!-- NOT Toggle -->
-                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
+                                    <label class="flex items-center gap-1 cursor-pointer group condition-negate-toggle" data-stop-propagation data-action-id="${actionId}" data-condition-id="${condition.id}">
                                         <input
                                             type="checkbox"
                                             ${condition.negate ? 'checked' : ''}
-                                            onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
-                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
+                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer condition-negate-checkbox"
                                         />
                                         <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
                                             NOT
@@ -2938,16 +3320,16 @@ class MacroBuilderApp {
 
                             <!-- Actions -->
                             <div class="flex gap-1 flex-shrink-0">
-                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
+                                <button class="btn-ghost h-8 w-8 p-0" data-action="toggle-condition-settings" data-condition-id="${condition.id}">
                                     ${this.getIconSVG('settings')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} data-action="move-condition" data-action-id="${actionId}" data-condition-id="${condition.id}" data-direction="up">
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} data-action="move-condition" data-action-id="${actionId}" data-condition-id="${condition.id}" data-direction="down">
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" data-action="remove-condition" data-action-id="${actionId}" data-condition-id="${condition.id}">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
@@ -2962,10 +3344,11 @@ class MacroBuilderApp {
                 ${!isLast ? `
                     <div class="flex items-center justify-center my-2">
                         <select
-                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
+                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm condition-operator-select"
                             value="${condition.operator || 'AND'}"
-                            onclick="event.stopPropagation()"
-                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                            data-stop-propagation
+                            data-action-id="${actionId}"
+                            data-condition-id="${condition.id}"
                             style="cursor: pointer;"
                         >
                             <option value="AND">AND</option>
@@ -3032,10 +3415,13 @@ class MacroBuilderApp {
                     <div>
                         <label class="text-xs mb-1 block text-slate-600">이미지 이름</label>
                         <input type="text" value="${condition.params.imagePath || 'image.png'}"
-                            class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
+                            class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7 condition-param-input"
                             placeholder="이미지 이름"
-                            onclick="event.stopPropagation()"
-                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'imagePath', this.value)">
+                            data-stop-propagation
+                            data-action-id="${actionId}"
+                            data-condition-id="${condition.id}"
+                            data-param="imagePath"
+                            data-type="string">
                     </div>
                     <div>
                         <label class="text-xs mb-1 block text-slate-600">매칭 정확도: ${Math.round((condition.params.threshold || 0.955) * 100)}%</label>
@@ -3044,10 +3430,12 @@ class MacroBuilderApp {
                             min="50"
                             max="100"
                             step="1"
-                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
-                            onclick="event.stopPropagation()"
-                            oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'threshold', parseFloat(this.value) / 100)"
-                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'threshold', parseFloat(this.value) / 100)">
+                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500 condition-param-input"
+                            data-stop-propagation
+                            data-action-id="${actionId}"
+                            data-condition-id="${condition.id}"
+                            data-param="threshold"
+                            data-type="percentage">
                     </div>
                 `;
             case 'click':
@@ -3057,16 +3445,22 @@ class MacroBuilderApp {
                         <div>
                             <label class="text-xs mb-1 block text-slate-600">X</label>
                             <input type="number" value="${condition.params.x || 0}"
-                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
-                                onclick="event.stopPropagation()"
-                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'x', parseInt(this.value))">
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7 condition-param-input"
+                                data-stop-propagation
+                                data-action-id="${actionId}"
+                                data-condition-id="${condition.id}"
+                                data-param="x"
+                                data-type="int">
                         </div>
                         <div>
                             <label class="text-xs mb-1 block text-slate-600">Y</label>
                             <input type="number" value="${condition.params.y || 0}"
-                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
-                                onclick="event.stopPropagation()"
-                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'y', parseInt(this.value))">
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7 condition-param-input"
+                                data-stop-propagation
+                                data-action-id="${actionId}"
+                                data-condition-id="${condition.id}"
+                                data-param="y"
+                                data-type="int">
                         </div>
                     </div>
                 `;
@@ -3079,10 +3473,12 @@ class MacroBuilderApp {
                             min="100"
                             max="10000"
                             step="100"
-                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
-                            onclick="event.stopPropagation()"
-                            oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))"
-                            onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'duration', parseInt(this.value))">
+                            class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500 condition-param-input"
+                            data-stop-propagation
+                            data-action-id="${actionId}"
+                            data-condition-id="${condition.id}"
+                            data-param="duration"
+                            data-type="int">
                     </div>
                 `;
             case 'get-volume':
@@ -3091,9 +3487,12 @@ class MacroBuilderApp {
                         <div>
                             <label class="text-xs mb-1 block text-slate-600">Comparison Operator</label>
                             <select
-                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
-                                onclick="event.stopPropagation()"
-                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'operator', this.value)"
+                                class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7 condition-param-input"
+                                data-stop-propagation
+                                data-action-id="${actionId}"
+                                data-condition-id="${condition.id}"
+                                data-param="operator"
+                                data-type="string"
                             >
                                 <option value=">=" ${(condition.params.operator || '>=') === '>=' ? 'selected' : ''}>Greater than or equal (>=)</option>
                                 <option value="<=" ${(condition.params.operator || '>=') === '<=' ? 'selected' : ''}>Less than or equal (<=)</option>
@@ -3110,10 +3509,12 @@ class MacroBuilderApp {
                                 min="0"
                                 max="100"
                                 step="5"
-                                class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500"
-                                onclick="event.stopPropagation()"
-                                oninput="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'value', parseInt(this.value))"
-                                onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'value', parseInt(this.value))">
+                                class="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-emerald-500 condition-param-input"
+                                data-stop-propagation
+                                data-action-id="${actionId}"
+                                data-condition-id="${condition.id}"
+                                data-param="value"
+                                data-type="int">
                         </div>
                     </div>
                 `;
@@ -3172,9 +3573,9 @@ class MacroBuilderApp {
         return `
             <div style="margin-left: ${depth * 24}px; position: relative;"
                  data-action-id="${action.id}"
-                 ondragover="window.macroApp.handleActionDragOver(event, '${action.id}')"
-                 ondragleave="window.macroApp.handleActionDragLeave(event, '${action.id}')"
-                 ondrop="window.macroApp.handleActionDrop(event, '${action.id}')">
+                 class="action-block-wrapper"
+                 data-drop-zone="action-block"
+                 >
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
 
@@ -3184,12 +3585,9 @@ class MacroBuilderApp {
                             <!-- Drag Handle -->
                             <div class="drag-handle flex-shrink-0"
                                 draggable="true"
-                                onclick="event.stopPropagation()"
-                                ondragstart="window.macroApp.handleActionBlockDragStart(event, '${action.id}')"
-                                ondragend="window.macroApp.handleActionDragEnd(event)"
-                                style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s;"
-                                onmouseenter="this.style.opacity='0.6'"
-                                onmouseleave="this.style.opacity='0.3'">
+                                data-stop-propagation
+                                data-action-id="${action.id}"
+                                style="cursor: grab; padding: 0.25rem; opacity: 0.3; transition: opacity 0.2s;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                                     <circle cx="9" cy="5" r="2"/>
                                     <circle cx="9" cy="12" r="2"/>
@@ -3221,7 +3619,7 @@ class MacroBuilderApp {
                             <!-- Actions -->
                             <div class="flex gap-1 flex-shrink-0">
                                 ${!['end-if', 'end-loop', 'end-while', 'else'].includes(action.type) ? `
-                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleActionSettings('${action.id}')">
+                                <button class="btn-ghost h-8 w-8 p-0" data-action="toggle-action-settings" data-action-id="${action.id}">
                                     ${this.getIconSVG('settings')}
                                 </button>
                                 ` : ''}
@@ -3247,7 +3645,7 @@ class MacroBuilderApp {
 
     renderActionSettings(action) {
         return `
-            <div class="settings-panel border-t border-slate-200 bg-white px-8 py-5" onclick="event.stopPropagation()" style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
+            <div class="settings-panel border-t border-slate-200 bg-white px-8 py-5" data-stop-propagation style="border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden;">
                 ${this.getSettingsHTML(action)}
             </div>
         `;
@@ -3329,6 +3727,33 @@ class MacroBuilderApp {
             this.markAsChanged();
             // Don't re-render to avoid losing focus
         }
+    }
+
+    /**
+     * Update comparison object on an action (for image-match, get-volume, etc.)
+     * @param {string} actionId - The action ID
+     * @param {string|null} conditionId - Optional condition ID (for nested conditions)
+     * @param {string} field - 'operator' or 'value'
+     * @param {any} value - The new value
+     */
+    updateActionComparison(actionId, conditionId, field, value) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        // Initialize comparison object if needed
+        if (!action.comparison) {
+            action.comparison = { operator: '>=', value: 0 };
+        }
+
+        // Update the field
+        action.comparison[field] = value;
+
+        // For backward compatibility, also update threshold for image-match
+        if (action.type === 'image-match' && field === 'value') {
+            action.threshold = value;
+        }
+
+        this.markAsChanged();
     }
 
     getActionConfig(type) {
@@ -5417,17 +5842,12 @@ class MacroBuilderApp {
             <div>
                 <!-- Condition Block -->
                 <div
-                    class="bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
+                    class="condition-block bg-white border-2 border-slate-200 hover:border-slate-300 rounded-lg"
                     draggable="true"
-                    ondragstart="window.macroApp.handleConditionDragStart(event, '${actionId}', '${condition.id}')"
-                    ondragend="window.macroApp.handleActionDragEnd(event)"
-                    ondragover="window.macroApp.handleConditionDragOver(event, '${actionId}', '${condition.id}')"
-                    ondragleave="window.macroApp.handleConditionDragLeave(event, '${actionId}', '${condition.id}')"
-                    ondrop="window.macroApp.handleConditionDrop(event, '${actionId}', '${condition.id}')"
-                    onclick="event.stopPropagation()"
+                    data-condition-id="${condition.id}"
+                    data-action-id="${actionId}"
+                    data-stop-propagation
                     style="transition: all 0.2s; cursor: grab;"
-                    onmousedown="this.style.cursor='grabbing'"
-                    onmouseup="this.style.cursor='grab'"
                 >
                     <div class="p-3">
                         <div class="flex items-center gap-3">
@@ -5443,12 +5863,11 @@ class MacroBuilderApp {
                                 <div class="flex items-center gap-2 mb-1">
                                     <h3 class="text-slate-900 font-medium">${config.label}</h3>
                                     <!-- NOT Toggle -->
-                                    <label class="flex items-center gap-1 cursor-pointer group" onclick="event.stopPropagation()">
+                                    <label class="flex items-center gap-1 cursor-pointer group condition-negate-toggle" data-stop-propagation data-action-id="${actionId}" data-condition-id="${condition.id}">
                                         <input
                                             type="checkbox"
                                             ${condition.negate ? 'checked' : ''}
-                                            onchange="window.macroApp.toggleConditionNegate('${actionId}', '${condition.id}', this.checked)"
-                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer"
+                                            class="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500 focus:ring-offset-0 cursor-pointer condition-negate-checkbox"
                                         />
                                         <span class="text-xs ${condition.negate ? 'text-red-600 font-medium' : 'text-slate-500'} group-hover:text-red-600 transition-colors">
                                             NOT
@@ -5460,16 +5879,16 @@ class MacroBuilderApp {
 
                             <!-- Actions -->
                             <div class="flex gap-1 flex-shrink-0">
-                                <button class="btn-ghost h-8 w-8 p-0" onclick="event.stopPropagation(); window.macroApp.toggleConditionSettings('${condition.id}')">
+                                <button class="btn-ghost h-8 w-8 p-0" data-action="toggle-condition-settings" data-condition-id="${condition.id}">
                                     ${this.getIconSVG('settings')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'up')">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isFirst ? 'disabled' : ''} data-action="move-condition" data-action-id="${actionId}" data-condition-id="${condition.id}" data-direction="up">
                                     ${this.getIconSVG('chevron-up')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} onclick="event.stopPropagation(); window.macroApp.moveCondition('${actionId}', '${condition.id}', 'down')">
+                                <button class="btn-ghost h-8 w-8 p-0" ${isLast ? 'disabled' : ''} data-action="move-condition" data-action-id="${actionId}" data-condition-id="${condition.id}" data-direction="down">
                                     ${this.getIconSVG('chevron-down')}
                                 </button>
-                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onclick="event.stopPropagation(); window.macroApp.removeCondition('${actionId}', '${condition.id}')">
+                                <button class="btn-ghost h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" data-action="remove-condition" data-action-id="${actionId}" data-condition-id="${condition.id}">
                                     ${this.getIconSVG('trash')}
                                 </button>
                             </div>
@@ -5484,10 +5903,11 @@ class MacroBuilderApp {
                 ${!isLast ? `
                     <div class="flex items-center justify-center my-2">
                         <select
-                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
+                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm condition-operator-select"
                             value="${condition.operator || 'AND'}"
-                            onclick="event.stopPropagation()"
-                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
+                            data-stop-propagation
+                            data-action-id="${actionId}"
+                            data-condition-id="${condition.id}"
                             style="cursor: pointer;"
                         >
                             <option value="AND">AND</option>
@@ -6685,7 +7105,7 @@ class MacroBuilderApp {
                 return `
                     <div class="border-l-2 border-slate-200 pl-4 ml-4 mb-2 hover:bg-slate-50 rounded transition-colors p-2">
                         <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="window.macroApp.editScenario('${scenario.id}')">
+                            <div class="flex items-center gap-3 flex-1 cursor-pointer" data-action="edit-scenario" data-scenario-id="${scenario.id}">
                                 <div class="flex-1">
                                     <div class="flex items-center gap-2">
                                         <h4 class="text-sm font-medium text-slate-900">${scenario.name}</h4>
@@ -6696,7 +7116,7 @@ class MacroBuilderApp {
                                     <p class="text-xs text-slate-500 mt-1">${scenario.actionsCount}개 액션 • ${timestamp}</p>
                                 </div>
                             </div>
-                            <button class="btn-outline btn-sm" onclick="event.stopPropagation(); window.macroApp.runSingleScenario('${scenario.id}')">
+                            <button class="btn-outline btn-sm" data-action="run-scenario" data-scenario-id="${scenario.id}">
                                 실행
                             </button>
                         </div>
@@ -7125,11 +7545,11 @@ class MacroBuilderApp {
                                 ${description}
                             </div>
                             ${isRunning ? `
-                                <button class="btn btn-sm" style="background: #dc2626; color: white; padding: 6px 12px;" onclick="window.macroApp.cancelScenario('${scenario.key}')">
+                                <button class="btn btn-sm" style="background: #dc2626; color: white; padding: 6px 12px;" data-action="cancel-scenario" data-scenario-key="${scenario.key}">
                                     ⏱️ 실행 중 - 중단
                                 </button>
                             ` : `
-                                <button class="btn btn-sm" style="background: ${statusColor === '#16a34a' ? '#16a34a' : statusColor === '#dc2626' ? '#dc2626' : '#64748b'}; color: white; padding: 6px 12px;" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr}>
+                                <button class="btn btn-sm" style="background: ${statusColor === '#16a34a' ? '#16a34a' : statusColor === '#dc2626' ? '#dc2626' : '#64748b'}; color: white; padding: 6px 12px;" data-action="run-scenario" data-scenario-key="${scenario.key}" ${disabledAttr}>
                                     ${statusIcon} ${statusText} - ${statusColor === '#16a34a' ? '다시 실행' : statusColor === '#dc2626' ? '재시도' : '실행하기'}
                                 </button>
                             `}
@@ -7653,14 +8073,8 @@ class MacroBuilderApp {
         return `
             <div class="scenario-block"
                  data-block-id="${block.id}"
-                 draggable="true"
-                 ondragstart="window.macroApp.handleDragStart(event)"
-                 ondragover="window.macroApp.handleDragOver(event)"
-                 ondrop="window.macroApp.handleDrop(event)"
-                 ondragend="window.macroApp.handleDragEnd(event)"
-                 ondragenter="window.macroApp.handleDragEnter(event)"
-                 ondragleave="window.macroApp.handleDragLeave(event)">
-                <div class="scenario-block-header" onclick="window.macroApp.toggleBlockExpansion('${block.id}')">
+                 draggable="true">
+                <div class="scenario-block-header" data-action="toggle-block-expansion" data-block-id="${block.id}">
                     <span class="block-drag-handle" title="드래그하여 순서 변경">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
@@ -7673,17 +8087,17 @@ class MacroBuilderApp {
                     <span class="block-name">${block.scenarioName}</span>
                     <span class="block-status-text ${color}">${text}</span>
                     <div class="block-actions">
-                        <button class="btn-icon-sm" onclick="event.stopPropagation(); window.macroApp.moveScenarioBlock('${block.id}', 'up')" title="위로 이동">
+                        <button class="btn-icon-sm" data-action="move-block" data-block-id="${block.id}" data-direction="up" title="위로 이동">
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
                             </svg>
                         </button>
-                        <button class="btn-icon-sm" onclick="event.stopPropagation(); window.macroApp.moveScenarioBlock('${block.id}', 'down')" title="아래로 이동">
+                        <button class="btn-icon-sm" data-action="move-block" data-block-id="${block.id}" data-direction="down" title="아래로 이동">
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
-                        <button class="btn-icon-sm btn-danger" onclick="event.stopPropagation(); window.macroApp.removeScenarioBlock('${block.id}')" title="삭제">
+                        <button class="btn-icon-sm btn-danger" data-action="remove-block" data-block-id="${block.id}" title="삭제">
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -7751,8 +8165,8 @@ class MacroBuilderApp {
 
     // Attach event listeners to block elements
     attachBlockEventListeners() {
-        // Event listeners are handled inline via onclick for simplicity
-        // Could be improved with proper event delegation
+        // Event listeners are now handled via event delegation in setupEventDelegation()
+        // This method is kept for backward compatibility but no longer needed
     }
 
     // ==================== Drag and Drop Event Handlers ====================

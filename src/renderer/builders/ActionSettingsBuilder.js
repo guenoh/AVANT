@@ -188,20 +188,26 @@ class ActionSettingsBuilder {
      */
     buildConditionalSettings(action) {
         return `
-            <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+            <div class="bg-slate-50/50 px-4 py-4 space-y-4" data-stop-propagation>
                 <!-- Condition Operator Selection -->
                 ${action.conditions && action.conditions.length > 1 ? `
                     <div class="flex items-center gap-2 pb-2 border-b border-slate-200">
                         <label class="text-xs text-slate-600">조건 연산:</label>
                         <div class="flex gap-1">
                             <button
-                                onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'AND');"
+                                data-action="set-condition-operator"
+                                data-action-id="${action.id}"
+                                data-value="AND"
+                                data-stop-propagation
                                 class="px-2 py-1 text-xs rounded transition-colors ${(action.conditionOperator || 'AND') === 'AND' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
                             >
                                 모든 조건 (AND)
                             </button>
                             <button
-                                onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'OR');"
+                                data-action="set-condition-operator"
+                                data-action-id="${action.id}"
+                                data-value="OR"
+                                data-stop-propagation
                                 class="px-2 py-1 text-xs rounded transition-colors ${action.conditionOperator === 'OR' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
                             >
                                 하나라도 (OR)
@@ -224,10 +230,9 @@ class ActionSettingsBuilder {
                 <!-- Drop Zone -->
                 <div
                     class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
-                    ondragover="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = '#3b82f6'; el.style.borderWidth = '3px'; el.style.background = 'rgba(59, 130, 246, 0.08)'; el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)'; el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite';"
-                    ondragleave="const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = '';"
-                    ondrop="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = ''; window.macroApp.handleConditionDrop(event, '${action.id}')"
-                    onclick="event.stopPropagation()"
+                    data-drop-zone="condition"
+                    data-action-id="${action.id}"
+                    data-stop-propagation
                 >
                     <p class="text-xs text-slate-500">
                         <span style="opacity: 0.5;">+</span> 액션을 드래그하여 조건 추가
@@ -465,7 +470,9 @@ UI.slider({
                                 <span class="text-xs text-slate-700 truncate" title="${action.audioFile}">${action.audioFile.split('/').pop()}</span>
                             </div>
                             <button
-                                onclick="app.removeAudioFile('${action.id}')"
+                                data-action="remove-audio-file"
+                                data-action-id="${action.id}"
+                                data-stop-propagation
                                 class="ml-2 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                 title="Remove audio file"
                             >
@@ -476,7 +483,9 @@ UI.slider({
                         </div>
                     ` : `
                         <button
-                            onclick="app.selectAudioFile('${action.id}')"
+                            data-action="select-audio-file"
+                            data-action-id="${action.id}"
+                            data-stop-propagation
                             class="w-full px-3 py-2 bg-white border border-slate-300 rounded hover:bg-slate-50 text-xs text-slate-700 transition-colors"
                         >
                             <div class="flex items-center justify-center gap-2">
