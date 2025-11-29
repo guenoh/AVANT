@@ -162,15 +162,17 @@
                             다른 이름으로 저장
                         </button>
 
-                        <!-- Delay select -->
-                        <label class="toolbar-label">지연:</label>
-                        <select id="toolbar-delay-select" class="btn-outline btn-sm" style="min-width: 90px;">
-                            <option value="0">없음</option>
-                            <option value="100">100ms</option>
-                            <option value="300" selected>300ms</option>
-                            <option value="500">500ms</option>
-                            <option value="1000">1s</option>
-                        </select>
+                        <!-- Delay select (Edit view only) -->
+                        <div id="delay-select-wrapper" class="flex items-center gap-2" style="display: none;">
+                            <label class="toolbar-label">지연:</label>
+                            <select id="toolbar-delay-select" class="btn-outline btn-sm" style="min-width: 90px;">
+                                <option value="0">없음</option>
+                                <option value="100">100ms</option>
+                                <option value="300" selected>300ms</option>
+                                <option value="500">500ms</option>
+                                <option value="1000">1s</option>
+                            </select>
+                        </div>
 
                         <!-- Run buttons -->
                         <button class="btn-primary btn-sm" id="btn-run-macro" style="display: none;">
