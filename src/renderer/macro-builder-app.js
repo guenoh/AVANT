@@ -124,25 +124,25 @@ class MacroBuilderApp {
 
     checkInitialDeviceState() {
         // Check if device is already connected on startup
-        console.log('[DEBUG] Checking initial device state...');
+        this.logger.debug('Checking initial device state...');
 
         // Use a short delay to allow Main process to update device state
         setTimeout(() => {
             const connected = this.isDeviceConnected;
             const hasScreenDimensions = this.controller.state.screenWidth > 0 && this.controller.state.screenHeight > 0;
 
-            console.log('[DEBUG] isDeviceConnected:', connected);
-            console.log('[DEBUG] Screen dimensions:', this.controller.state.screenWidth, 'x', this.controller.state.screenHeight);
+            this.logger.debug('isDeviceConnected: ' + connected);
+            this.logger.debug('Screen dimensions: ' + this.controller.state.screenWidth + 'x' + this.controller.state.screenHeight);
 
             // If screen dimensions exist but isDeviceConnected is false, we need to re-render
             if (hasScreenDimensions && !connected) {
-                console.log('[DEBUG] Device connected but state not updated, forcing re-render...');
+                this.logger.debug('Device connected but state not updated, forcing re-render...');
                 // The device is actually connected, force a re-render
                 this.renderActionList();
             } else if (connected) {
-                console.log('[DEBUG] Device already connected on startup');
+                this.logger.debug('Device already connected on startup');
             } else {
-                console.log('[DEBUG] No device connected on startup');
+                this.logger.debug('No device connected on startup');
             }
         }, 500); // Wait 500ms for device to initialize
     }
@@ -151,7 +151,7 @@ class MacroBuilderApp {
         // Listen to IPC events from Main process
         if (window.api && window.api.device) {
             window.api.device.onStatus((status) => {
-                console.log('[DEBUG] device:status IPC event received:', status);
+                this.logger.debug('device:status IPC event received', status);
 
                 // Update controller state
                 this.controller.updateDeviceStatus(
@@ -181,13 +181,13 @@ class MacroBuilderApp {
         });
 
         this.eventBus.on('device:status-changed', (data) => {
-            console.log('[DEBUG] device:status-changed event received:', data);
+            this.logger.debug('device:status-changed event received', data);
 
             // Update device connection state
             this.isDeviceConnected = data.connected;
             this.deviceType = data.deviceType;
 
-            console.log('[DEBUG] isDeviceConnected updated to:', this.isDeviceConnected);
+            this.logger.debug('isDeviceConnected updated to: ' + this.isDeviceConnected);
 
             // Re-render action list to update disabled state
             this.renderActionList();
@@ -859,7 +859,7 @@ class MacroBuilderApp {
 
         // Determine device orientation for adaptive container
         const orientation = this.getDeviceOrientation();
-        console.log(`Device orientation: ${orientation} (${this.screenWidth}x${this.screenHeight})`);
+        this.logger.debug(`Device orientation: ${orientation} (${this.screenWidth}x${this.screenHeight})`);
 
         container.innerHTML = `
             <div class="screen-preview-with-log">
@@ -1002,7 +1002,7 @@ class MacroBuilderApp {
             // Remove after 2 seconds
             setTimeout(() => clickDot.remove(), 2000);
 
-            console.log('Green dot placed at:', {
+            this.logger.debug('Green dot placed at', {
                 mouse: { x: e.clientX, y: e.clientY },
                 imgRelative: { x: clickX, y: clickY },
                 containerRelative: { x: clickDotX, y: clickDotY }
@@ -1757,23 +1757,23 @@ class MacroBuilderApp {
         // Apply disabled state to entire action panel
         const actionPanel = document.getElementById('action-panel');
 
-        console.log('[DEBUG] renderActionList - isDeviceConnected:', this.isDeviceConnected);
+        this.logger.debug('renderActionList - isDeviceConnected: ' + this.isDeviceConnected);
 
         if (actionPanel) {
             // Remove existing overlay if present
             const existingOverlay = actionPanel.querySelector('.action-panel-disabled-overlay');
             if (existingOverlay) {
-                console.log('[DEBUG] Removing existing overlay');
+                this.logger.debug('Removing existing overlay');
                 existingOverlay.remove();
             }
 
             if (this.isDeviceConnected) {
                 // Enable state
-                console.log('[DEBUG] Enabling action panel');
+                this.logger.debug('Enabling action panel');
                 actionPanel.style.filter = 'none';
             } else {
                 // Disable state - add overlay to block all interactions
-                console.log('[DEBUG] Disabling action panel');
+                this.logger.debug('Disabling action panel');
                 actionPanel.style.filter = 'grayscale(1) opacity(0.5)';
 
                 const overlay = document.createElement('div');

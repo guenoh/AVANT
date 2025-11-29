@@ -15,6 +15,30 @@ class ActionPanel {
    */
   init() {
     this._subscribeToStore();
+    this._setupEventDelegation();
+  }
+
+  /**
+   * Setup event delegation for data-action attributes
+   */
+  _setupEventDelegation() {
+    const actionListEl = document.getElementById('action-list');
+    if (!actionListEl) return;
+
+    actionListEl.addEventListener('click', (e) => {
+      const actionEl = e.target.closest('[data-action]');
+      if (!actionEl) return;
+
+      const action = actionEl.dataset.action;
+
+      switch (action) {
+        case 'remove-action': {
+          const index = parseInt(actionEl.dataset.actionIndex, 10);
+          if (!isNaN(index)) this.removeAction(index);
+          break;
+        }
+      }
+    });
   }
 
   /**
@@ -280,7 +304,7 @@ class ActionPanel {
           <span class="action-params">${this._getActionParamsLabel(action)}</span>
         </div>
         <div class="action-controls">
-          <button class="btn btn-xs btn-danger" onclick="ui.removeAction(${index})">삭제</button>
+          <button class="btn btn-xs btn-danger" data-action="remove-action" data-action-index="${index}">삭제</button>
         </div>
       </div>
     `).join('');
