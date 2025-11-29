@@ -7,6 +7,7 @@ class PropertiesPanel {
   constructor(actionStore, editor) {
     this.actionStore = actionStore;
     this.editor = editor;
+    this.log = window.logger.createScope('PropertiesPanel');
 
     this.container = null;
     this.currentAction = null;
@@ -24,7 +25,7 @@ class PropertiesPanel {
       this.loadAction(e.detail.action, e.detail.index);
     });
 
-    console.log('[PropertiesPanel] Initialized');
+    this.log.debug('Initialized');
   }
 
   /**
@@ -34,7 +35,7 @@ class PropertiesPanel {
     this.currentAction = { ...action };
     this.currentActionIndex = index;
 
-    console.log('[PropertiesPanel] Loading action:', action.type);
+    this.log.debug('Loading action', { type: action.type });
 
     // Render properties form
     this.render();
@@ -386,7 +387,7 @@ class PropertiesPanel {
   applyChanges() {
     if (this.currentActionIndex === -1 || !this.currentAction) return;
 
-    console.log('[PropertiesPanel] Applying changes:', this.currentAction);
+    this.log.info('Applying changes', { type: this.currentAction.type });
 
     // Update action in store
     this.actionStore.updateAction(this.currentActionIndex, this.currentAction);
@@ -405,7 +406,7 @@ class PropertiesPanel {
    * Cancel editing
    */
   cancelEdit() {
-    console.log('[PropertiesPanel] Canceling edit');
+    this.log.debug('Canceling edit');
 
     this.currentAction = null;
     this.currentActionIndex = -1;
@@ -419,19 +420,21 @@ class PropertiesPanel {
   async testAction() {
     if (!this.currentAction) return;
 
-    console.log('[PropertiesPanel] Testing action:', this.currentAction);
+    this.log.info('Testing action', { type: this.currentAction.type });
 
     try {
       // Execute via ActionPanel
       const result = await this.editor.actionPanel._executeAction(this.currentAction);
 
       if (result.success) {
+        this.log.success('Action test succeeded');
         alert('액션 테스트 성공!');
       } else {
+        this.log.warning('Action test failed', { error: result.error });
         alert('액션 테스트 실패: ' + result.error);
       }
     } catch (error) {
-      console.error('[PropertiesPanel] Test action error:', error);
+      this.log.error('Test action error', { error: error.message });
       alert('액션 테스트 중 오류가 발생했습니다.');
     }
   }

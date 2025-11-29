@@ -16,6 +16,7 @@ class MacroEditor {
     this.ipcService = window.IPCService;
     this.eventBus = window.EventBus;
     this.api = window.api;
+    this.log = window.logger.createScope('MacroEditor');
 
     // Legacy components (for IPC communication)
     this.devicePanel = null;
@@ -38,7 +39,7 @@ class MacroEditor {
    * Initialize the editor
    */
   async init() {
-    console.log('[MacroEditor] Initializing...');
+    this.log.info('Initializing...');
 
     // Initialize legacy components (for IPC)
     this._initLegacyComponents();
@@ -61,7 +62,7 @@ class MacroEditor {
       setTimeout(() => this.showDeviceModal(), 500);
     }
 
-    console.log('[MacroEditor] Initialization complete');
+    this.log.success('Initialization complete');
   }
 
   /**
@@ -82,7 +83,7 @@ class MacroEditor {
     this.actionPanel = new window.ActionPanel(this.api, this.actionStore, this.screenPanel);
     this.actionPanel.init();
 
-    console.log('[MacroEditor] Legacy components initialized');
+    this.log.debug('Legacy components initialized');
   }
 
   /**
@@ -104,7 +105,7 @@ class MacroEditor {
     window.timelineEditor = this.timelineEditor;
     window.propertiesPanel = this.propertiesPanel;
 
-    console.log('[MacroEditor] Editor panels initialized');
+    this.log.debug('Editor panels initialized');
   }
 
   /**
@@ -169,7 +170,7 @@ class MacroEditor {
     // Load macros
     await this.macroListPanel.loadMacros();
 
-    console.log('[MacroEditor] Initial data loaded');
+    this.log.debug('Initial data loaded');
   }
 
   /**
@@ -318,7 +319,7 @@ class MacroEditor {
    * Macro selected handler
    */
   onMacroSelected(macro) {
-    console.log('[MacroEditor] Macro selected:', macro);
+    this.log.info('Macro selected', { name: macro?.name });
     this.currentMacro = macro;
 
     // Load macro actions into timeline
@@ -338,7 +339,7 @@ class MacroEditor {
       return;
     }
 
-    console.log('[MacroEditor] Running current macro...');
+    this.log.info('Running current macro...');
     await this.actionPanel.runActions();
   }
 
@@ -348,11 +349,11 @@ class MacroEditor {
   async runMacroById(macroId) {
     const macro = this.macroStore.getMacroById(macroId);
     if (!macro) {
-      console.error('[MacroEditor] Macro not found:', macroId);
+      this.log.error('Macro not found', { macroId });
       return;
     }
 
-    console.log('[MacroEditor] Running macro:', macro.name);
+    this.log.info('Running macro', { name: macro.name });
     await this.macroPanel.runMacro(macroId);
   }
 
@@ -360,7 +361,7 @@ class MacroEditor {
    * Stop macro execution
    */
   stopMacro() {
-    console.log('[MacroEditor] Stopping macro...');
+    this.log.info('Stopping macro...');
     // TODO: Implement stop functionality
     this.macroStore.setRunning(false);
   }
@@ -378,7 +379,7 @@ class MacroEditor {
     const macroName = prompt('매크로 이름을 입력하세요:');
     if (!macroName) return;
 
-    console.log('[MacroEditor] Saving macro:', macroName);
+    this.log.info('Saving macro', { name: macroName });
     await this.macroPanel.saveMacro(macroName);
 
     // Reload macro list
@@ -389,7 +390,7 @@ class MacroEditor {
    * Import macro from file
    */
   async importMacro() {
-    console.log('[MacroEditor] Import macro');
+    this.log.debug('Import macro');
     // TODO: Implement import functionality
     alert('Import 기능은 곧 추가됩니다.');
   }
@@ -398,7 +399,7 @@ class MacroEditor {
    * Export macro to file
    */
   async exportMacro() {
-    console.log('[MacroEditor] Export macro');
+    this.log.debug('Export macro');
     // TODO: Implement export functionality
     alert('Export 기능은 곧 추가됩니다.');
   }
@@ -408,7 +409,7 @@ class MacroEditor {
    */
   toggleDebugMode() {
     this.debugMode = !this.debugMode;
-    console.log('[MacroEditor] Debug mode:', this.debugMode);
+    this.log.info('Debug mode', { enabled: this.debugMode });
 
     if (this.debugMode) {
       alert('디버그 모드 활성화\n- 상세 로그 출력\n- 액션 실행 단계별 확인');
@@ -419,7 +420,7 @@ class MacroEditor {
    * Show settings
    */
   showSettings() {
-    console.log('[MacroEditor] Show settings');
+    this.log.debug('Show settings');
     // TODO: Implement settings modal
     alert('설정 기능은 곧 추가됩니다.');
   }

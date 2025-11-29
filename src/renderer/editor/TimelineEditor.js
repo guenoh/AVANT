@@ -7,6 +7,7 @@ class TimelineEditor {
   constructor(actionStore, editor) {
     this.actionStore = actionStore;
     this.editor = editor;
+    this.log = window.logger.createScope('TimelineEditor');
 
     this.container = null;
     this.selectedActionIndex = -1;
@@ -44,7 +45,7 @@ class TimelineEditor {
       }
     });
 
-    console.log('[TimelineEditor] Initialized');
+    this.log.debug('Initialized');
   }
 
   /**
@@ -252,7 +253,7 @@ class TimelineEditor {
     const action = this.actionStore.getAction(index);
 
     if (action) {
-      console.log('[TimelineEditor] Selected action:', index, action.type);
+      this.log.debug('Selected action', { index, type: action.type });
 
       // Dispatch event to properties panel
       document.dispatchEvent(new CustomEvent('action-selected', {
@@ -268,7 +269,7 @@ class TimelineEditor {
    * Edit an action
    */
   editAction(index) {
-    console.log('[TimelineEditor] Editing action:', index);
+    this.log.debug('Editing action', { index });
     this.selectAction(index);
   }
 
@@ -278,7 +279,7 @@ class TimelineEditor {
   deleteAction(index) {
     if (!confirm('이 액션을 삭제하시겠습니까?')) return;
 
-    console.log('[TimelineEditor] Deleting action:', index);
+    this.log.info('Deleting action', { index });
     this.actionStore.removeAction(index);
 
     // Clear selection if deleted action was selected
@@ -308,7 +309,7 @@ class TimelineEditor {
 
     if (!confirm('모든 액션을 삭제하시겠습니까?')) return;
 
-    console.log('[TimelineEditor] Clearing all actions');
+    this.log.info('Clearing all actions');
     this.actionStore.clearActions();
     this.selectedActionIndex = -1;
     this.render();
@@ -375,7 +376,7 @@ class TimelineEditor {
     actions.splice(toIndex, 0, movedAction);
 
     this.actionStore.setActions(actions);
-    console.log('[TimelineEditor] Reordered action from', fromIndex, 'to', toIndex);
+    this.log.debug('Reordered action', { from: fromIndex, to: toIndex });
   }
 }
 
