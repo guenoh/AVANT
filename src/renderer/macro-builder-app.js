@@ -324,10 +324,10 @@ class MacroBuilderApp {
             });
         }
 
-        // Handle multiple "new scenario" buttons (there are 2 in the UI)
-        document.querySelectorAll('#btn-new-scenario').forEach(btn => {
-            btn.addEventListener('click', () => this.createNewScenario());
-        });
+        // Handle multiple "new scenario" buttons
+        document.getElementById('btn-new-scenario')?.addEventListener('click', () => this.createNewScenario());
+        document.getElementById('btn-new-scenario-toolbar')?.addEventListener('click', () => this.createNewScenario());
+        document.getElementById('btn-new-scenario-from-list')?.addEventListener('click', () => this.createNewScenario());
 
         document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
@@ -1512,7 +1512,7 @@ class MacroBuilderApp {
 
         // Show/hide UI elements for action editing view (MUST be at the top, before any return)
         const btnBackToList = document.getElementById('btn-back-to-list');
-        const btnNewScenario = document.getElementById('btn-new-scenario');
+        const btnNewScenario = document.getElementById('btn-new-scenario-toolbar');
         const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
@@ -7214,7 +7214,7 @@ class MacroBuilderApp {
             btnBackToList.style.display = 'none';
             btnBackToList.style.visibility = 'hidden';
         }
-        const btnNewScenario = document.getElementById('btn-new-scenario');
+        const btnNewScenario = document.getElementById('btn-new-scenario-toolbar');
         if (btnNewScenario) {
             btnNewScenario.style.setProperty('display', '', 'important');
             btnNewScenario.style.visibility = 'visible';

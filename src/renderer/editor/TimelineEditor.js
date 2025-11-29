@@ -84,12 +84,18 @@ class TimelineEditor {
           아래 버튼을 클릭하거나<br>
           화면을 클릭하여 액션을 추가하세요
         </div>
-        <button class="toolbar-btn btn-primary" onclick="timelineEditor.showAddActionModal()" style="margin-top: 16px;">
+        <button class="toolbar-btn btn-primary" id="btn-add-action-empty" style="margin-top: 16px;">
           <span class="btn-icon">➕</span>
           <span>액션 추가</span>
         </button>
       </div>
     `;
+
+    // Attach event listener for the add action button
+    const addBtn = this.container.querySelector('#btn-add-action-empty');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => this.showAddActionModal());
+    }
   }
 
   /**

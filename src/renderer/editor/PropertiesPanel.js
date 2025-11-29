@@ -241,7 +241,7 @@ class PropertiesPanel {
                 id="file-${field.name}"
                 accept="image/*"
               >
-              <button class="property-file-btn" onclick="document.getElementById('file-${field.name}').click()">
+              <button class="property-file-btn" data-file-input="file-${field.name}">
                 파일 선택
               </button>
               <span class="property-file-name" id="filename-${field.name}">
@@ -297,7 +297,19 @@ class PropertiesPanel {
       });
     });
 
-    // File input handling
+    // File button click handling
+    const fileButtons = this.container.querySelectorAll('.property-file-btn');
+    fileButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inputId = btn.dataset.fileInput;
+        const fileInput = document.getElementById(inputId);
+        if (fileInput) {
+          fileInput.click();
+        }
+      });
+    });
+
+    // File input change handling
     const fileInputs = this.container.querySelectorAll('.property-file-input');
     fileInputs.forEach(input => {
       input.addEventListener('change', (e) => {
