@@ -187,5 +187,12 @@ class MacroStore {
   }
 }
 
-// Create and expose singleton instance globally
-window.MacroStore = new MacroStore();
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = MacroStore;
+}
+
+// Create and expose singleton instance globally in browser
+if (typeof window !== 'undefined') {
+  window.MacroStore = new MacroStore();
+}

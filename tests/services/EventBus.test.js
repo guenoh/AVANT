@@ -2,28 +2,7 @@
  * EventBus Unit Tests
  */
 
-const fs = require('fs');
-const path = require('path');
-
-// Read EventBus source and extract class
-const eventBusSource = fs.readFileSync(
-  path.join(__dirname, '../../src/renderer/services/EventBus.js'),
-  'utf-8'
-);
-
-// Create a safe execution context
-const createEventBus = () => {
-  const context = {};
-  const code = eventBusSource
-    .replace('window.EventBus = new EventBus();', '')
-    .replace('// Create and expose singleton instance globally', '');
-
-  const fn = new Function('exports', code + '; return EventBus;');
-  const EventBusClass = fn(context);
-  return EventBusClass;
-};
-
-const EventBusClass = createEventBus();
+const EventBusClass = require('../../src/renderer/services/EventBus');
 
 describe('EventBus', () => {
   let eventBus;

@@ -2,28 +2,7 @@
  * MacroStore Unit Tests
  */
 
-const fs = require('fs');
-const path = require('path');
-
-// Read MacroStore source and extract class
-const macroStoreSource = fs.readFileSync(
-  path.join(__dirname, '../../src/renderer/stores/MacroStore.js'),
-  'utf-8'
-);
-
-// Create a safe execution context
-const createMacroStore = () => {
-  const context = {};
-  const code = macroStoreSource
-    .replace('window.MacroStore = new MacroStore();', '')
-    .replace('// Create and expose singleton instance globally', '');
-
-  const fn = new Function('exports', code + '; return MacroStore;');
-  const MacroStoreClass = fn(context);
-  return MacroStoreClass;
-};
-
-const MacroStoreClass = createMacroStore();
+const MacroStoreClass = require('../../src/renderer/stores/MacroStore');
 
 describe('MacroStore', () => {
   let store;

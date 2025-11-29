@@ -203,5 +203,12 @@ class ActionStore {
   }
 }
 
-// Create and expose singleton instance globally
-window.ActionStore = new ActionStore();
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ActionStore;
+}
+
+// Create and expose singleton instance globally in browser
+if (typeof window !== 'undefined') {
+  window.ActionStore = new ActionStore();
+}
