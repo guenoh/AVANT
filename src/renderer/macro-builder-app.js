@@ -1,6 +1,12 @@
 /**
  * Macro Builder App - Main Application
  * React design implementation with vanilla JavaScript
+ *
+ * Refactored: Core logic extracted into managers
+ * - ScenarioManager: Scenario CRUD and persistence
+ * - DragDropManager: Drag and drop operations
+ * - ExecutionController: Macro execution
+ * - CoordinatePickerUI: Coordinate picking mode
  */
 
 class MacroBuilderApp {
@@ -10,6 +16,12 @@ class MacroBuilderApp {
 
         // Initialize builders (Phase 2 Refactoring)
         this.actionSettingsBuilder = new ActionSettingsBuilder();
+
+        // Initialize managers (Phase 1 Refactoring)
+        this.scenarioManager = new ScenarioManager(this);
+        this.dragDropManager = new DragDropManager(this);
+        this.executionController = new ExecutionController(this);
+        this.coordinatePickerUI = new CoordinatePickerUI(this);
 
         // Actions and UI state
         this.actions = [];
@@ -23,7 +35,7 @@ class MacroBuilderApp {
         this.scenarioBlocks = []; // Array of scenario blocks
         this.expandedBlockId = null; // ID of currently expanded block (only one can be expanded)
 
-        // Coordinate picking mode
+        // Coordinate picking mode (delegated to CoordinatePickerUI)
         this.isPickingCoordinate = false;
         this.pendingActionType = null;
         this.dragStartPoint = null; // For drag action: stores first click point
@@ -43,7 +55,7 @@ class MacroBuilderApp {
         this.savedState = null; // JSON snapshot of actions when saved/loaded
         this.hasUnsavedChanges = false;
 
-        // Track running scenarios for progress display
+        // Track running scenarios for progress display (delegated to ExecutionController)
         this.runningScenarios = new Map(); // key -> { status: 'running', progress: { current: 0, total: 0 }, cancelFn: null }
         this.scenarioCancelFlag = false; // Flag to cancel current scenario execution
 
