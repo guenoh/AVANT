@@ -36,6 +36,18 @@ module.exports = {
       lines: 100,
       statements: 100
     },
+    './src/renderer/stores/DeviceStore.js': {
+      branches: 80,
+      functions: 100,
+      lines: 100,
+      statements: 100
+    },
+    './src/renderer/stores/ScreenStore.js': {
+      branches: 80,
+      functions: 100,
+      lines: 100,
+      statements: 100
+    },
     // Core services with full coverage
     './src/renderer/services/EventBus.js': {
       branches: 90,

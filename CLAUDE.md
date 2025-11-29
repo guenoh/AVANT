@@ -81,20 +81,20 @@ try {
 ### Phase 0: Foundation ✅
 - [x] Project structure
 - [x] Design system
-- [ ] State management
-- [ ] IPC layer
+- [x] State management (ActionStore, MacroStore, DeviceStore, ScreenStore)
+- [x] IPC layer (preload.js, main services)
 
-### Phase 1: Core Features
-- [ ] Device connection
-- [ ] Screen capture/streaming
-- [ ] Basic actions (tap, swipe, input)
-- [ ] Macro save/load
+### Phase 1: Core Features ✅
+- [x] Device connection (ADB protocol, device.service.js)
+- [x] Screen capture/streaming (screen.service.js)
+- [x] Basic actions (tap, swipe, input - action.service.js)
+- [x] Macro save/load (macro.service.js, ScenarioManager)
 
-### Phase 2: Enhanced Features
-- [ ] Smart Wait system
-- [ ] Conditional branching
+### Phase 2: Enhanced Features (In Progress)
+- [x] Smart Wait system (wait action with conditions)
+- [x] Conditional branching (if/else, loop actions)
 - [ ] Error recovery
-- [ ] Debug mode
+- [x] Debug mode (LoggerService)
 
 ### Phase 3: Advanced Features
 - [ ] Plugin system
@@ -103,10 +103,10 @@ try {
 - [ ] AI assistance
 
 ## Current Focus
-**Phase 0 - State Management System**
-- Implementing reactive store pattern
-- Creating domain stores (device, macro, action)
-- Setting up store-component binding
+**Phase 2 - Code Quality & Testing**
+- Removing inline event handlers (XSS prevention)
+- Improving test coverage for core modules
+- Cleaning up legacy code patterns
 
 ## Key Files Structure
 

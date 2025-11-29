@@ -216,5 +216,12 @@ class ScreenStore {
   }
 }
 
-// Create and expose singleton instance globally
-window.ScreenStore = new ScreenStore();
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ScreenStore;
+}
+
+// Create and expose singleton instance globally in browser
+if (typeof window !== 'undefined') {
+  window.ScreenStore = new ScreenStore();
+}

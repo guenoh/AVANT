@@ -186,5 +186,12 @@ class DeviceStore {
   }
 }
 
-// Create and expose singleton instance globally
-window.DeviceStore = new DeviceStore();
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = DeviceStore;
+}
+
+// Create and expose singleton instance globally in browser
+if (typeof window !== 'undefined') {
+  window.DeviceStore = new DeviceStore();
+}
