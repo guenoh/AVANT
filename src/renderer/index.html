@@ -133,7 +133,7 @@
                         </button>
 
                         <!-- List View: New scenario button -->
-                        <button class="btn-outline btn-sm" id="btn-new-scenario-toolbar">
+                        <button class="btn-outline btn-sm" id="btn-new-scenario" onclick="window.macroApp.createNewScenario()">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -403,12 +403,7 @@
     </div>
 
     <!-- Scripts -->
-
-    <!-- ES6 Module Bridge (Phase 2 Refactoring) -->
-    <!-- Loads ES6 modules and exposes them to global scope for backward compatibility -->
-    <script type="module" src="modules/bridge.js"></script>
-
-    <!-- Stores (Legacy - will be replaced by ES6 modules) -->
+    <!-- Stores -->
     <script src="stores/DeviceStore.js"></script>
     <script src="stores/ScreenStore.js"></script>
     <script src="stores/MacroStore.js"></script>
@@ -440,6 +435,14 @@
     <script src="builders/UIComponents.js"></script>
     <script src="builders/ActionSettingsBuilder.js"></script>
 
+    <!-- View System - Phase 4 Refactoring -->
+    <script src="views/BaseView.js"></script>
+    <script src="views/ViewManager.js"></script>
+    <script src="views/left/ScenarioListView.js"></script>
+    <script src="views/left/ActionEditorView.js"></script>
+    <script src="views/panels/LeftPanelView.js"></script>
+    <script src="views/index.js"></script>
+
     <!-- Coordinate System -->
     <script src="coordinate-system.js"></script>
 
@@ -451,9 +454,6 @@
 
     <!-- Sound Check Modal -->
     <script src="components/sound-check-modal.js"></script>
-
-    <!-- Managers are now loaded via ES6 modules (modules/bridge.js) -->
-    <!-- Legacy managers/ folder can be removed -->
 
     <!-- Scenario List Modal -->
     <div id="scenario-list-modal" class="modal hidden">
@@ -474,7 +474,7 @@
 
             <!-- Modal Footer -->
             <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                <button class="btn btn-secondary" id="btn-new-scenario-from-list">
+                <button class="btn btn-secondary" id="btn-new-scenario-from-list" onclick="window.macroApp.createNewScenario()">
                     새 시나리오
                 </button>
                 <div style="display: flex; gap: 8px;">
