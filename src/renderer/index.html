@@ -403,7 +403,12 @@
     </div>
 
     <!-- Scripts -->
-    <!-- Stores -->
+
+    <!-- ES6 Module Bridge (Phase 2 Refactoring) -->
+    <!-- Loads ES6 modules and exposes them to global scope for backward compatibility -->
+    <script type="module" src="modules/bridge.js"></script>
+
+    <!-- Stores (Legacy - will be replaced by ES6 modules) -->
     <script src="stores/DeviceStore.js"></script>
     <script src="stores/ScreenStore.js"></script>
     <script src="stores/MacroStore.js"></script>
