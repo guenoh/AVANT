@@ -10,6 +10,7 @@ class MacroBuilderApp {
 
         // Initialize builders (Phase 2 Refactoring)
         this.actionSettingsBuilder = new ActionSettingsBuilder();
+        this.actionConfigProvider = new ActionConfigProvider();
 
         // Actions and UI state
         this.actions = [];
@@ -28,7 +29,10 @@ class MacroBuilderApp {
         this.pendingActionType = null;
         this.dragStartPoint = null; // For drag action: stores first click point
 
-        // Region selection for image-match
+        // Action types that require image region selection
+        this.IMAGE_ACTION_TYPES = ['image-match', 'tap-matched-image'];
+
+        // Region selection for image actions
         this.isSelectingRegion = false;
         this.selectionStart = null;
         this.selectionEnd = null;
@@ -637,7 +641,7 @@ class MacroBuilderApp {
     handleMouseDown(e) {
         // Check if we're selecting a region for an action
         const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
-        const isActionImageMatch = selectedAction && selectedAction.type === 'image-match';
+        const isActionImageMatch = selectedAction && this.IMAGE_ACTION_TYPES.includes(selectedAction.type);
 
         // Check if we're selecting a region for a condition
         const isConditionImageMatch = this.selectedCondition && (() => {
@@ -701,8 +705,8 @@ class MacroBuilderApp {
 
         const selectedAction = this.actions.find(a => a.id === this.selectedActionId);
 
-        // Handle action image-match region selection
-        if (selectedAction && selectedAction.type === 'image-match' && this.isSelectingRegion && this.selectionStart) {
+        // Handle action image region selection
+        if (selectedAction && this.IMAGE_ACTION_TYPES.includes(selectedAction.type) && this.isSelectingRegion && this.selectionStart) {
             const region = {
                 x: Math.min(this.selectionStart.x, coords.x),
                 y: Math.min(this.selectionStart.y, coords.y),
@@ -1108,8 +1112,8 @@ class MacroBuilderApp {
             }
         }
 
-        // Render image-match region marker
-        if (action.type === 'image-match' && action.region) {
+        // Render image region marker
+        if (this.IMAGE_ACTION_TYPES.includes(action.type) && action.region) {
             const containerRect = screenPreview.getBoundingClientRect();
             const imgRect = img.getBoundingClientRect();
 
@@ -1317,41 +1321,8 @@ class MacroBuilderApp {
     }
 
     renderActionList() {
-        const actionTypes = {
-            basic: [
-                { type: 'click', icon: this.getIconSVG('click'), label: '클릭', description: '화면 클릭', color: 'bg-blue-500' },
-                { type: 'long-press', icon: this.getIconSVG('hand'), label: '롱프레스', description: '길게 누르기', color: 'bg-purple-500' },
-                { type: 'drag', icon: this.getIconSVG('move'), label: '드래그', description: '스와이프', color: 'bg-green-500' },
-                { type: 'keyboard', icon: this.getIconSVG('keyboard'), label: '입력', description: '텍스트 입력', color: 'bg-orange-500' },
-                { type: 'wait', icon: this.getIconSVG('clock'), label: '대기', description: '시간 대기', color: 'bg-slate-500' },
-            ],
-            system: [
-                { type: 'home', icon: this.getIconSVG('home'), label: '홈', description: '홈 버튼', color: 'bg-cyan-500' },
-                { type: 'back', icon: this.getIconSVG('arrow-left'), label: '뒤로', description: '뒤로가기', color: 'bg-pink-500' },
-                { type: 'sound-check', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>', label: '사운드 체크', description: '데시벨 측정', color: 'bg-indigo-600' },
-                { type: 'get-volume', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.414a2 2 0 002.828 0L16 8V5l-3 3-8.586 8.586z"></path></svg>', label: 'Get Volume', description: 'ADB 볼륨 정보', color: 'bg-purple-600' },
-            ],
-            image: [
-                { type: 'screenshot', icon: this.getIconSVG('camera'), label: '스크린샷', description: '화면 저장', color: 'bg-violet-500' },
-                { type: 'image-match', icon: this.getIconSVG('image'), label: '이미지 매칭', description: '이미지 찾기', color: 'bg-indigo-500' },
-                { type: 'tap-matched-image', icon: this.getIconSVG('target'), label: '찾은 영역 클릭', description: '마지막 매칭 위치', color: 'bg-purple-500' },
-            ],
-            logic: [
-                { type: 'if', icon: this.getIconSVG('git-branch'), label: 'If', description: '조건문', color: 'bg-emerald-500' },
-                { type: 'else-if', icon: this.getIconSVG('code'), label: 'Else If', description: '추가 조건', color: 'bg-emerald-500' },
-                { type: 'else', icon: this.getIconSVG('code'), label: 'Else', description: '기본 실행', color: 'bg-emerald-500' },
-                // end-if removed - auto-generated with if
-                { type: 'loop', icon: this.getIconSVG('repeat'), label: 'Loop', description: '반복문', color: 'bg-pink-500' },
-                // end-loop removed - auto-generated with loop
-                { type: 'while', icon: this.getIconSVG('rotate-cw'), label: 'While', description: '조건 반복', color: 'bg-cyan-500' },
-                // end-while removed - auto-generated with while
-                { type: 'log', icon: this.getIconSVG('file-text'), label: '로그', description: '로그 저장', color: 'bg-amber-500' },
-                { type: 'success', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', label: 'Success', description: '성공 종료', color: 'bg-green-500' },
-                { type: 'skip', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>', label: 'Skip', description: '시나리오 스킵', color: 'bg-yellow-500' },
-                { type: 'fail', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', label: 'Fail', description: '실패 종료', color: 'bg-red-600' },
-                { type: 'test', icon: this.getIconSVG('settings'), label: '테스트', description: 'UI 컴포넌트', color: 'bg-fuchsia-500' },
-            ]
-        };
+        // Use ActionConfigProvider as single source of truth for UI configuration
+        const actionTypes = this.actionConfigProvider.getActionPaletteData(this.getIconSVG.bind(this));
 
         // Apply disabled state to entire action panel
         const actionPanel = document.getElementById('action-panel');
@@ -1459,7 +1430,7 @@ class MacroBuilderApp {
             ...(type === 'log' && { message: 'Log message' }),
             ...(type === 'if' && { conditions: [] }),
             ...(type === 'else-if' && { conditions: [] }),
-            ...(type === 'image-match' && { imagePath: 'image.png', threshold: 0.95 }),
+            ...(this.IMAGE_ACTION_TYPES.includes(type) && { imagePath: 'image.png', threshold: 0.95 }),
             ...(type === 'loop' && { loopCount: 1 }),
             ...(type === 'while' && { conditions: [] }),
             ...(type === 'sound-check' && {
@@ -1469,12 +1440,27 @@ class MacroBuilderApp {
             }),
         };
 
-        // Auto-add END block for control flow structures with pairId
-        if (type === 'if' || type === 'while' || type === 'loop') {
+        // Auto-add endif block for condition starters (new flat structure)
+        const conditionStartTypes = ['if', 'image-match', 'get-volume', 'sound-check'];
+        if (conditionStartTypes.includes(type)) {
             const pairId = `pair-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
             newAction.pairId = pairId;
 
-            const endType = type === 'if' ? 'end-if' : type === 'while' ? 'end-while' : 'end-loop';
+            const endAction = {
+                id: `action-${Date.now() + 1}`,
+                type: 'endif',
+                pairId: pairId
+            };
+
+            this.actions.push(newAction);
+            this.actions.push(endAction);
+        }
+        // Auto-add END block for legacy control flow structures (while, loop)
+        else if (type === 'while' || type === 'loop') {
+            const pairId = `pair-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            newAction.pairId = pairId;
+
+            const endType = type === 'while' ? 'end-while' : 'end-loop';
             const endAction = {
                 id: `action-${Date.now() + 1}`,
                 type: endType,
@@ -1667,7 +1653,7 @@ class MacroBuilderApp {
         requestAnimationFrame(() => {
             this.actions.forEach(action => {
                 // Render action thumbnails
-                if (action.type === 'image-match' && action.region) {
+                if (this.IMAGE_ACTION_TYPES.includes(action.type) && action.region) {
                     this.renderImageThumbnail(action);
                 }
 
@@ -2712,7 +2698,6 @@ class MacroBuilderApp {
         }
 
         action.comparison[field] = value;
-        this.markAsModified();
         this.saveMacro();
 
         // Update the settings panel without full re-render to avoid resetting the UI
@@ -2952,19 +2937,10 @@ class MacroBuilderApp {
                     ${isExpanded ? this.renderConditionSettings(actionId, condition) : ''}
                 </div>
 
-                <!-- AND/OR Connector -->
+                <!-- Simple Divider (no individual operators) -->
                 ${!isLast ? `
                     <div class="flex items-center justify-center my-2">
-                        <select
-                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
-                            value="${condition.operator || 'AND'}"
-                            onclick="event.stopPropagation()"
-                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
-                            style="cursor: pointer;"
-                        >
-                            <option value="AND">AND</option>
-                            <option value="OR">OR</option>
-                        </select>
+                        <div class="w-full border-t border-slate-200"></div>
                     </div>
                 ` : ''}
             </div>
@@ -3080,21 +3056,19 @@ class MacroBuilderApp {
                     </div>
                 `;
             case 'get-volume':
+                const operatorOptions = ActionConfigProvider.getComparisonOperators()
+                    .map(op => `<option value="${op.value}" ${(condition.params.operator || '>=') === op.value ? 'selected' : ''}>${op.label} (${op.value})</option>`)
+                    .join('');
                 return `
                     <div class="space-y-2">
                         <div>
-                            <label class="text-xs mb-1 block text-slate-600">Comparison Operator</label>
+                            <label class="text-xs mb-1 block text-slate-600">비교 연산자</label>
                             <select
                                 class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs h-7"
                                 onclick="event.stopPropagation()"
                                 onchange="window.macroApp.updateConditionParam('${actionId}', '${condition.id}', 'operator', this.value)"
                             >
-                                <option value=">=" ${(condition.params.operator || '>=') === '>=' ? 'selected' : ''}>Greater than or equal (>=)</option>
-                                <option value="<=" ${(condition.params.operator || '>=') === '<=' ? 'selected' : ''}>Less than or equal (<=)</option>
-                                <option value=">" ${(condition.params.operator || '>=') === '>' ? 'selected' : ''}>Greater than (>)</option>
-                                <option value="<" ${(condition.params.operator || '>=') === '<' ? 'selected' : ''}>Less than (<)</option>
-                                <option value="==" ${(condition.params.operator || '>=') === '==' ? 'selected' : ''}>Equal (==)</option>
-                                <option value="!=" ${(condition.params.operator || '>=') === '!=' ? 'selected' : ''}>Not equal (!=)</option>
+                                ${operatorOptions}
                             </select>
                         </div>
                         <div>
@@ -3117,30 +3091,61 @@ class MacroBuilderApp {
     }
 
     calculateDepths() {
-        const blockStartTypes = ['if', 'else-if', 'else', 'loop', 'while'];
-        const blockEndTypes = ['end-if', 'end-loop', 'end-while'];
-        const blockMidTypes = ['else-if', 'else'];
+        // Legacy block types (for backwards compatibility)
+        const legacyBlockStartTypes = ['loop', 'while'];
+        const legacyBlockEndTypes = ['end-if', 'end-loop', 'end-while'];
+        const legacyBlockMidTypes = ['else-if'];
+
+        // New flat condition block types
+        const conditionStartTypes = ['if', 'image-match', 'get-volume', 'sound-check'];
+        const conditionMidTypes = ['else'];
+        const conditionEndTypes = ['endif'];
 
         let currentDepth = 0;
         return this.actions.map((action) => {
             let actionDepth = currentDepth;
 
-            if (blockMidTypes.includes(action.type)) {
+            // Handle condition mid blocks (else) - show at same level as start
+            if (conditionMidTypes.includes(action.type)) {
                 actionDepth = Math.max(0, currentDepth - 1);
             }
 
-            if (blockEndTypes.includes(action.type)) {
+            // Handle legacy mid blocks (else-if)
+            if (legacyBlockMidTypes.includes(action.type)) {
+                actionDepth = Math.max(0, currentDepth - 1);
+            }
+
+            // Handle condition end blocks (endif)
+            if (conditionEndTypes.includes(action.type)) {
+                currentDepth = Math.max(0, currentDepth - 1);
+                actionDepth = currentDepth;
+            }
+
+            // Handle legacy end blocks
+            if (legacyBlockEndTypes.includes(action.type)) {
                 currentDepth = Math.max(0, currentDepth - 1);
                 actionDepth = currentDepth;
             }
 
             const result = { ...action, depth: actionDepth };
 
-            if (blockStartTypes.includes(action.type) && !blockMidTypes.includes(action.type)) {
+            // Handle condition start blocks - increase depth after
+            if (conditionStartTypes.includes(action.type)) {
                 currentDepth++;
-            } else if (action.type === 'if') {
+            }
+
+            // Handle legacy start blocks (loop, while)
+            if (legacyBlockStartTypes.includes(action.type)) {
                 currentDepth++;
-            } else if (blockMidTypes.includes(action.type)) {
+            }
+
+            // Handle condition mid blocks - increase depth after
+            if (conditionMidTypes.includes(action.type)) {
+                currentDepth = actionDepth + 1;
+            }
+
+            // Handle legacy mid blocks
+            if (legacyBlockMidTypes.includes(action.type)) {
                 currentDepth = actionDepth + 1;
             }
 
@@ -3148,8 +3153,51 @@ class MacroBuilderApp {
         });
     }
 
+    /**
+     * Find the condition starter (if, image-match, get-volume, sound-check) for a given paired block
+     * @param {Object} action - The action to find the starter for (endif, else, else-if)
+     * @returns {Object|null} The condition starter action or null if not found
+     */
+    findConditionStarter(action) {
+        if (!action.pairId) return null;
+
+        const conditionStartTypes = ['if', 'image-match', 'get-volume', 'sound-check'];
+        return this.actions.find(a =>
+            a.pairId === action.pairId && conditionStartTypes.includes(a.type)
+        );
+    }
+
+    /**
+     * Get action config with color inheritance for paired blocks
+     * For endif, else, else-if: inherit color from their condition starter
+     * @param {Object} action - The action object
+     * @returns {Object} UI configuration with potentially inherited colors
+     */
+    getActionConfigWithInheritance(action) {
+        const baseConfig = this.getActionConfig(action.type);
+
+        // Types that should inherit color from their condition starter
+        const inheritColorTypes = ['endif', 'else', 'else-if', 'end-if'];
+
+        if (inheritColorTypes.includes(action.type)) {
+            const starter = this.findConditionStarter(action);
+            if (starter) {
+                const starterConfig = this.getActionConfig(starter.type);
+                // Inherit color, borderClass, bgClass from starter, but keep own label and icon
+                return {
+                    ...baseConfig,
+                    color: starterConfig.color,
+                    borderClass: starterConfig.borderClass,
+                    bgClass: starterConfig.bgClass
+                };
+            }
+        }
+
+        return baseConfig;
+    }
+
     renderActionBlock(action, index, total) {
-        const config = this.getActionConfig(action.type);
+        const config = this.getActionConfigWithInheritance(action);
         const isSelected = this.selectedActionId === action.id;
         const isRunning = this.isRunning && isSelected;
         const isFirst = index === 0;
@@ -3321,39 +3369,45 @@ class MacroBuilderApp {
             action[key] = value;
             // Mark as changed
             this.markAsChanged();
+
+            // Special handling for conditionOperator to update UI badge
+            if (key === 'conditionOperator') {
+                this.updateConditionOperatorUI(id, value);
+            }
             // Don't re-render to avoid losing focus
         }
     }
 
+    updateConditionOperatorUI(actionId, operator) {
+        const isAnd = operator === 'AND';
+
+        // Update badge
+        const badgeEl = document.querySelector(`#action-settings-${actionId} .px-3.py-1.text-white.text-xs.font-bold.rounded-full`);
+        if (badgeEl) {
+            badgeEl.textContent = operator;
+            badgeEl.className = `px-3 py-1 ${isAnd ? 'bg-blue-500' : 'bg-orange-500'} text-white text-xs font-bold rounded-full shadow-sm`;
+        }
+
+        // Update buttons
+        const buttons = document.querySelectorAll(`#action-settings-${actionId} button[onclick*="conditionOperator"]`);
+        buttons.forEach(btn => {
+            const isAndBtn = btn.textContent.includes('AND');
+            if (isAndBtn && isAnd) {
+                btn.className = 'px-3 py-1.5 text-xs rounded-md font-medium transition-all bg-blue-500 text-white shadow-sm';
+            } else if (isAndBtn && !isAnd) {
+                btn.className = 'px-3 py-1.5 text-xs rounded-md font-medium transition-all bg-white border border-slate-300 text-slate-700 hover:bg-slate-50';
+            } else if (!isAndBtn && !isAnd) {
+                btn.className = 'px-3 py-1.5 text-xs rounded-md font-medium transition-all bg-orange-500 text-white shadow-sm';
+            } else {
+                btn.className = 'px-3 py-1.5 text-xs rounded-md font-medium transition-all bg-white border border-slate-300 text-slate-700 hover:bg-slate-50';
+            }
+        });
+    }
+
     getActionConfig(type) {
-        const configs = {
-            'click': { label: '클릭', color: 'bg-blue-500', borderClass: 'border-blue-500', bgClass: 'bg-blue-50', icon: this.getIconSVG('click') },
-            'long-press': { label: '롱프레스', color: 'bg-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-50', icon: this.getIconSVG('hand') },
-            'drag': { label: '드래그', color: 'bg-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-50', icon: this.getIconSVG('move') },
-            'keyboard': { label: '키보드 입력', color: 'bg-orange-500', borderClass: 'border-orange-500', bgClass: 'bg-orange-50', icon: this.getIconSVG('keyboard') },
-            'wait': { label: '대기', color: 'bg-slate-500', borderClass: 'border-slate-600', bgClass: 'bg-slate-50', icon: this.getIconSVG('clock') },
-            'home': { label: '홈 버튼', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('home') },
-            'back': { label: '뒤로가기', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('arrow-left') },
-            'screenshot': { label: '스크린샷', color: 'bg-violet-500', borderClass: 'border-violet-500', bgClass: 'bg-violet-50', icon: this.getIconSVG('camera') },
-            'image-match': { label: '이미지 매칭', color: 'bg-indigo-500', borderClass: 'border-indigo-500', bgClass: 'bg-indigo-50', icon: this.getIconSVG('image') },
-            'tap-matched-image': { label: '찾은 영역 클릭', color: 'bg-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-50', icon: this.getIconSVG('target') },
-            'if': { label: 'If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('git-branch') },
-            'else-if': { label: 'Else If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('code') },
-            'else': { label: 'Else', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('code') },
-            'log': { label: '로그', color: 'bg-amber-500', borderClass: 'border-amber-500', bgClass: 'bg-amber-50', icon: this.getIconSVG('file-text') },
-            'loop': { label: 'Loop', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('repeat') },
-            'while': { label: 'While', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('rotate-cw') },
-            'end-if': { label: 'End If', color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50', icon: this.getIconSVG('x') },
-            'end-loop': { label: 'End Loop', color: 'bg-pink-500', borderClass: 'border-pink-500', bgClass: 'bg-pink-50', icon: this.getIconSVG('x') },
-            'end-while': { label: 'End While', color: 'bg-cyan-500', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-50', icon: this.getIconSVG('x') },
-            'success': { label: 'Success', color: 'bg-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-50', icon: this.getIconSVG('check-circle') },
-            'skip': { label: 'Skip', color: 'bg-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-50', icon: this.getIconSVG('skip-forward') },
-            'fail': { label: 'Fail', color: 'bg-red-600', borderClass: 'border-red-600', bgClass: 'bg-red-50', icon: this.getIconSVG('x-circle') },
-            'test': { label: '테스트', color: 'bg-fuchsia-500', borderClass: 'border-fuchsia-500', bgClass: 'bg-fuchsia-50', icon: this.getIconSVG('settings') },
-            'sound-check': { label: '사운드 체크', color: 'bg-indigo-600', borderClass: 'border-indigo-600', bgClass: 'bg-indigo-50', icon: this.getIconSVG('mic') },
-            'get-volume': { label: 'Get Volume', color: 'bg-purple-600', borderClass: 'border-purple-600', bgClass: 'bg-purple-50', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.414a2 2 0 002.828 0L16 8V5l-3 3-8.586 8.586z"></path></svg>' },
-        };
-        return configs[type] || configs['click'];
+        // Delegate to ActionConfigProvider for single source of truth
+        // This prevents UI config duplication and ensures consistency
+        return this.actionConfigProvider.getUIConfig(type, this.getIconSVG.bind(this));
     }
 
     getActionDescription(action) {
@@ -3456,6 +3510,65 @@ class MacroBuilderApp {
         if (action) {
             this.updateSelectedActionMarker(action);
         }
+    }
+
+    refreshActionSettings(id) {
+        // Refresh only the settings panel for the given action
+        // This keeps the action selected and just re-renders the settings
+        this.selectedActionId = id;
+        this.renderActionSequence();
+    }
+
+    toggleElseBranch(actionId) {
+        const action = this.actions.find(a => a.id === actionId);
+        if (!action) return;
+
+        // Find the action's index and matching endif
+        const actionIndex = this.actions.findIndex(a => a.id === actionId);
+        if (actionIndex === -1) return;
+
+        const endifIndex = this.findMatchingEndif(actionIndex);
+        if (endifIndex === -1) return;
+
+        if (action.hasElse) {
+            // Remove ELSE block
+            // Find ELSE block between this action and ENDIF
+            const elseIndex = this.actions.findIndex((a, idx) =>
+                idx > actionIndex && idx < endifIndex && a.type === 'else' && a.pairId === action.pairId
+            );
+
+            if (elseIndex !== -1) {
+                this.actions.splice(elseIndex, 1);
+            }
+
+            action.hasElse = false;
+        } else {
+            // Add ELSE block before ENDIF
+            const elseAction = {
+                id: `else-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                type: 'else',
+                pairId: action.pairId
+            };
+
+            this.actions.splice(endifIndex, 0, elseAction);
+            action.hasElse = true;
+        }
+
+        this.markAsChanged();
+        this.refreshActionSettings(actionId);
+    }
+
+    findMatchingEndif(startIndex) {
+        const startAction = this.actions[startIndex];
+        if (!startAction || !startAction.pairId) return -1;
+
+        for (let i = startIndex + 1; i < this.actions.length; i++) {
+            const action = this.actions[i];
+            if (action.type === 'endif' && action.pairId === startAction.pairId) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     updateActionSetting(actionId, setting, value) {
@@ -4052,33 +4165,6 @@ class MacroBuilderApp {
             // Handle sound-check action (frontend processing)
             if (action.type === 'sound-check') {
                 return await this.executeSoundCheckAction(action);
-            }
-
-            // Handle tap-matched-image action
-            if (action.type === 'tap-matched-image') {
-                if (!this.lastMatchedCoordinate) {
-                    this.addLog('error', '찾은 이미지 좌표가 없습니다');
-                    return { success: false, error: 'No matched coordinate available' };
-                }
-
-                // Draw marker at tap location
-                this.drawCoordinateMarker(this.lastMatchedCoordinate.x, this.lastMatchedCoordinate.y, '#8b5cf6'); // Purple color
-
-                // Create a click action with the last matched coordinate
-                const tapAction = {
-                    type: 'click',
-                    x: this.lastMatchedCoordinate.x,
-                    y: this.lastMatchedCoordinate.y
-                };
-
-                const backendAction = this.mapActionToBackend(tapAction);
-                const result = await window.api.action.execute(backendAction);
-
-                if (result.success) {
-                    this.addLog('success', `찾은 영역 클릭 완료: (${this.lastMatchedCoordinate.x}, ${this.lastMatchedCoordinate.y})`);
-                }
-
-                return result;
             }
 
             // Map frontend action format to backend format
@@ -4990,8 +5076,13 @@ class MacroBuilderApp {
             'alert-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
             'skip-forward': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>',
             'fast-forward': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>',
+            'mic': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>',
+            'volume': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>',
+            'corner-down-right': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l5 5-5 5"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v7a4 4 0 004 4h12"></path></svg>',
+            'corner-down-left': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10l-5 5 5 5"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 4v7a4 4 0 01-4 4H4"></path></svg>',
+            'help-circle': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
         };
-        return icons[name] || icons['click'];
+        return icons[name] || icons['help-circle'];
     }
 
     // Coordinate picking methods
@@ -5474,19 +5565,10 @@ class MacroBuilderApp {
                     ${isExpanded ? this.renderConditionSettings(actionId, condition) : ''}
                 </div>
 
-                <!-- AND/OR Connector -->
+                <!-- Simple Divider (no individual operators) -->
                 ${!isLast ? `
                     <div class="flex items-center justify-center my-2">
-                        <select
-                            class="px-3 py-1 border ${condition.operator === 'OR' ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-300 bg-blue-50 text-blue-700'} rounded-full text-xs font-medium shadow-sm"
-                            value="${condition.operator || 'AND'}"
-                            onclick="event.stopPropagation()"
-                            onchange="window.macroApp.updateConditionOperator('${actionId}', '${condition.id}', this.value)"
-                            style="cursor: pointer;"
-                        >
-                            <option value="AND">AND</option>
-                            <option value="OR">OR</option>
-                        </select>
+                        <div class="w-full border-t border-slate-200"></div>
                     </div>
                 ` : ''}
             </div>
@@ -8171,7 +8253,7 @@ class MacroBuilderApp {
                 if (action) {
                     action.audioFile = filePath;
                     this.renderActionSettings(action);
-                    this.markAsModified();
+                    this.saveMacro();
                 }
             }
         } catch (error) {
@@ -8189,8 +8271,66 @@ class MacroBuilderApp {
         if (action) {
             delete action.audioFile;
             this.renderActionSettings(action);
-            this.markAsModified();
+            this.saveMacro();
         }
+    }
+
+    /**
+     * Handle drop on condition-capable blocks (image-match, get-volume, etc.)
+     * Adds dropped action to thenActions or elseActions
+     */
+    handleSimpleConditionDrop(event, parentActionId, branch) {
+        const draggedActionId = event.dataTransfer.getData('actionId');
+        if (!draggedActionId) return;
+
+        const draggedAction = this.actions.find(a => a.id === draggedActionId);
+        if (!draggedAction) return;
+
+        const parentAction = this.actions.find(a => a.id === parentActionId);
+        if (!parentAction) return;
+
+        // Check if parent supports nested actions (isControl or isSimpleCondition)
+        const config = ActionConfigProvider.getActionConfig(parentAction.type);
+        if (!config?.isControl && !config?.isSimpleCondition) return;
+
+        // Create a copy of the action for nesting
+        const nestedAction = JSON.parse(JSON.stringify(draggedAction));
+        nestedAction.id = `${parentActionId}-${branch}-${Date.now()}`;
+
+        // Add to the appropriate branch
+        if (branch === 'then') {
+            if (!parentAction.thenActions) parentAction.thenActions = [];
+            parentAction.thenActions.push(nestedAction);
+        } else if (branch === 'else') {
+            if (!parentAction.elseActions) parentAction.elseActions = [];
+            parentAction.elseActions.push(nestedAction);
+        }
+
+        // Re-render and save
+        this.renderActionSettings(parentAction);
+        this.saveMacro();
+
+        console.log(`[handleSimpleConditionDrop] Added action to ${branch} branch of ${parentActionId}`);
+    }
+
+    /**
+     * Remove action from simple condition block's thenActions or elseActions
+     */
+    removeSimpleConditionAction(parentActionId, branch, index) {
+        const parentAction = this.actions.find(a => a.id === parentActionId);
+        if (!parentAction) return;
+
+        if (branch === 'then' && parentAction.thenActions) {
+            parentAction.thenActions.splice(index, 1);
+        } else if (branch === 'else' && parentAction.elseActions) {
+            parentAction.elseActions.splice(index, 1);
+        }
+
+        // Re-render and save
+        this.renderActionSettings(parentAction);
+        this.saveMacro();
+
+        console.log(`[removeSimpleConditionAction] Removed action at index ${index} from ${branch} branch`);
     }
 
     /**

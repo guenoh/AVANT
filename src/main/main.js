@@ -429,6 +429,56 @@ function setupIpcHandlers() {
           const volumeResult = await actionService.getVolume(action);
           return volumeResult;
 
+        case 'tap-matched-image':
+          // Find image and tap it
+          const imagePath = action.regionImage || action.imagePath || action.image;
+          if (!imagePath) {
+            return { success: false, error: 'No image specified' };
+          }
+
+          const matchResult = await actionService.findImage({
+            templatePath: imagePath,
+            threshold: action.threshold || 0.95,
+            timeout: action.timeout || 10000
+          });
+
+          if (matchResult.success && matchResult.location) {
+            // Click the center of the matched region
+            const centerX = matchResult.location.x + (matchResult.location.width / 2);
+            const centerY = matchResult.location.y + (matchResult.location.height / 2);
+            await protocolManager.tap(centerX, centerY);
+            return { success: true, location: matchResult.location, confidence: matchResult.confidence };
+          } else {
+            return { success: false, error: 'Image not found', confidence: matchResult.confidence || 0 };
+          }
+
+        // Log action - output message to console
+        case 'log':
+          console.log(`[LOG] ${action.message || ''}`);
+          return { success: true, message: action.message };
+
+        // Exit actions
+        case 'success':
+          console.log(`[SUCCESS] ${action.message || 'Macro completed successfully'}`);
+          return { success: true, message: action.message, exitType: 'success' };
+
+        case 'skip':
+          console.log(`[SKIP] Action skipped`);
+          return { success: true, exitType: 'skip' };
+
+        case 'fail':
+          console.log(`[FAIL] ${action.message || 'Macro failed'}`);
+          return { success: false, message: action.message, exitType: 'fail' };
+
+        // Control flow markers - no execution needed, just pass through
+        case 'endif':
+        case 'else':
+        case 'else-if':
+        case 'end-if':
+        case 'end-loop':
+        case 'end-while':
+          return { success: true };
+
         default:
           throw new Error(`Unsupported action type: ${action.type}`);
       }
@@ -502,6 +552,63 @@ function setupIpcHandlers() {
             case 'get-volume':
               const volumeResult = await actionService.getVolume(action);
               results.push(volumeResult);
+              break;
+
+            case 'tap-matched-image':
+              // Find image and tap it
+              const tapImagePath = action.regionImage || action.imagePath || action.image;
+              if (!tapImagePath) {
+                results.push({ success: false, error: 'No image specified' });
+                break;
+              }
+
+              const tapMatchResult = await actionService.findImage({
+                templatePath: tapImagePath,
+                threshold: action.threshold || 0.95,
+                timeout: action.timeout || 10000
+              });
+
+              if (tapMatchResult.success && tapMatchResult.location) {
+                // Click the center of the matched region
+                const tapCenterX = tapMatchResult.location.x + (tapMatchResult.location.width / 2);
+                const tapCenterY = tapMatchResult.location.y + (tapMatchResult.location.height / 2);
+                await protocolManager.tap(tapCenterX, tapCenterY);
+                results.push({ success: true, location: tapMatchResult.location, confidence: tapMatchResult.confidence });
+              } else {
+                results.push({ success: false, error: 'Image not found', confidence: tapMatchResult.confidence || 0 });
+              }
+              break;
+
+            // Log action
+            case 'log':
+              console.log(`[LOG] ${action.message || ''}`);
+              results.push({ success: true, message: action.message });
+              break;
+
+            // Exit actions
+            case 'success':
+              console.log(`[SUCCESS] ${action.message || 'Macro completed successfully'}`);
+              results.push({ success: true, message: action.message, exitType: 'success' });
+              break;
+
+            case 'skip':
+              console.log(`[SKIP] Action skipped`);
+              results.push({ success: true, exitType: 'skip' });
+              break;
+
+            case 'fail':
+              console.log(`[FAIL] ${action.message || 'Macro failed'}`);
+              results.push({ success: false, message: action.message, exitType: 'fail' });
+              break;
+
+            // Control flow markers - no execution needed, just pass through
+            case 'endif':
+            case 'else':
+            case 'else-if':
+            case 'end-if':
+            case 'end-loop':
+            case 'end-while':
+              results.push({ success: true });
               break;
 
             default:

@@ -28,7 +28,10 @@ class ActionSettingsBuilder {
             ['home', this.buildNoSettings.bind(this)],
             ['back', this.buildNoSettings.bind(this)],
             ['sound-check', this.buildSoundCheckSettings.bind(this)],
-            ['get-volume', this.buildGetVolumeSettings.bind(this)]
+            ['get-volume', this.buildGetVolumeSettings.bind(this)],
+            // Condition markers
+            ['else', this.buildElseSettings.bind(this)],
+            ['endif', this.buildEndifSettings.bind(this)]
         ]);
     }
 
@@ -139,7 +142,8 @@ class ActionSettingsBuilder {
     }
 
     /**
-     * Image match settings
+     * Image match settings - condition starter block
+     * Only shows image and threshold settings (no embedded action containers)
      */
     buildImageMatchSettings(action) {
         const UI = UIComponents;
@@ -154,16 +158,8 @@ class ActionSettingsBuilder {
         // Get comparison data (backward compatible)
         const comparison = action.comparison || { operator: '>=', value: threshold };
 
-        // Get operators from ActionConfigProvider
-        const metadata = window.actionConfigProvider?.getConditionMetadata('image-match');
-        const operators = metadata?.operators || [
-            { value: '>=', label: '>=' },
-            { value: '>', label: '>' },
-            { value: '==', label: '==' },
-            { value: '<', label: '<' },
-            { value: '<=', label: '<=' },
-            { value: '!=', label: '!=' }
-        ];
+        // Get operators from ActionConfigProvider (single source of truth)
+        const operators = ActionConfigProvider.getComparisonOperators();
 
         const comparisonUI = UI.comparisonOperator({
             operator: comparison.operator,
@@ -177,9 +173,30 @@ class ActionSettingsBuilder {
             step: 0.01
         });
 
-        const helperText = UI.alert('조건이 참일 때 다음 액션들이 실행됩니다', 'info');
+        // Info about condition block usage
+        const conditionInfo = UI.alert(
+            '이 블록 다음에 추가된 액션은 조건 충족 시 실행됩니다.',
+            'info'
+        );
 
-        return UI.section(imageSection + comparisonUI + helperText);
+        // ELSE Branch Toggle
+        const elseToggle = `
+            <div class="mt-4 pt-4 border-t border-slate-200">
+                <button
+                    onclick="event.stopPropagation(); window.macroApp.toggleElseBranch('${action.id}');"
+                    class="w-full px-3 py-2 text-xs rounded-md font-medium transition-all ${action.hasElse ? 'bg-blue-50 border-2 border-blue-500 text-blue-700' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                >
+                    ${action.hasElse ? '✓ ELSE 분기 사용 중' : '+ ELSE 분기 추가'}
+                </button>
+                ${action.hasElse ? `
+                    <p class="text-xs text-slate-500 mt-2 text-center">
+                        조건이 거짓일 때 실행될 액션을 ELSE 블록에 추가하세요
+                    </p>
+                ` : ''}
+            </div>
+        `;
+
+        return UI.section(imageSection + comparisonUI + conditionInfo + elseToggle);
     }
 
     /**
@@ -187,37 +204,37 @@ class ActionSettingsBuilder {
      * Uses MacroBuilderApp's renderConditionCard for rendering condition list
      */
     buildConditionalSettings(action) {
+        const operator = action.conditionOperator || 'AND';
+        const isAnd = operator === 'AND';
+
         return `
-            <div class="bg-slate-50/50 px-4 py-4 space-y-4" data-stop-propagation>
-                <!-- Condition Operator Selection -->
-                ${action.conditions && action.conditions.length > 1 ? `
-                    <div class="flex items-center gap-2 pb-2 border-b border-slate-200">
-                        <label class="text-xs text-slate-600">조건 연산:</label>
-                        <div class="flex gap-1">
-                            <button
-                                data-action="set-condition-operator"
-                                data-action-id="${action.id}"
-                                data-value="AND"
-                                data-stop-propagation
-                                class="px-2 py-1 text-xs rounded transition-colors ${(action.conditionOperator || 'AND') === 'AND' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
-                            >
-                                모든 조건 (AND)
-                            </button>
-                            <button
-                                data-action="set-condition-operator"
-                                data-action-id="${action.id}"
-                                data-value="OR"
-                                data-stop-propagation
-                                class="px-2 py-1 text-xs rounded transition-colors ${action.conditionOperator === 'OR' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}"
-                            >
-                                하나라도 (OR)
-                            </button>
-                        </div>
+            <div class="bg-slate-50/50 px-4 py-4 space-y-4">
+                <!-- Condition Operator Selection - Always visible with badge style -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-slate-600 font-medium">조건 연산</label>
+                        <span class="px-3 py-1 ${isAnd ? 'bg-blue-500' : 'bg-orange-500'} text-white text-xs font-bold rounded-full shadow-sm">
+                            ${operator}
+                        </span>
                     </div>
-                ` : ''}
+                    <div class="flex gap-1">
+                        <button
+                            onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'AND'); window.macroApp.refreshActionSettings('${action.id}');"
+                            class="px-3 py-1.5 text-xs rounded-md font-normal transition-all ${isAnd ? 'bg-blue-500 text-white shadow-sm border-0' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                        >
+                            모든 조건 (AND)
+                        </button>
+                        <button
+                            onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'conditionOperator', 'OR'); window.macroApp.refreshActionSettings('${action.id}');"
+                            class="px-3 py-1.5 text-xs rounded-md font-normal transition-all ${!isAnd ? 'bg-orange-500 text-white shadow-sm border-0' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                        >
+                            하나라도 (OR)
+                        </button>
+                    </div>
+                </div>
 
                 <div class="flex items-center justify-between mb-2">
-                    <label class="text-xs">조건 목록</label>
+                    <label class="text-xs text-slate-600 font-medium">조건 목록</label>
                     <span class="text-xs text-slate-500">${action.conditions?.length || 0}개</span>
                 </div>
 
@@ -230,13 +247,29 @@ class ActionSettingsBuilder {
                 <!-- Drop Zone -->
                 <div
                     class="condition-drop-zone border border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 text-center transition-all hover:border-slate-400 hover:bg-slate-100"
-                    data-drop-zone="condition"
-                    data-action-id="${action.id}"
-                    data-stop-propagation
+                    ondragover="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = '#3b82f6'; el.style.borderWidth = '3px'; el.style.background = 'rgba(59, 130, 246, 0.08)'; el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)'; el.style.animation = 'placeholderPulse 1.5s ease-in-out infinite';"
+                    ondragleave="const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = '';"
+                    ondrop="event.preventDefault(); event.stopPropagation(); const el = event.currentTarget; el.style.borderColor = ''; el.style.borderWidth = ''; el.style.background = ''; el.style.boxShadow = ''; el.style.animation = ''; window.macroApp.handleConditionDrop(event, '${action.id}')"
+                    onclick="event.stopPropagation()"
                 >
                     <p class="text-xs text-slate-500">
                         <span style="opacity: 0.5;">+</span> 액션을 드래그하여 조건 추가
                     </p>
+                </div>
+
+                <!-- ELSE Branch Toggle -->
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.toggleElseBranch('${action.id}');"
+                        class="w-full px-3 py-2 text-xs rounded-md font-normal transition-all ${action.hasElse ? 'bg-slate-600 text-white' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        ${action.hasElse ? '✓ ELSE 분기 사용 중' : '+ ELSE 분기 추가'}
+                    </button>
+                    ${action.hasElse ? `
+                        <p class="text-xs text-slate-500 mt-2 text-center">
+                            조건이 거짓일 때 실행될 액션을 ELSE 블록에 추가하세요
+                        </p>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -291,14 +324,43 @@ class ActionSettingsBuilder {
 
     /**
      * Tap matched image settings
-     * TODO: Refactor to use TemplateHelpers
+     * Finds image and clicks it (non-conditional action)
+     * Based on buildImageMatchSettings but without ELSE toggle
      */
     buildTapMatchedImageSettings(action) {
-        return `
-            <div class="bg-slate-50/50 px-4 py-4">
-                <p class="text-xs text-slate-600">이미지 매칭 탭 설정 (구현 예정)</p>
-            </div>
-        `;
+        const UI = UIComponents;
+        const imagePath = action.regionImage || action.imagePath || action.image;
+        const hasImage = imagePath && imagePath !== 'image.png';
+
+        const imageSection = hasImage
+            ? UI.formGroup('캡처된 이미지', UI.imageThumbnail(imagePath, 'Captured region'))
+            : UI.alert('화면에서 영역을 선택하여 이미지를 캡처하세요', 'info');
+
+        // Get comparison data (backward compatible)
+        const comparison = action.comparison || { operator: '>=', value: action.threshold || 0.95 };
+
+        // Get operators from ActionConfigProvider (single source of truth)
+        const operators = ActionConfigProvider.getComparisonOperators();
+
+        const comparisonUI = UI.comparisonOperator({
+            operator: comparison.operator,
+            value: comparison.value,
+            operators: operators,
+            actionId: action.id,
+            label: '매칭 조건',
+            unit: '신뢰도',
+            min: 0,
+            max: 1,
+            step: 0.01
+        });
+
+        // Info about action behavior
+        const actionInfo = UI.alert(
+            '이미지를 찾으면 자동으로 해당 위치를 클릭합니다. 찾지 못하면 실패 처리됩니다.',
+            'info'
+        );
+
+        return UI.section(imageSection + comparisonUI + actionInfo);
     }
 
     /**
@@ -454,6 +516,7 @@ UI.slider({
      */
     buildSoundCheckSettings(action) {
         const H = TemplateHelpers;
+        const UI = UIComponents;
 
         const content = `
             <div class="space-y-3">
@@ -470,9 +533,7 @@ UI.slider({
                                 <span class="text-xs text-slate-700 truncate" title="${action.audioFile}">${action.audioFile.split('/').pop()}</span>
                             </div>
                             <button
-                                data-action="remove-audio-file"
-                                data-action-id="${action.id}"
-                                data-stop-propagation
+                                onclick="app.removeAudioFile('${action.id}')"
                                 class="ml-2 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                 title="Remove audio file"
                             >
@@ -483,9 +544,7 @@ UI.slider({
                         </div>
                     ` : `
                         <button
-                            data-action="select-audio-file"
-                            data-action-id="${action.id}"
-                            data-stop-propagation
+                            onclick="app.selectAudioFile('${action.id}')"
                             class="w-full px-3 py-2 bg-white border border-slate-300 rounded hover:bg-slate-50 text-xs text-slate-700 transition-colors"
                         >
                             <div class="flex items-center justify-center gap-2">
@@ -520,11 +579,35 @@ UI.slider({
             </div>
         `;
 
-        return H.settingsContainer(content);
+        // Info about condition block usage
+        const conditionInfo = UI.alert(
+            '이 블록 다음에 추가된 액션은 조건 충족 시 실행됩니다.',
+            'info'
+        );
+
+        // ELSE Branch Toggle
+        const elseToggle = `
+            <div class="mt-4 pt-4 border-t border-slate-200">
+                <button
+                    onclick="event.stopPropagation(); window.macroApp.toggleElseBranch('${action.id}');"
+                    class="w-full px-3 py-2 text-xs rounded-md font-medium transition-all ${action.hasElse ? 'bg-blue-50 border-2 border-blue-500 text-blue-700' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                >
+                    ${action.hasElse ? '✓ ELSE 분기 사용 중' : '+ ELSE 분기 추가'}
+                </button>
+                ${action.hasElse ? `
+                    <p class="text-xs text-slate-500 mt-2 text-center">
+                        조건이 거짓일 때 실행될 액션을 ELSE 블록에 추가하세요
+                    </p>
+                ` : ''}
+            </div>
+        `;
+
+        return H.settingsContainer(content + conditionInfo + elseToggle);
     }
 
     /**
-     * Get volume settings
+     * Get volume settings - condition starter block
+     * Only shows stream type and comparison settings (no embedded action containers)
      */
     buildGetVolumeSettings(action) {
         const UI = UIComponents;
@@ -557,23 +640,15 @@ UI.slider({
         // Get comparison data (for condition usage)
         const comparison = action.comparison || { operator: '>=', value: 50 };
 
-        // Get operators from ActionConfigProvider
-        const metadata = window.actionConfigProvider?.getConditionMetadata('get-volume');
-        const operators = metadata?.operators || [
-            { value: '>=', label: '>=' },
-            { value: '>', label: '>' },
-            { value: '==', label: '==' },
-            { value: '<', label: '<' },
-            { value: '<=', label: '<=' },
-            { value: '!=', label: '!=' }
-        ];
+        // Get operators from ActionConfigProvider (single source of truth)
+        const operators = ActionConfigProvider.getComparisonOperators();
 
         const comparisonUI = UI.comparisonOperator({
             operator: comparison.operator,
             value: comparison.value,
             operators: operators,
             actionId: action.id,
-            label: '볼륨 조건 (조건문 사용시)',
+            label: '볼륨 조건',
             unit: '레벨 (0-100)',
             min: 0,
             max: 100,
@@ -585,13 +660,83 @@ UI.slider({
             'info'
         );
 
+        // Info about condition block usage
+        const conditionInfo = UI.alert(
+            '이 블록 다음에 추가된 액션은 조건 충족 시 실행됩니다.',
+            'info'
+        );
+
+        // ELSE Branch Toggle
+        const elseToggle = `
+            <div class="mt-4 pt-4 border-t border-slate-200">
+                <button
+                    onclick="event.stopPropagation(); window.macroApp.toggleElseBranch('${action.id}');"
+                    class="w-full px-3 py-2 text-xs rounded-md font-medium transition-all ${action.hasElse ? 'bg-blue-50 border-2 border-blue-500 text-blue-700' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                >
+                    ${action.hasElse ? '✓ ELSE 분기 사용 중' : '+ ELSE 분기 추가'}
+                </button>
+                ${action.hasElse ? `
+                    <p class="text-xs text-slate-500 mt-2 text-center">
+                        조건이 거짓일 때 실행될 액션을 ELSE 블록에 추가하세요
+                    </p>
+                ` : ''}
+            </div>
+        `;
+
         return UI.section(
             infoAlert +
             streamTypeSelect +
             variableInput +
             UI.divider() +
-            comparisonUI
+            comparisonUI +
+            conditionInfo +
+            elseToggle
         );
+    }
+
+    /**
+     * Else block settings
+     * Shows info about the else block purpose
+     */
+    buildElseSettings(action) {
+        const UI = UIComponents;
+
+        const infoAlert = UI.alert(
+            'else 블록은 이전 조건이 거짓일 때 실행되는 분기점입니다.',
+            'info'
+        );
+
+        const usageGuide = UI.alert(
+            `사용 예시:
+[image-match] 조건 시작
+  [click] 조건 충족시 실행
+[else] 거짓일 때 분기
+  [log] 조건 미충족시 실행
+[endif] 조건 종료`,
+            'info'
+        );
+
+        return UI.section(infoAlert + usageGuide);
+    }
+
+    /**
+     * Endif block settings
+     * Shows info about the endif block purpose
+     */
+    buildEndifSettings(action) {
+        const UI = UIComponents;
+
+        const infoAlert = UI.alert(
+            'endif 블록은 조건 블록의 끝을 표시합니다.',
+            'info'
+        );
+
+        const usageGuide = UI.alert(
+            '모든 조건 시작 블록(if, image-match, get-volume 등)은 반드시 endif로 닫아야 합니다.',
+            'warning'
+        );
+
+        return UI.section(infoAlert + usageGuide);
     }
 
     /**
