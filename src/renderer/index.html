@@ -155,15 +155,9 @@
                             </svg>
                             저장
                         </button>
-                        <button class="btn-outline btn-sm" id="btn-save-as-macro" style="display: none;">
-                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                            </svg>
-                            다른 이름으로 저장
-                        </button>
 
-                        <!-- Delay select (Edit view only) -->
-                        <div id="delay-select-wrapper" class="flex items-center gap-2" style="display: none;">
+                        <!-- Delay select (shown in both list and edit views) -->
+                        <div id="delay-select-wrapper" class="flex items-center gap-2">
                             <label class="toolbar-label">지연:</label>
                             <select id="toolbar-delay-select" class="btn-outline btn-sm" style="min-width: 90px;">
                                 <option value="0">없음</option>
@@ -171,6 +165,7 @@
                                 <option value="300" selected>300ms</option>
                                 <option value="500">500ms</option>
                                 <option value="1000">1s</option>
+                                <option value="1500">1.5s</option>
                             </select>
                         </div>
 

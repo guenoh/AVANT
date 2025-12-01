@@ -19,6 +19,7 @@ class MacroBuilderApp {
         this.expandedConditionId = null;
         this.selectedCondition = null; // { actionId, conditionId }
         this.scenarioResult = null; // { status: 'pass'|'skip'|'fail', message: string }
+        this.executionVariables = new Map(); // Variable storage for runtime values
 
         // Scenario blocks for multi-scenario workflow
         this.scenarioBlocks = []; // Array of scenario blocks
@@ -295,7 +296,6 @@ class MacroBuilderApp {
             }
         });
         document.getElementById('btn-save-macro')?.addEventListener('click', () => this.saveMacro());
-        document.getElementById('btn-save-as-macro')?.addEventListener('click', () => this.saveAsMacro());
         document.getElementById('btn-save-macro-inline')?.addEventListener('click', () => this.saveMacro());
         document.getElementById('btn-save-as-macro-inline')?.addEventListener('click', () => this.saveAsMacro());
         document.getElementById('btn-back-to-list')?.addEventListener('click', () => this.renderScenarioListInPanel());
@@ -1537,6 +1537,12 @@ class MacroBuilderApp {
             delaySelectWrapper.style.display = '';
         }
 
+        // Show save button in edit view
+        const btnSaveMacro = document.getElementById('btn-save-macro');
+        if (btnSaveMacro) {
+            btnSaveMacro.style.display = '';
+        }
+
         // Show action panel in action editing view (with slide animation)
         if (actionPanel) {
             actionPanel.classList.remove('hidden');
@@ -1995,26 +2001,13 @@ class MacroBuilderApp {
 
     // Condition drag handlers
     handleConditionDragStart(event, parentActionId, conditionId) {
-        console.log('🔴 [DEBUG] handleConditionDragStart CALLED', {
-            parentActionId,
-            conditionId,
-            timestamp: new Date().toISOString()
-        });
-
         event.stopPropagation();
         this.draggedCondition = { parentActionId, conditionId };
-
-        console.log('🔴 [DEBUG] draggedCondition SET:', this.draggedCondition);
 
         event.dataTransfer.effectAllowed = 'move';
         // Set both to ensure compatibility
         event.dataTransfer.setData('text/plain', conditionId);
         event.dataTransfer.setData('conditionDrag', 'true');  // Mark as condition drag
-
-        console.log('🔴 [DEBUG] DataTransfer SET:', {
-            'text/plain': conditionId,
-            'conditionDrag': 'true'
-        });
     }
 
     handleConditionDragOver(event, parentActionId, targetConditionId) {
@@ -2064,45 +2057,25 @@ class MacroBuilderApp {
     }
 
     handleConditionDrop(event, parentActionId, targetConditionId) {
-        console.log('🔷 [DEBUG] handleConditionDrop CALLED', {
-            parentActionId,
-            targetConditionId,
-            draggedCondition: this.draggedCondition,
-            conditionDropTarget: this.conditionDropTarget,
-            timestamp: new Date().toISOString()
-        });
-
         event.preventDefault();
         event.stopPropagation();
 
         this.removeDragPlaceholder();
 
         if (!this.draggedCondition) {
-            console.log('🔷 [DEBUG] No draggedCondition, returning');
             return;
         }
         if (!this.conditionDropTarget) {
-            console.log('🔷 [DEBUG] No conditionDropTarget, returning');
             return;
         }
 
         const { parentActionId: sourceParentId, conditionId } = this.draggedCondition;
         const { targetConditionId: targetId, isAfter } = this.conditionDropTarget;
 
-        console.log('🔷 [DEBUG] Reordering conditions:', {
-            sourceParentId,
-            parentActionId,
-            isSameParent: sourceParentId === parentActionId,
-            conditionId,
-            targetId,
-            isAfter
-        });
-
         // Reorder conditions within the same parent
         if (sourceParentId === parentActionId) {
             const action = this.actions.find(a => a.id === parentActionId);
             if (!action || !action.conditions) {
-                console.log('🔷 [DEBUG] Action not found or no conditions');
                 return;
             }
 
@@ -2110,7 +2083,6 @@ class MacroBuilderApp {
             let targetIndex = action.conditions.findIndex(c => c.id === targetId);
 
             if (sourceIndex === -1 || targetIndex === -1) {
-                console.log('🔷 [DEBUG] Source or target condition not found');
                 return;
             }
 
@@ -2120,45 +2092,23 @@ class MacroBuilderApp {
             // Adjust if moving down
             if (sourceIndex < targetIndex) targetIndex--;
 
-            console.log('🔷 [DEBUG] Moving condition:', {
-                sourceIndex,
-                targetIndex,
-                conditionsBefore: action.conditions.length
-            });
-
             // Perform the move
             const [movedCondition] = action.conditions.splice(sourceIndex, 1);
             action.conditions.splice(targetIndex, 0, movedCondition);
 
-            console.log('🔷 [DEBUG] Condition moved successfully:', {
-                conditionsAfter: action.conditions.length
-            });
-
             // Don't call renderActionSettings() without an action parameter
             // The UI will be properly updated by renderActionSequence()
-        } else {
-            console.log('🔷 [DEBUG] Different parent actions - cross-parent move not implemented');
         }
 
         this.draggedCondition = null;
         this.conditionDropTarget = null;
-        console.log('🔷 [DEBUG] Drag state cleared');
     }
 
     // Convert condition back to regular action
     handleConditionToActionDrop(event, targetActionId) {
-        console.log('🟡 [DEBUG] handleConditionToActionDrop START', {
-            draggedCondition: this.draggedCondition,
-            targetActionId,
-            timestamp: new Date().toISOString(),
-            eventType: event.type,
-            currentTarget: event.currentTarget?.className
-        });
-
         this.removeDragPlaceholder();
 
         if (!this.draggedCondition) {
-            console.log('🟡 [DEBUG] ERROR: No draggedCondition found!');
             return;
         }
 
@@ -2166,34 +2116,18 @@ class MacroBuilderApp {
 
         // Find parent action and condition
         const parentAction = this.actions.find(a => a.id === parentActionId);
-        console.log('🟡 [DEBUG] Parent action found:', {
-            found: !!parentAction,
-            parentActionId,
-            parentActionType: parentAction?.type,
-            hasConditions: parentAction?.conditions?.length > 0,
-            conditionsCount: parentAction?.conditions?.length,
-            conditions: parentAction?.conditions
-        });
 
         if (!parentAction || !parentAction.conditions) {
-            console.log('🟡 [DEBUG] ERROR: Parent action not found or no conditions!');
             return;
         }
 
         const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
-        console.log('🟡 [DEBUG] Condition index:', {
-            conditionIndex,
-            conditionId,
-            allConditionIds: parentAction.conditions.map(c => c.id)
-        });
 
         if (conditionIndex === -1) {
-            console.log('🟡 [DEBUG] ERROR: Condition not found in parent!');
             return;
         }
 
         const condition = parentAction.conditions[conditionIndex];
-        console.log('🟡 [DEBUG] Condition to convert:', condition);
 
         // Create new action from condition
         const newAction = {
@@ -2201,24 +2135,14 @@ class MacroBuilderApp {
             type: condition.actionType,
             ...condition.params
         };
-        console.log('🟡 [DEBUG] New action created:', newAction);
 
         // Remove condition from parent
-        const beforeRemove = parentAction.conditions.length;
         parentAction.conditions.splice(conditionIndex, 1);
-        const afterRemove = parentAction.conditions.length;
-        console.log('🟡 [DEBUG] Condition removed from parent:', {
-            beforeRemove,
-            afterRemove,
-            removed: beforeRemove - afterRemove === 1
-        });
 
         // Find target action index
         const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-        console.log('🟡 [DEBUG] Target index:', targetIndex);
 
         if (targetIndex === -1) {
-            console.log('🟡 [DEBUG] ERROR: Target action not found!');
             return;
         }
 
@@ -2233,35 +2157,19 @@ class MacroBuilderApp {
         let insertIndex = targetIndex;
         if (isAfter) insertIndex++;
 
-        const beforeInsert = this.actions.length;
         this.actions.splice(insertIndex, 0, newAction);
-        const afterInsert = this.actions.length;
-
-        console.log('🟡 [DEBUG] Action inserted:', {
-            insertIndex,
-            isAfter,
-            beforeInsert,
-            afterInsert,
-            inserted: afterInsert - beforeInsert === 1
-        });
 
         // Clear drag state
         this.draggedCondition = null;
         this.conditionDropTarget = null;
 
-        console.log('🟡 [DEBUG] Drag state cleared');
-
         // Update UI
         this.markAsChanged();
-        console.log('🟡 [DEBUG] Marked as changed, rendering UI...');
 
         // Don't call renderActionSettings() here - the action isn't expanded yet
         // renderActionSequence() will handle rendering everything properly
 
         this.renderActionSequence();
-        console.log('🟡 [DEBUG] Action sequence rendered');
-
-        console.log('🟡 [DEBUG] COMPLETE: Converted condition to action at position', insertIndex);
     }
 
 
@@ -3299,12 +3207,18 @@ class MacroBuilderApp {
             case 'log':
                 return action.message || '로그 메시지';
             case 'loop':
+                // Show loop expression if exists
+                if (action.loopExpression && action.loopExpression.trim()) {
+                    return `${action.loopExpression} 반복`;
+                }
+                // Legacy calculated mode support
                 if (action.countMode === 'calculated' && action.calculation) {
                     const calc = action.calculation;
                     const refActionIndex = this.actions.findIndex(a => a.id === calc.referenceActionId);
                     const refLabel = refActionIndex >= 0 ? `#${refActionIndex + 1}` : '?';
                     return `${calc.maxValue} - ${refLabel}값`;
                 }
+                // Default: show fixed loop count
                 return `${action.loopCount || 1}회 반복`;
             case 'success':
                 return action.message || '성공 종료';
@@ -3639,12 +3553,12 @@ class MacroBuilderApp {
         }
 
         // Save execution result to scenario file metadata
-        await this.saveExecutionResult(finalStatus, finalMessage);
+        await this.saveExecutionResult(finalStatus, finalMessage, scenarioKey);
 
         // Clean up scenario running state
         if (scenarioKey) {
             this.runningScenarios.delete(scenarioKey);
-            // Refresh scenario list to remove progress
+            // Refresh scenario list to remove progress and show updated result
             if (this.isScenarioListVisible()) {
                 this.renderScenarioListInPanel();
             }
@@ -3685,6 +3599,11 @@ class MacroBuilderApp {
     }
 
     async executeActionsRange(startIndex, endIndex, scenarioKey = null) {
+        // Clear variables at the start of execution
+        if (startIndex === 0) {
+            this.executionVariables.clear();
+        }
+
         let i = startIndex;
 
         while (i < endIndex) {
@@ -3709,7 +3628,7 @@ class MacroBuilderApp {
                     const conditionResult = await this.evaluateConditions(action);
 
                     // Add delay and log for control flow action
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3732,7 +3651,7 @@ class MacroBuilderApp {
                 } else if (action.type === 'else') {
                     // If we reach else, it means previous if/else-if were false
                     // Add delay and log
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3768,7 +3687,40 @@ class MacroBuilderApp {
                 } else if (action.type === 'loop') {
                     const loopStart = i;
                     const loopEnd = this.findBlockEnd(i, ['end-loop']);
-                    const loopCount = action.loopCount || 1;
+
+                    let loopCount = action.loopCount || 1;
+
+                    // If loop expression exists, evaluate it
+                    if (action.loopExpression && action.loopExpression.trim()) {
+                        const expression = action.loopExpression.trim();
+
+                        // Replace 'var' with the actual variable value
+                        let evaluatedExpression = expression;
+                        if (expression.includes('var')) {
+                            const variableName = action.loopVariable || 'volume';
+                            const variableValue = this.executionVariables.get(variableName);
+
+                            if (variableValue !== undefined) {
+                                evaluatedExpression = expression.replace(/var/g, variableValue);
+                                console.log(`[loop] Expression: ${expression}, Variable: ${variableName}=${variableValue}, Evaluated: ${evaluatedExpression}`);
+                            } else {
+                                console.warn(`[loop] Variable '${variableName}' not found, using loopCount: ${loopCount}`);
+                            }
+                        }
+
+                        // Evaluate the expression
+                        try {
+                            const result = this.evaluateExpression(evaluatedExpression);
+                            if (result !== null && result >= 0) {
+                                loopCount = Math.floor(result);
+                                console.log(`[loop] Final loop count: ${loopCount}`);
+                            } else {
+                                console.warn(`[loop] Expression evaluated to invalid value: ${result}, using default: ${loopCount}`);
+                            }
+                        } catch (error) {
+                            console.error(`[loop] Expression evaluation failed: ${error.message}, using default: ${loopCount}`);
+                        }
+                    }
 
                     for (let j = 0; j < loopCount; j++) {
                         await this.executeActionsRange(loopStart + 1, loopEnd, scenarioKey);
@@ -3798,7 +3750,7 @@ class MacroBuilderApp {
                     const result = await this.executeAction(action);
 
                     // Add delay
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3808,6 +3760,11 @@ class MacroBuilderApp {
 
                     if (action.type === 'get-volume' && result.success) {
                         const volumeValue = result.volume;
+
+                        // Store variable for later use in loop expressions
+                        const variableName = action.variableName || 'volume';
+                        this.executionVariables.set(variableName, volumeValue);
+
                         const comparison = action.comparison || { operator: '>=', value: 50 };
 
                         switch (comparison.operator) {
@@ -3875,7 +3832,7 @@ class MacroBuilderApp {
                     }
                 } else if (action.type === 'endif') {
                     // Add delay and log for endif
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3884,7 +3841,7 @@ class MacroBuilderApp {
                     i++;
                 } else if (action.type === 'end-if' || action.type === 'end-loop' || action.type === 'end-while') {
                     // Add delay and log for end markers
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3914,7 +3871,7 @@ class MacroBuilderApp {
                     }
 
                     // Get delay from option
-                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    const delay = parseInt(document.getElementById('toolbar-delay-select')?.value || 300);
                     if (delay > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -3962,6 +3919,38 @@ class MacroBuilderApp {
         }
 
         return this.actions.length;
+    }
+
+    /**
+     * Evaluate a mathematical expression safely
+     * Supports +, -, *, /, %, and parentheses
+     * @param {string} expression - The expression to evaluate
+     * @returns {number|null} The result or null if invalid
+     */
+    evaluateExpression(expression) {
+        if (!expression || typeof expression !== 'string') {
+            return null;
+        }
+
+        const cleaned = expression.trim();
+
+        // Only allow numbers, operators, parentheses, and whitespace
+        if (!/^[\d+\-*/%().\s]+$/.test(cleaned)) {
+            throw new Error('Invalid expression: contains disallowed characters');
+        }
+
+        try {
+            // Use Function constructor for safe evaluation (safer than eval)
+            const result = new Function(`return ${cleaned}`)();
+
+            if (typeof result !== 'number' || !isFinite(result)) {
+                return null;
+            }
+
+            return result;
+        } catch (error) {
+            throw new Error(`Expression evaluation failed: ${error.message}`);
+        }
     }
 
     findPairedEndif(startIndex) {
@@ -4132,6 +4121,14 @@ class MacroBuilderApp {
                 return await this.executeSoundCheckAction(action);
             }
 
+            // Handle wait action (frontend processing)
+            if (action.type === 'wait') {
+                const waitTime = action.duration || action.delay || 1000;
+                console.log(`[executeAction] Wait action: waiting ${waitTime}ms`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                return { success: true, waitTime };
+            }
+
             // Handle tap-matched-image action (frontend processing)
             if (action.type === 'tap-matched-image') {
                 // First, find the image using executeImageMatchAction
@@ -4160,15 +4157,26 @@ class MacroBuilderApp {
                 };
             }
 
+            // Validate coordinate-based actions have required coordinates before executing
+            if (action.type === 'drag') {
+                if (action.x === undefined || action.y === undefined || action.endX === undefined || action.endY === undefined) {
+                    return {
+                        success: false,
+                        error: 'Drag action is missing coordinates. Please set start and end coordinates.'
+                    };
+                }
+            } else if (['click', 'tap', 'long-press'].includes(action.type)) {
+                if (action.x === undefined || action.y === undefined) {
+                    return {
+                        success: false,
+                        error: `${action.type} action is missing coordinates. Please set coordinates.`
+                    };
+                }
+            }
+
             // Map frontend action format to backend format
             const backendAction = this.mapActionToBackend(action);
-            console.log('[executeAction] Original action:', action);
-            console.log('[executeAction] Backend action:', backendAction);
-            console.log('[executeAction] window.api:', window.api);
-            console.log('[executeAction] window.api.action:', window.api?.action);
-
             const result = await window.api.action.execute(backendAction);
-            console.log('[executeAction] Result:', result);
             return result;
         } catch (error) {
             console.error('[executeAction] Error:', error);
@@ -4518,7 +4526,7 @@ class MacroBuilderApp {
             case 'input':
                 return { type: 'input', text: action.text };
             case 'wait':
-                return { type: 'wait', delay: action.delay || 1000 };
+                return { type: 'wait', delay: action.duration || action.delay || 1000 };
             case 'home':
                 return { type: 'key', keyCode: 3 }; // HOME
             case 'back':
@@ -4861,11 +4869,11 @@ class MacroBuilderApp {
         console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
     }
 
-    deleteScenario(key, filename) {
-        console.log('[deleteScenario] Deleting scenario:', key, filename);
+    deleteScenario(scenarioId, displayName) {
+        console.log('[deleteScenario] Deleting scenario:', scenarioId, displayName);
 
         // Show confirmation dialog
-        const confirmDelete = confirm(`시나리오 "${filename}"을(를) 삭제하시겠습니까?`);
+        const confirmDelete = confirm(`시나리오 "${displayName}"을(를) 삭제하시겠습니까?`);
 
         if (!confirmDelete) {
             console.log('[deleteScenario] Deletion cancelled by user');
@@ -4873,89 +4881,133 @@ class MacroBuilderApp {
         }
 
         try {
-            // Get the scenario registry
-            const registryData = localStorage.getItem('scenario_registry');
-            if (!registryData) {
-                console.error('[deleteScenario] No scenario registry found');
+            // Load storage objects
+            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+            const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+
+            // Get file path from index
+            const indexEntry = index[scenarioId];
+            if (!indexEntry) {
+                console.error('[deleteScenario] Scenario not found in index:', scenarioId);
+                alert('시나리오를 찾을 수 없습니다.');
                 return;
             }
 
-            const registry = JSON.parse(registryData);
+            const { filePath } = indexEntry;
+            const fileData = scenarioData[filePath];
 
-            // Remove scenario from registry
-            if (registry[key]) {
-                delete registry[key];
-
-                // Save updated registry
-                localStorage.setItem('scenario_registry', JSON.stringify(registry));
-
-                // Remove scenario data from localStorage
-                localStorage.removeItem(key);
-
-                console.log('[deleteScenario] Successfully deleted scenario:', key);
-
-                // Refresh the scenario list
-                this.renderScenarioListInPanel();
-            } else {
-                console.error('[deleteScenario] Scenario not found in registry:', key);
+            if (!fileData) {
+                console.error('[deleteScenario] File not found:', filePath);
+                alert('시나리오 파일을 찾을 수 없습니다.');
+                return;
             }
+
+            // Remove scenario from file's scenarios array
+            fileData.scenarios = fileData.scenarios.filter(s => s.id !== scenarioId);
+
+            // If no scenarios left in file, remove the entire file
+            if (fileData.scenarios.length === 0) {
+                delete scenarioData[filePath];
+                console.log('[deleteScenario] Removed empty file:', filePath);
+            } else {
+                // Update file data
+                scenarioData[filePath] = fileData;
+                console.log('[deleteScenario] Updated file with remaining scenarios');
+            }
+
+            // Remove from index
+            delete index[scenarioId];
+
+            // Remove from execution results
+            if (results[scenarioId]) {
+                delete results[scenarioId];
+            }
+
+            // Save all changes
+            localStorage.setItem('scenario_index', JSON.stringify(index));
+            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
+            localStorage.setItem('scenario_execution_results', JSON.stringify(results));
+
+            console.log('[deleteScenario] Successfully deleted scenario:', scenarioId);
+
+            // Refresh the scenario list
+            this.renderScenarioListInPanel(true);
         } catch (error) {
             console.error('[deleteScenario] Error deleting scenario:', error);
             alert('시나리오 삭제 중 오류가 발생했습니다.');
         }
     }
 
-    duplicateScenario(key, filename) {
-        console.log('[duplicateScenario] Duplicating scenario:', key, filename);
+    duplicateScenario(scenarioId, displayName) {
+        console.log('[duplicateScenario] Duplicating scenario:', scenarioId, displayName);
 
         try {
             // Load the original scenario
-            const scenarioData = this.loadScenarioFromRegistry(key);
+            const scenarioData = this.loadScenarioFromRegistry(scenarioId);
 
             if (!scenarioData) {
-                console.error('[duplicateScenario] Scenario not found:', key);
+                console.error('[duplicateScenario] Scenario not found:', scenarioId);
                 alert('시나리오를 찾을 수 없습니다.');
                 return;
             }
 
-            // Generate unique filename for the duplicate
-            const baseFilename = filename.replace(/\s*\(복사\s*\d*\)\s*$/, '');
-            let newFilename = `${baseFilename} (복사)`;
+            // Load storage objects
+            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+            const allScenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+
+            // Get all existing scenario names to avoid duplicates
+            const existingNames = Object.values(index).map(entry => {
+                const fileData = allScenarioData[entry.filePath];
+                const scenario = fileData?.scenarios?.find(s => s.id === Object.keys(index).find(id => index[id].filePath === entry.filePath));
+                return scenario?.name || '';
+            }).filter(name => name);
+
+            // Generate unique name for the duplicate
+            const baseName = displayName.replace(/\s*\(복사\s*\d*\)\s*$/, '');
+            let newName = `${baseName} (복사)`;
             let counter = 2;
 
-            // Get existing filenames to check for duplicates
-            const registryData = localStorage.getItem('scenario_registry');
-            const registry = registryData ? JSON.parse(registryData) : {};
-            const existingFilenames = Object.values(registry).map(item => item.filename);
-
-            // Find unique filename
-            while (existingFilenames.includes(newFilename)) {
-                newFilename = `${baseFilename} (복사 ${counter})`;
+            while (existingNames.includes(newName)) {
+                newName = `${baseName} (복사 ${counter})`;
                 counter++;
             }
 
-            // Create new scenario with duplicate data
-            const newKey = `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const newScenarioData = {
-                name: newFilename,
-                actions: JSON.parse(JSON.stringify(scenarioData.actions)) // Deep copy
+            // Create new scenario ID and file path
+            const newScenarioId = `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const newFilePath = `${newName}.json`;
+
+            // Create new scenario object
+            const newScenario = {
+                id: newScenarioId,
+                name: newName,
+                actions: JSON.parse(JSON.stringify(scenarioData.actions)), // Deep copy
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString()
             };
 
-            // Save the duplicated scenario
-            localStorage.setItem(newKey, JSON.stringify(newScenarioData));
-
-            // Update registry
-            registry[newKey] = {
-                filename: newFilename,
-                savedAt: new Date().toISOString(),
-                actionsCount: scenarioData.actions.length
+            // Create new file data
+            const newFileData = {
+                name: newName,
+                scenarios: [newScenario],
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString()
             };
-            localStorage.setItem('scenario_registry', JSON.stringify(registry));
 
-            console.log('[duplicateScenario] Successfully duplicated scenario:', newFilename);
+            // Save to storage
+            allScenarioData[newFilePath] = newFileData;
+            index[newScenarioId] = {
+                filePath: newFilePath,
+                scenarioId: newScenarioId
+            };
+
+            localStorage.setItem('scenario_data', JSON.stringify(allScenarioData));
+            localStorage.setItem('scenario_index', JSON.stringify(index));
+
+            console.log('[duplicateScenario] Successfully duplicated scenario:', newName);
 
             // Refresh the scenario list
-            this.renderScenarioListInPanel();
+            this.renderScenarioListInPanel(true);
 
         } catch (error) {
             console.error('[duplicateScenario] Error duplicating scenario:', error);
@@ -5013,7 +5065,7 @@ class MacroBuilderApp {
         }
     }
 
-    async saveExecutionResult(status, message) {
+    async saveExecutionResult(status, message, scenarioKey = null) {
         // Create execution result metadata
         const executionResult = {
             scenarioName: this.macroName,
@@ -5029,14 +5081,19 @@ class MacroBuilderApp {
             const resultsKey = 'scenario_execution_results';
             const existingResults = JSON.parse(localStorage.getItem(resultsKey) || '{}');
 
-            // Use macro name as key, store latest result
-            const sanitizedName = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
-            existingResults[sanitizedName] = executionResult;
+            // Use scenarioKey if provided, otherwise fallback to sanitized macro name
+            let storageKey;
+            if (scenarioKey) {
+                storageKey = scenarioKey;
+            } else {
+                storageKey = this.macroName.replace(/[^a-z0-9가-힣]/gi, '_');
+            }
+            existingResults[storageKey] = executionResult;
 
             // Save back to localStorage
             localStorage.setItem(resultsKey, JSON.stringify(existingResults));
 
-            console.log(`Saved execution result for "${this.macroName}":`, executionResult);
+            console.log(`Saved execution result for "${storageKey}":`, executionResult);
         } catch (error) {
             console.error('Failed to save execution result:', error);
         }
@@ -7108,43 +7165,69 @@ class MacroBuilderApp {
         const actionList = document.getElementById('action-sequence-list');
         if (!actionList) return;
 
-        // Get registry, results, and scenario data
-        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+        // Clear screen markers when returning to scenario list
+        this.clearScreenMarkers();
+
+        // Get scenario index, results, and scenario data
+        let index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
         const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
         const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
 
-        // Merge and sort scenarios
-        const scenarios = Object.entries(registry).map(([key, registryData]) => {
-            const executionResult = results[key];
+        // Clean up orphaned index entries (scenarios that no longer exist in data)
+        let indexChanged = false;
+        Object.entries(index).forEach(([scenarioId, indexEntry]) => {
+            const { filePath } = indexEntry;
+            if (!scenarioData[filePath]) {
+                console.log('[renderScenarioListInPanel] Removing orphaned index entry:', scenarioId);
+                delete index[scenarioId];
+                indexChanged = true;
+            }
+        });
+        if (indexChanged) {
+            localStorage.setItem('scenario_index', JSON.stringify(index));
+        }
 
-            // Get actual action count from scenario_data instead of cached registry value
-            let actualActionsCount = 0;
-            const fileData = scenarioData[key];
-            if (fileData && fileData.scenarios && fileData.scenarios.length > 0) {
-                // Sum up actions from all scenarios in this file
-                // Exclude structural markers (else, endif) from count
-                actualActionsCount = fileData.scenarios.reduce((sum, scenario) => {
-                    const actions = scenario.actions || [];
-                    const validActions = actions.filter(action =>
-                        action.type !== 'else' && action.type !== 'endif'
-                    );
-                    return sum + validActions.length;
-                }, 0);
+        // Merge and sort scenarios from index (which has scenario IDs)
+        const scenarios = Object.entries(index).map(([scenarioId, indexEntry]) => {
+            const { filePath } = indexEntry;
+            const fileData = scenarioData[filePath];
+
+            if (!fileData) {
+                console.warn('[renderScenarioListInPanel] File not found for scenario:', scenarioId, filePath);
+                return null;
             }
 
+            // Find the scenario within the file
+            const scenario = fileData.scenarios?.find(s => s.id === scenarioId);
+            if (!scenario) {
+                console.warn('[renderScenarioListInPanel] Scenario not found in file:', scenarioId);
+                return null;
+            }
+
+            // Get execution results for this scenario
+            const executionResult = results[scenarioId];
+
+            // Count actions (exclude structural markers)
+            const actions = scenario.actions || [];
+            const validActions = actions.filter(action =>
+                action.type !== 'else' && action.type !== 'endif'
+            );
+
             return {
-                key,
-                name: registryData.name,
-                filename: registryData.filename,
-                savedAt: registryData.savedAt,
-                actionsCount: actualActionsCount,
+                key: scenarioId,  // Use scenario ID as key
+                name: scenario.name,
+                filename: filePath,
+                savedAt: scenario.lastModified || fileData.lastModified,
+                actionsCount: validActions.length,
                 status: executionResult ? executionResult.status : 'never_run',
                 message: executionResult ? executionResult.message : '미실행',
-                timestamp: executionResult ? executionResult.timestamp : registryData.savedAt
+                timestamp: executionResult ? executionResult.timestamp : (scenario.lastModified || fileData.lastModified),
+                createdAt: scenario.createdAt || fileData.createdAt || scenario.lastModified || fileData.lastModified
             };
-        });
+        }).filter(s => s !== null);  // Remove null entries
 
-        scenarios.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Sort by creation time (oldest first)
+        scenarios.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
         // Render in the main panel
         if (scenarios.length === 0) {
@@ -7369,10 +7452,12 @@ class MacroBuilderApp {
             subToolbar.style.display = 'none';
         }
 
-        // Hide delay selector in scenario list view
-        const delaySelectWrapper = document.getElementById('delay-select-wrapper');
-        if (delaySelectWrapper) {
-            delaySelectWrapper.style.display = 'none';
+        // Keep delay selector visible in scenario list view (no longer hidden)
+
+        // Hide save button in scenario list view
+        const btnSaveMacro = document.getElementById('btn-save-macro');
+        if (btnSaveMacro) {
+            btnSaveMacro.style.display = 'none';
         }
 
         // Hide "back to list" button, show "new scenario" button in scenario list view
@@ -7438,26 +7523,22 @@ class MacroBuilderApp {
         // Run scenarios sequentially
         for (let i = 0; i < selectedKeys.length; i++) {
             const key = selectedKeys[i];
-            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
-            const scenarioInfo = registry[key];
 
-            if (!scenarioInfo) {
+            // Load scenario data from new storage system
+            const scenarioData = this.loadScenarioFromRegistry(key);
+            if (!scenarioData) {
                 this.addLog('warning', `시나리오를 찾을 수 없음: ${key}`);
                 continue;
             }
 
-            this.addLog('info', `[${i + 1}/${selectedKeys.length}] ${scenarioInfo.name} 실행 중...`);
-
-            // Load scenario data
-            const scenarioData = this.loadScenarioFromRegistry(key);
-            if (!scenarioData) {
-                this.addLog('error', `시나리오 로드 실패: ${scenarioInfo.name}`);
-                continue;
-            }
+            this.addLog('info', `[${i + 1}/${selectedKeys.length}] ${scenarioData.name} 실행 중...`);
 
             // Load the scenario data internally for execution
             this.actions = scenarioData.actions || [];
             this.macroName = scenarioData.name || 'Unnamed';
+
+            // Mark as saved to prevent "unsaved changes" dialog
+            this.markAsSaved();
 
             // Run the scenario with key for progress tracking (scenario list stays visible)
             await this.runMacro(key);
@@ -7469,42 +7550,77 @@ class MacroBuilderApp {
         }
 
         this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
+
+        // Refresh scenario list to show all updated execution results
+        this.renderScenarioListInPanel(true);
     }
 
     deleteSelectedScenarios() {
         const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
-        const selectedItems = Array.from(checkboxes).map(cb => ({
-            key: cb.dataset.key,
-            filename: cb.dataset.filename
-        }));
+        const selectedScenarioIds = Array.from(checkboxes).map(cb => cb.dataset.key);
 
-        if (selectedItems.length === 0) {
+        if (selectedScenarioIds.length === 0) {
             alert('삭제할 시나리오를 선택해주세요');
             return;
         }
 
         // Show confirmation dialog
-        const confirmDelete = confirm(`선택한 ${selectedItems.length}개의 시나리오를 삭제하시겠습니까?`);
+        const confirmDelete = confirm(`선택한 ${selectedScenarioIds.length}개의 시나리오를 삭제하시겠습니까?`);
 
         if (!confirmDelete) {
             return;
         }
 
         try {
-            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
+            // Load storage objects
+            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+            const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+
+            // Track which files need updating
+            const filesToUpdate = new Set();
 
             // Delete each selected scenario
-            selectedItems.forEach(({ key }) => {
-                if (registry[key]) {
-                    delete registry[key];
+            selectedScenarioIds.forEach(scenarioId => {
+                const indexEntry = index[scenarioId];
+                if (!indexEntry) {
+                    console.warn('[deleteSelectedScenarios] Scenario not found in index:', scenarioId);
+                    return;
                 }
-                localStorage.removeItem(key);
+
+                const { filePath } = indexEntry;
+                const fileData = scenarioData[filePath];
+
+                if (fileData) {
+                    // Remove scenario from file's scenarios array
+                    fileData.scenarios = fileData.scenarios.filter(s => s.id !== scenarioId);
+
+                    // Mark file for update/deletion
+                    filesToUpdate.add(filePath);
+
+                    // Update or delete file data
+                    if (fileData.scenarios.length === 0) {
+                        delete scenarioData[filePath];
+                    } else {
+                        scenarioData[filePath] = fileData;
+                    }
+                }
+
+                // Remove from index
+                delete index[scenarioId];
+
+                // Remove from execution results
+                if (results[scenarioId]) {
+                    delete results[scenarioId];
+                }
             });
 
-            // Save updated registry
-            localStorage.setItem('scenario_registry', JSON.stringify(registry));
+            // Save all changes
+            localStorage.setItem('scenario_index', JSON.stringify(index));
+            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
+            localStorage.setItem('scenario_execution_results', JSON.stringify(results));
 
-            this.addLog('success', `${selectedItems.length}개 시나리오 삭제 완료`);
+            this.addLog('success', `${selectedScenarioIds.length}개 시나리오 삭제 완료`);
 
             // Refresh scenario list (skip unsaved check since we just deleted scenarios)
             this.renderScenarioListInPanel(true);
@@ -7620,6 +7736,9 @@ class MacroBuilderApp {
         // Just load the scenario data internally for execution
         this.actions = scenarioData.actions || [];
         this.macroName = scenarioData.name || 'Unnamed';
+
+        // Mark as saved to prevent "unsaved changes" dialog
+        this.markAsSaved();
 
         this.addLog('info', `시나리오 실행 시작: ${this.macroName} (${this.actions.length}개 액션)`);
 

@@ -149,6 +149,13 @@ class LeftPanelView extends BaseView {
             </div>
 
             <div class="flex items-center gap-2">
+                <button class="btn-outline btn-sm" id="btn-save-macro">
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    Save
+                </button>
+
                 <label class="toolbar-label">Delay:</label>
                 <select id="toolbar-delay-select" class="btn-outline btn-sm" style="min-width: 90px;">
                     <option value="0">None</option>
@@ -239,11 +246,12 @@ class LeftPanelView extends BaseView {
     bindEvents() {
         // Delegate toolbar button clicks
         this.delegate('#btn-new-scenario', 'click', this.onNewScenario);
-        this.delegate('#btn-back-to-list', 'click', this.onBackToListClick);
+        // Note: btn-back-to-list is handled by macro-builder-app.js to avoid duplicate unsaved check
         this.delegate('#btn-select-all', 'click', this.onSelectAll);
         this.delegate('#btn-run-selected', 'click', this.onRunSelected);
         this.delegate('#btn-delete-selected', 'click', this.onDeleteSelected);
         this.delegate('#btn-run-macro', 'click', this.onRunMacro);
+        this.delegate('#btn-save-macro', 'click', this.onSaveMacro);
     }
 
     setupToolbarEvents() {
@@ -337,6 +345,19 @@ class LeftPanelView extends BaseView {
     onScenarioSaved(data) {
         if (this.actionEditorView) {
             this.actionEditorView.markSaved();
+        }
+    }
+
+    onSaveMacro(e) {
+        e.stopPropagation();
+        if (this.actionEditorView) {
+            const scenarioData = this.actionEditorView.getCurrentScenario();
+            this.emit('scenario:save-requested', scenarioData);
+
+            // Call app method for backward compatibility
+            if (this.app && this.app.saveMacro) {
+                this.app.saveMacro();
+            }
         }
     }
 
