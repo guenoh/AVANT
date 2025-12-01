@@ -1798,6 +1798,104 @@ class MacroBuilderApp {
     }
 
     // Drag and Drop handlers
+
+    // Helper: Get range of blocks to move (including paired blocks and everything in between)
+    _getPairedBlocksRange(actionId) {
+        const draggedAction = this.actions.find(a => a.id === actionId);
+        if (!draggedAction) return null;
+
+        let blocksToMove = [draggedAction];
+        let pairAction = null;
+
+        // Check if this is a paired block
+        if (draggedAction.pairId) {
+            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== actionId);
+            if (pairAction) {
+                blocksToMove.push(pairAction);
+            }
+        }
+
+        // Find the range (from start to end, including everything in between)
+        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
+
+        return {
+            draggedAction,
+            pairAction,
+            startIndex,
+            endIndex,
+            movingBlocks,
+            blockCount: endIndex - startIndex + 1
+        };
+    }
+
+    // Helper: Validate paired block order
+    _validatePairedBlockOrder(movingBlocks, draggedAction, pairAction) {
+        if (!pairAction) return true;
+
+        const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
+        const closingTypes = ['end-loop', 'endif', 'end-while'];
+
+        const isOpening = openingTypes.includes(draggedAction.type);
+        const isClosing = closingTypes.includes(draggedAction.type);
+
+        const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
+        const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
+
+        // Opening block must always come before closing block
+        if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
+            this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
+            return false;
+        }
+        if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
+            this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
+            return false;
+        }
+
+        return true;
+    }
+
+    // Helper: Calculate insertion index safely
+    _calculateInsertIndex(targetIndex, isAfter, startIndex, blockCount) {
+        let insertIndex = targetIndex;
+        if (isAfter) {
+            insertIndex++;
+        }
+
+        // Adjust insertion index if it's after the blocks being moved
+        if (insertIndex > startIndex) {
+            insertIndex -= blockCount;
+        }
+
+        return insertIndex;
+    }
+
+    // Helper: Move action blocks safely (preventing data loss)
+    _moveActionBlocks(draggedActionId, targetIndex, isAfter = false) {
+        const range = this._getPairedBlocksRange(draggedActionId);
+        if (!range) {
+            console.error('Failed to get paired blocks range');
+            return false;
+        }
+
+        const { draggedAction, pairAction, startIndex, movingBlocks, blockCount } = range;
+
+        // Validate paired block order
+        if (!this._validatePairedBlockOrder(movingBlocks, draggedAction, pairAction)) {
+            return false;
+        }
+
+        // Calculate safe insertion index
+        const insertIndex = this._calculateInsertIndex(targetIndex, isAfter, startIndex, blockCount);
+
+        // Perform the move
+        this.actions.splice(startIndex, blockCount);
+        this.actions.splice(insertIndex, 0, ...movingBlocks);
+
+        return true;
+    }
+
     handleActionBlockDragStart(event, actionId) {
         this.isDraggingAction = true;
         this.draggedActionId = actionId; // Store for use in dragover
@@ -1853,12 +1951,6 @@ class MacroBuilderApp {
 
     // Container drag handlers for dropping conditions in empty areas
     handleContainerDragOver(event) {
-        console.log('🔵 [DEBUG] handleContainerDragOver CALLED', {
-            draggedCondition: this.draggedCondition,
-            draggedActionId: this.draggedActionId,
-            timestamp: new Date().toISOString()
-        });
-
         // Only handle if we're dragging something
         if (!this.draggedCondition && !this.draggedActionId) {
             return;
@@ -1869,52 +1961,18 @@ class MacroBuilderApp {
     }
 
     handleContainerDrop(event) {
-        console.log('💜 [DEBUG] handleContainerDrop CALLED', {
-            draggedCondition: this.draggedCondition,
-            draggedActionId: this.draggedActionId,
-            timestamp: new Date().toISOString()
-        });
-
         event.preventDefault();
         event.stopPropagation();
 
         // Handle condition being dropped into action sequence
         if (this.draggedCondition) {
             const { parentActionId, conditionId } = this.draggedCondition;
-            console.log('💜 [DEBUG] Processing condition drop in container', {
-                parentActionId,
-                conditionId
-            });
 
-            // Find the parent action with the condition
             const parentAction = this.actions.find(a => a.id === parentActionId);
-            if (!parentAction || !parentAction.conditions) {
-                console.error('💜 [DEBUG] Parent action not found or has no conditions', {
-                    parentActionId,
-                    actions: this.actions,
-                    parentAction
-                });
-                return;
-            }
+            if (!parentAction || !parentAction.conditions) return;
 
-            console.log('💜 [DEBUG] Parent action found', {
-                parentAction,
-                conditions: parentAction.conditions,
-                searchingForId: conditionId
-            });
-
-            // Find and remove the condition from parent
             const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
-            if (conditionIndex === -1) {
-                console.error('💜 [DEBUG] Condition not found in parent', {
-                    conditionId,
-                    availableConditions: parentAction.conditions.map(c => ({
-                        id: c.id,
-                        actionType: c.actionType
-                    }))
-                });
-                return;
-            }
+            if (conditionIndex === -1) return;
 
             const condition = parentAction.conditions[conditionIndex];
             parentAction.conditions.splice(conditionIndex, 1);
@@ -1926,81 +1984,26 @@ class MacroBuilderApp {
                 ...condition.params
             };
 
-            console.log('💜 [DEBUG] Created new action from condition', {
-                condition,
-                newAction
-            });
-
-            // Add to end of actions array
             this.actions.push(newAction);
-
-            // Clear drag state
             this.draggedCondition = null;
-
-            // Re-render
             this.renderActionSequence();
             this.markAsChanged();
         }
-        // Handle regular action drops
+        // Handle regular action drops to end of list
         else if (this.draggedActionId) {
-            console.log('💜 [DEBUG] Processing regular action drop in container');
+            const range = this._getPairedBlocksRange(this.draggedActionId);
+            if (!range) return;
 
-            const draggedIndex = this.actions.findIndex(a => a.id === this.draggedActionId);
-            if (draggedIndex === -1) return;
+            const { draggedAction, pairAction, startIndex, movingBlocks, blockCount } = range;
 
-            const draggedAction = this.actions[draggedIndex];
-            let blocksToMove = [draggedAction];
-            let pairAction = null;
-
-            // Check if this is a paired block (loop/end-loop, if/endif, etc.)
-            if (draggedAction.pairId) {
-                pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
-                if (pairAction) {
-                    blocksToMove.push(pairAction);
-                }
+            // Validate paired block order
+            if (!this._validatePairedBlockOrder(movingBlocks, draggedAction, pairAction)) {
+                return;
             }
 
-            // Find the range of blocks to move (from start to end, including everything in between)
-            const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-            const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-
-            // Extract ALL blocks in the range (including any actions between pair blocks)
-            const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
-            const blockCount = endIndex - startIndex + 1;
-
-            // Validate paired block order BEFORE making changes
-            // Check order within movingBlocks array (this order is preserved after move)
-            if (pairAction) {
-                const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
-                const closingTypes = ['end-loop', 'endif', 'end-while'];
-
-                const isOpening = openingTypes.includes(draggedAction.type);
-                const isClosing = closingTypes.includes(draggedAction.type);
-
-                // Find positions within the moving blocks
-                const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
-                const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
-
-                // Opening block must always come before closing block
-                if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
-                    console.warn('Cannot move: opening block would be after closing block');
-                    this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
-                    return;
-                }
-                if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
-                    console.warn('Cannot move: closing block would be before opening block');
-                    this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
-                    return;
-                }
-            }
-
-            // Remove all blocks in the range from current position
+            // Move blocks to end
             this.actions.splice(startIndex, blockCount);
-
-            // Add all blocks to the end (maintaining their order)
             this.actions.push(...movingBlocks);
-
-            console.log(`💜 [DEBUG] Moved ${blockCount} block(s) to end (paired blocks preserved)`);
 
             this.renderActionSequence();
             this.markAsChanged();
@@ -2008,13 +2011,6 @@ class MacroBuilderApp {
     }
 
     handleActionDragOver(event, targetActionId) {
-        console.log('🟠 [DEBUG] handleActionDragOver CALLED', {
-            targetActionId,
-            draggedCondition: this.draggedCondition,
-            draggedActionId: this.draggedActionId,
-            timestamp: new Date().toISOString()
-        });
-
         event.preventDefault();
         event.stopPropagation();
 
@@ -2484,117 +2480,35 @@ class MacroBuilderApp {
         event.preventDefault();
         event.stopPropagation();
 
-        console.log('🔵 [DEBUG] handleActionDrop CALLED', {
-            targetActionId,
-            draggedCondition: this.draggedCondition,
-            draggedActionId: this.draggedActionId,
-            dataTransferTypes: Array.from(event.dataTransfer.types),
-            timestamp: new Date().toISOString()
-        });
-
-        // Check if a condition is being dragged first
+        // Handle condition drops
         const isConditionDrag = event.dataTransfer.getData('conditionDrag') === 'true';
-        console.log('🔵 [DEBUG] Checking if condition drag:', {
-            isConditionDrag,
-            hasCondition: !!this.draggedCondition
-        });
-
         if (isConditionDrag || this.draggedCondition) {
-            console.log('🔵 [DEBUG] Delegating to handleConditionToActionDrop', {
-                draggedCondition: this.draggedCondition,
-                targetActionId
-            });
             this.handleConditionToActionDrop(event, targetActionId);
             return;
         }
 
-        // Use stored draggedActionId for consistency
+        // Handle action drops
         const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
         if (!draggedActionId || draggedActionId === targetActionId) return;
 
-        // Find the dragged action and its pair (if exists)
-        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
         const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-
-        if (draggedIndex === -1 || targetIndex === -1) return;
-
-        const draggedAction = this.actions[draggedIndex];
-        let blocksToMove = [draggedAction];
-        let pairAction = null;
-
-        if (draggedAction.pairId) {
-            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
-            if (pairAction) {
-                blocksToMove.push(pairAction);
-            }
-        }
-
-        // Find the range of blocks to move (from start to end, including everything in between)
-        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-
-        // Extract ALL blocks in the range (including any actions between pair blocks)
-        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
-        const blockCount = endIndex - startIndex + 1;
+        if (targetIndex === -1) return;
 
         // Determine if dropping before or after target
         const targetElement = event.currentTarget;
         const actionBlock = targetElement.querySelector('.action-block');
+        if (!actionBlock) return;
+
         const rect = actionBlock.getBoundingClientRect();
         const midpoint = rect.top + rect.height / 2;
         const isAfter = event.clientY > midpoint;
 
-        // Validate paired block order BEFORE making changes
-        // Check order within movingBlocks array (this order is preserved after move)
-        if (pairAction) {
-            const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
-            const closingTypes = ['end-loop', 'endif', 'end-while'];
-
-            const isOpening = openingTypes.includes(draggedAction.type);
-            const isClosing = closingTypes.includes(draggedAction.type);
-
-            // Find positions within the moving blocks
-            const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
-            const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
-
-            // Opening block must always come before closing block
-            if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
-                console.warn('Cannot move: opening block would be after closing block');
-                this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
-                return;
-            }
-            if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
-                console.warn('Cannot move: closing block would be before opening block');
-                this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
-                return;
-            }
+        // Move blocks using helper function
+        if (this._moveActionBlocks(draggedActionId, targetIndex, isAfter)) {
+            this.removeDragPlaceholder();
+            this.markAsChanged();
+            this.renderActionSequence();
         }
-
-        // Calculate insertion index BEFORE removing blocks (to prevent data loss)
-        let insertIndex = targetIndex;
-        if (isAfter) {
-            insertIndex++;
-        }
-
-        // Adjust insertion index if it's after the blocks being moved
-        if (insertIndex > startIndex) {
-            insertIndex -= blockCount;
-        }
-
-        // Remove all blocks in the range from current position
-        this.actions.splice(startIndex, blockCount);
-
-        // Insert all blocks at new position (maintaining their order)
-        this.actions.splice(insertIndex, 0, ...movingBlocks);
-
-        // Remove placeholder
-        this.removeDragPlaceholder();
-
-        // Mark as changed and re-render
-        this.markAsChanged();
-        this.renderActionSequence();
-
-        console.log(`Reordered: moved ${blockCount} block(s) (entire range) to position ${insertIndex}`);
     }
 
     handleConditionDrop(event, targetActionId) {
