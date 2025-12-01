@@ -43,5 +43,4 @@ coverage/
 
 # Test results
 test-results/
-playwright-report/
 test-*.png

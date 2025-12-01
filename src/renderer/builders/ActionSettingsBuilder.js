@@ -307,6 +307,61 @@ class ActionSettingsBuilder {
             </div>
         `;
 
+        // Get previous actions that produce variables
+        let variableSourceDropdown = '';
+        if (!isConstant && window.macroApp) {
+            const currentScenario = window.macroApp.getCurrentScenario();
+            if (currentScenario && currentScenario.actions) {
+                // Find current action index
+                const currentIndex = currentScenario.actions.findIndex(a => a.id === action.id);
+
+                // Get previous actions that create variables
+                const variableSources = [];
+                for (let i = 0; i < currentIndex; i++) {
+                    const prevAction = currentScenario.actions[i];
+                    let variableName = null;
+
+                    if (prevAction.type === 'get-volume') {
+                        variableName = prevAction.variableName || 'volume';
+                    } else if (prevAction.type === 'calc-variable') {
+                        variableName = prevAction.targetVariable || 'result';
+                    } else if (prevAction.type === 'set-variable') {
+                        variableName = prevAction.variableName;
+                    }
+
+                    if (variableName) {
+                        variableSources.push({
+                            actionId: prevAction.id,
+                            type: prevAction.type,
+                            variableName: variableName,
+                            label: this.getActionLabel(prevAction.type)
+                        });
+                    }
+                }
+
+                if (variableSources.length > 0) {
+                    const options = variableSources.map(src =>
+                        `<option value="${src.variableName}" ${action.variableName === src.variableName ? 'selected' : ''}>
+                            ${src.label} (변수: ${src.variableName})
+                        </option>`
+                    ).join('');
+
+                    variableSourceDropdown = `
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-slate-700 block">Source Action</label>
+                            <select
+                                onchange="window.macroApp.updateActionValue('${action.id}', 'variableName', this.value); window.macroApp.refreshActionSettings('${action.id}');"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- 액션 선택 --</option>
+                                ${options}
+                            </select>
+                        </div>
+                    `;
+                }
+            }
+        }
+
         const countInput = isConstant
             ? H.incrementControl({
                 value: action.count || 1,
@@ -317,13 +372,13 @@ class ActionSettingsBuilder {
                 field: 'count',
                 label: '반복 횟수'
             })
-            : H.textInput({
+            : (variableSourceDropdown || H.textInput({
                 value: action.variableName || '',
                 actionId: action.id,
                 field: 'variableName',
                 label: 'Variable Name',
                 placeholder: 'e.g., volume'
-            });
+            }));
 
         const infoAlert = UI.alert(
             isConstant
@@ -950,6 +1005,16 @@ UI.slider({
      */
     buildNoSettings(action) {
         return `<p class="text-xs text-slate-600 text-center py-2">이 액션은 별도 설정이 필요하지 않습니다.</p>`;
+    }
+
+    /**
+     * Get action label from ActionConfigProvider
+     */
+    getActionLabel(actionType) {
+        if (window.actionConfigProvider) {
+            return window.actionConfigProvider.getActionLabel(actionType);
+        }
+        return actionType;
     }
 }
 

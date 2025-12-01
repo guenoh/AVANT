@@ -15,36 +15,7 @@ class MacroPanel {
    */
   init() {
     this._subscribeToStore();
-    this._setupEventDelegation();
     this.loadMacros();
-  }
-
-  /**
-   * Setup event delegation for data-action attributes
-   */
-  _setupEventDelegation() {
-    const macroListEl = document.getElementById('macro-list');
-    if (!macroListEl) return;
-
-    macroListEl.addEventListener('click', (e) => {
-      const actionEl = e.target.closest('[data-action]');
-      if (!actionEl) return;
-
-      const action = actionEl.dataset.action;
-      const macroId = actionEl.dataset.macroId;
-
-      switch (action) {
-        case 'run-macro':
-          if (macroId) this.runMacro(macroId);
-          break;
-        case 'edit-macro':
-          if (macroId) this.editMacro(macroId);
-          break;
-        case 'delete-macro':
-          if (macroId) this.deleteMacro(macroId);
-          break;
-      }
-    });
   }
 
   /**
@@ -236,9 +207,9 @@ class MacroPanel {
           <span class="macro-action-count">${macro.actions.length} 액션</span>
         </div>
         <div class="macro-actions">
-          <button class="btn btn-xs btn-primary" data-action="run-macro" data-macro-id="${macro.id}">실행</button>
-          <button class="btn btn-xs btn-secondary" data-action="edit-macro" data-macro-id="${macro.id}">편집</button>
-          <button class="btn btn-xs btn-danger" data-action="delete-macro" data-macro-id="${macro.id}">삭제</button>
+          <button class="btn btn-xs btn-primary" onclick="ui.runMacroById('${macro.id}')">실행</button>
+          <button class="btn btn-xs btn-secondary" onclick="ui.editMacroById('${macro.id}')">편집</button>
+          <button class="btn btn-xs btn-danger" onclick="ui.deleteMacroById('${macro.id}')">삭제</button>
         </div>
       </div>
     `).join('');

@@ -332,44 +332,6 @@ class UnifiedApp {
       autoCropBackground: () => this.autoCropBackground(),
       resetCrop: () => this.resetCrop()
     };
-
-    // Event delegation for data-action attributes
-    this._setupEventDelegation();
-  }
-
-  /**
-   * Setup event delegation for data-action attributes
-   * Replaces inline onclick handlers with secure event delegation
-   */
-  _setupEventDelegation() {
-    document.addEventListener('click', (e) => {
-      const actionEl = e.target.closest('[data-action]');
-      if (!actionEl) return;
-
-      const action = actionEl.dataset.action;
-      e.stopPropagation();
-
-      switch (action) {
-        case 'connect-device': {
-          const deviceId = actionEl.dataset.deviceId;
-          if (deviceId) this.connectDevice(deviceId);
-          break;
-        }
-        case 'edit-macro': {
-          const macroId = actionEl.dataset.macroId;
-          if (macroId) this.macroPanel.editMacro(macroId);
-          break;
-        }
-        case 'cancel-edit-label':
-          this.cancelEditLabel();
-          break;
-        case 'confirm-edit-label':
-          this.confirmEditLabel();
-          break;
-        default:
-          console.warn('Unknown action:', action);
-      }
-    });
   }
 
   setupIPCListeners() {
@@ -540,7 +502,7 @@ class UnifiedApp {
           <span class="device-name">${device.model || 'Unknown'}</span>
           <span class="device-id">${device.id}</span>
         </div>
-        <button class="btn btn-sm btn-primary device-connect-btn" data-action="connect-device" data-device-id="${device.id}">연결</button>
+        <button class="btn btn-sm btn-primary device-connect-btn" onclick="ui.connectDevice('${device.id}'); event.stopPropagation();">연결</button>
       `;
 
       deviceItem.addEventListener('click', (e) => {
@@ -1331,7 +1293,7 @@ class UnifiedApp {
             <div><strong>${macro.name}</strong></div>
             <div class="macro-actions" style="font-size: 0.7rem; color: var(--color-text-light);">${macro.actionCount || 0}개 액션</div>
           </div>
-          <button class="btn btn-sm btn-success" data-action="edit-macro" data-macro-id="${macro.id}">수정</button>
+          <button class="btn btn-sm btn-success" onclick="ui.editMacroById('${macro.id}'); event.stopPropagation();">수정</button>
         </div>
       `;
       macroList.appendChild(item);
@@ -1826,7 +1788,7 @@ class UnifiedApp {
           const elsePairId = ifStack.length > 0 ? ifStack[ifStack.length - 1] : null;
           const elseDepth = elsePairId ? (pairDepths.get(elsePairId) || 0) : 0;
           const elseColor = depthColors[elseDepth % depthColors.length];
-          description = `<strong style="color: ${elseColor};">else</strong>`;
+          description = `<span style="display: inline-block; padding: 4px 12px; background-color: ${elseColor}; color: white; border-radius: 4px; font-weight: 600; font-size: 0.95em;">ELSE <span style="font-weight: 400; opacity: 0.9;">조건 거짓일 때</span></span>`;
           showButtons = false;
           break;
         case 'endif':
@@ -2069,7 +2031,7 @@ class UnifiedApp {
           align-items: center !important;
         ">
           <h3 style="margin: 0 !important; font-size: 1.25rem !important;">액션 별칭 편집</h3>
-          <button class="modal-close" data-action="cancel-edit-label" style="
+          <button class="modal-close" onclick="ui.cancelEditLabel()" style="
             background: none !important;
             border: none !important;
             font-size: 1.5rem !important;
@@ -2096,7 +2058,7 @@ class UnifiedApp {
           justify-content: flex-end !important;
           gap: 8px !important;
         ">
-          <button class="btn btn-secondary" data-action="cancel-edit-label" style="
+          <button class="btn btn-secondary" onclick="ui.cancelEditLabel()" style="
             padding: 8px 16px !important;
             border-radius: 6px !important;
             border: 1px solid #d1d5db !important;
@@ -2104,7 +2066,7 @@ class UnifiedApp {
             color: #374151 !important;
             cursor: pointer !important;
           ">취소</button>
-          <button class="btn btn-primary" data-action="confirm-edit-label" style="
+          <button class="btn btn-primary" onclick="ui.confirmEditLabel()" style="
             padding: 8px 16px !important;
             border-radius: 6px !important;
             border: none !important;

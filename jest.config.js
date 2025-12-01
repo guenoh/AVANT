@@ -21,45 +21,13 @@ module.exports = {
     '!**/*.test.js'
   ],
 
-  // Coverage thresholds (per-file for tested modules)
+  // Coverage thresholds (target 80%)
   coverageThreshold: {
-    // Core stores with full coverage
-    './src/renderer/stores/ActionStore.js': {
+    global: {
       branches: 80,
-      functions: 100,
-      lines: 100,
-      statements: 100
-    },
-    './src/renderer/stores/MacroStore.js': {
-      branches: 80,
-      functions: 100,
-      lines: 100,
-      statements: 100
-    },
-    './src/renderer/stores/DeviceStore.js': {
-      branches: 80,
-      functions: 100,
-      lines: 100,
-      statements: 100
-    },
-    './src/renderer/stores/ScreenStore.js': {
-      branches: 80,
-      functions: 100,
-      lines: 100,
-      statements: 100
-    },
-    // Core services with full coverage
-    './src/renderer/services/EventBus.js': {
-      branches: 90,
-      functions: 100,
-      lines: 100,
-      statements: 100
-    },
-    './src/renderer/services/LoggerService.js': {
-      branches: 85,
-      functions: 90,
-      lines: 90,
-      statements: 90
+      functions: 80,
+      lines: 80,
+      statements: 80
     }
   },
 

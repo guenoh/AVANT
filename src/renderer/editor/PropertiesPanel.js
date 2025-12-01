@@ -7,7 +7,6 @@ class PropertiesPanel {
   constructor(actionStore, editor) {
     this.actionStore = actionStore;
     this.editor = editor;
-    this.log = window.logger.createScope('PropertiesPanel');
 
     this.container = null;
     this.currentAction = null;
@@ -25,7 +24,7 @@ class PropertiesPanel {
       this.loadAction(e.detail.action, e.detail.index);
     });
 
-    this.log.debug('Initialized');
+    console.log('[PropertiesPanel] Initialized');
   }
 
   /**
@@ -35,7 +34,7 @@ class PropertiesPanel {
     this.currentAction = { ...action };
     this.currentActionIndex = index;
 
-    this.log.debug('Loading action', { type: action.type });
+    console.log('[PropertiesPanel] Loading action:', action.type);
 
     // Render properties form
     this.render();
@@ -241,7 +240,7 @@ class PropertiesPanel {
                 id="file-${field.name}"
                 accept="image/*"
               >
-              <button class="property-file-btn" data-file-input="file-${field.name}">
+              <button class="property-file-btn" onclick="document.getElementById('file-${field.name}').click()">
                 파일 선택
               </button>
               <span class="property-file-name" id="filename-${field.name}">
@@ -297,19 +296,7 @@ class PropertiesPanel {
       });
     });
 
-    // File button click handling
-    const fileButtons = this.container.querySelectorAll('.property-file-btn');
-    fileButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const inputId = btn.dataset.fileInput;
-        const fileInput = document.getElementById(inputId);
-        if (fileInput) {
-          fileInput.click();
-        }
-      });
-    });
-
-    // File input change handling
+    // File input handling
     const fileInputs = this.container.querySelectorAll('.property-file-input');
     fileInputs.forEach(input => {
       input.addEventListener('change', (e) => {
@@ -399,7 +386,7 @@ class PropertiesPanel {
   applyChanges() {
     if (this.currentActionIndex === -1 || !this.currentAction) return;
 
-    this.log.info('Applying changes', { type: this.currentAction.type });
+    console.log('[PropertiesPanel] Applying changes:', this.currentAction);
 
     // Update action in store
     this.actionStore.updateAction(this.currentActionIndex, this.currentAction);
@@ -418,7 +405,7 @@ class PropertiesPanel {
    * Cancel editing
    */
   cancelEdit() {
-    this.log.debug('Canceling edit');
+    console.log('[PropertiesPanel] Canceling edit');
 
     this.currentAction = null;
     this.currentActionIndex = -1;
@@ -432,21 +419,19 @@ class PropertiesPanel {
   async testAction() {
     if (!this.currentAction) return;
 
-    this.log.info('Testing action', { type: this.currentAction.type });
+    console.log('[PropertiesPanel] Testing action:', this.currentAction);
 
     try {
       // Execute via ActionPanel
       const result = await this.editor.actionPanel._executeAction(this.currentAction);
 
       if (result.success) {
-        this.log.success('Action test succeeded');
         alert('액션 테스트 성공!');
       } else {
-        this.log.warning('Action test failed', { error: result.error });
         alert('액션 테스트 실패: ' + result.error);
       }
     } catch (error) {
-      this.log.error('Test action error', { error: error.message });
+      console.error('[PropertiesPanel] Test action error:', error);
       alert('액션 테스트 중 오류가 발생했습니다.');
     }
   }

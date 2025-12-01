@@ -45,15 +45,14 @@ class TemplateHelpers {
         const maxAttr = max !== undefined ? `max="${max}"` : '';
         const stepAttr = step !== undefined ? `step="${step}"` : '';
         const placeholderAttr = placeholder ? `placeholder="${placeholder}"` : '';
-        const dataType = type === 'number' ? 'int' : 'string';
+
+        const onchangeValue = type === 'number' ? 'parseInt(this.value)' : 'this.value';
 
         return `<input type="${type}" value="${value}"
             ${minAttr} ${maxAttr} ${stepAttr} ${placeholderAttr}
-            data-stop-propagation
-            class="${className} action-value-input"
-            data-action-id="${actionId}"
-            data-field="${field}"
-            data-type="${dataType}">`;
+            onclick="event.stopPropagation()"
+            class="${className}"
+            onchange="window.macroApp.updateActionValue('${actionId}', '${field}', ${onchangeValue})">`;
     }
 
     /**
@@ -96,14 +95,7 @@ class TemplateHelpers {
             <div>
                 ${label ? `<label class="text-xs mb-2 block">${label}</label>` : ''}
                 <div class="flex items-center gap-2">
-                    <button
-                        data-action="decrement-value"
-                        data-action-id="${actionId}"
-                        data-field="${field}"
-                        data-min="${min}"
-                        data-step="${step}"
-                        data-current="${value}"
-                        data-stop-propagation
+                    <button onclick="event.stopPropagation(); const val = ${value}; const newVal = Math.max(${min}, val - ${step}); window.macroApp.updateActionValue('${actionId}', '${field}', newVal);"
                         class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
                         ${this.icons.minus}
                     </button>
@@ -116,14 +108,7 @@ class TemplateHelpers {
                         step,
                         className: 'flex-1 h-8 px-3 text-center border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 font-mono'
                     })}
-                    <button
-                        data-action="increment-value"
-                        data-action-id="${actionId}"
-                        data-field="${field}"
-                        data-max="${max}"
-                        data-step="${step}"
-                        data-current="${value}"
-                        data-stop-propagation
+                    <button onclick="event.stopPropagation(); const val = ${value}; const newVal = Math.min(${max}, val + ${step}); window.macroApp.updateActionValue('${actionId}', '${field}', newVal);"
                         class="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors">
                         ${this.icons.plus}
                     </button>
@@ -175,28 +160,17 @@ class TemplateHelpers {
 
     /**
      * Button
-     * @param {Object} params - Button parameters
-     * @param {string} params.label - Button text
-     * @param {string} [params.icon] - Icon HTML
-     * @param {string} [params.action] - data-action value for event delegation
-     * @param {string} [params.actionId] - data-action-id value
-     * @param {string} [params.className] - CSS classes
      */
     static button(params) {
         const {
             label,
             icon = '',
-            action = '',
-            actionId = '',
+            onclick = '',
             className = 'btn-outline btn-sm'
         } = params;
 
         return `
-            <button
-                ${action ? `data-action="${action}"` : ''}
-                ${actionId ? `data-action-id="${actionId}"` : ''}
-                data-stop-propagation
-                class="${className}">
+            <button onclick="event.stopPropagation(); ${onclick}" class="${className}">
                 ${icon ? `${icon}` : ''}
                 ${label}
             </button>

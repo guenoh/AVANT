@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        h1 { color: #2563eb; }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .code {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Protocol API Test</h1>
+
+    <div class="section">
+        <h2>API Availability Check</h2>
+        <div id="availability-results"></div>
+    </div>
+
+    <div class="section">
+        <h2>Protocol List</h2>
+        <button onclick="testProtocolList()">Get Protocol List</button>
+        <div id="protocol-list-results"></div>
+    </div>
+
+    <div class="section">
+        <h2>Protocol Status</h2>
+        <button onclick="testProtocolStatus()">Get Protocol Status</button>
+        <div id="protocol-status-results"></div>
+    </div>
+
+    <div class="section">
+        <h2>Example Usage</h2>
+        <div class="code">
+// Connect to device via protocol
+await window.api.protocol.connect(deviceId, 'adb');
+
+// Execute tap action
+await window.api.protocol.tap(100, 200);
+
+// Execute swipe action
+await window.api.protocol.swipe(100, 200, 300, 400, 500);
+
+// Get protocol status
+const status = await window.api.protocol.getStatus();
+
+// Disconnect
+await window.api.protocol.disconnect();
+        </div>
+    </div>
+
+    <script>
+        // Check API availability
+        function checkApiAvailability() {
+            const results = document.getElementById('availability-results');
+            results.innerHTML = '';
+
+            const checks = [
+                { name: 'window.api', value: typeof window.api !== 'undefined' },
+                { name: 'window.api.protocol', value: typeof window.api?.protocol !== 'undefined' },
+                { name: 'window.api.protocol.connect', value: typeof window.api?.protocol?.connect === 'function' },
+                { name: 'window.api.protocol.tap', value: typeof window.api?.protocol?.tap === 'function' },
+                { name: 'window.api.protocol.swipe', value: typeof window.api?.protocol?.swipe === 'function' },
+                { name: 'window.api.protocol.getStatus', value: typeof window.api?.protocol?.getStatus === 'function' },
+                { name: 'window.api.protocol.list', value: typeof window.api?.protocol?.list === 'function' }
+            ];
+
+            checks.forEach(check => {
+                const div = document.createElement('div');
+                div.className = check.value ? 'test-result success' : 'test-result error';
+                div.textContent = `${check.name}: ${check.value ? 'Available' : 'Not Available'}`;
+                results.appendChild(div);
+            });
+
+            const summary = document.createElement('div');
+            const passedCount = checks.filter(c => c.value).length;
+            summary.className = passedCount === checks.length ? 'test-result success' : 'test-result error';
+            summary.textContent = `API Availability: ${passedCount}/${checks.length} checks passed`;
+            results.appendChild(summary);
+        }
+
+        // Test protocol list
+        async function testProtocolList() {
+            const results = document.getElementById('protocol-list-results');
+            results.innerHTML = '<div class="test-result info">Calling window.api.protocol.list()...</div>';
+
+            try {
+                const protocols = await window.api.protocol.list();
+
+                const div = document.createElement('div');
+                div.className = 'test-result success';
+                div.innerHTML = `<strong>Success!</strong><br>Registered protocols: ${JSON.stringify(protocols, null, 2)}`;
+                results.innerHTML = '';
+                results.appendChild(div);
+            } catch (error) {
+                const div = document.createElement('div');
+                div.className = 'test-result error';
+                div.innerHTML = `<strong>Error:</strong><br>${error.message}`;
+                results.innerHTML = '';
+                results.appendChild(div);
+            }
+        }
+
+        // Test protocol status
+        async function testProtocolStatus() {
+            const results = document.getElementById('protocol-status-results');
+            results.innerHTML = '<div class="test-result info">Calling window.api.protocol.getStatus()...</div>';
+
+            try {
+                const status = await window.api.protocol.getStatus();
+
+                const div = document.createElement('div');
+                div.className = 'test-result success';
+                div.innerHTML = `<strong>Success!</strong><br>Protocol status: ${JSON.stringify(status, null, 2)}`;
+                results.innerHTML = '';
+                results.appendChild(div);
+            } catch (error) {
+                const div = document.createElement('div');
+                div.className = 'test-result error';
+                div.innerHTML = `<strong>Error:</strong><br>${error.message}`;
+                results.innerHTML = '';
+                results.appendChild(div);
+            }
+        }
+
+        // Run checks on load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkApiAvailability();
+        });
+
+        console.log('Protocol API Test page loaded');
+        console.log('window.api:', window.api);
+        console.log('window.api.protocol:', window.api?.protocol);
+    </script>
+</body>
+</html>

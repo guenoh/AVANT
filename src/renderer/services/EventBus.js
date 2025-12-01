@@ -139,12 +139,5 @@ class EventBus {
   }
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = EventBus;
-}
-
-// Create and expose singleton instance globally in browser
-if (typeof window !== 'undefined') {
-  window.EventBus = new EventBus();
-}
+// Create and expose singleton instance globally
+window.EventBus = new EventBus();

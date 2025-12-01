@@ -7,7 +7,6 @@ class TimelineEditor {
   constructor(actionStore, editor) {
     this.actionStore = actionStore;
     this.editor = editor;
-    this.log = window.logger.createScope('TimelineEditor');
 
     this.container = null;
     this.selectedActionIndex = -1;
@@ -45,7 +44,7 @@ class TimelineEditor {
       }
     });
 
-    this.log.debug('Initialized');
+    console.log('[TimelineEditor] Initialized');
   }
 
   /**
@@ -84,18 +83,12 @@ class TimelineEditor {
           아래 버튼을 클릭하거나<br>
           화면을 클릭하여 액션을 추가하세요
         </div>
-        <button class="toolbar-btn btn-primary" id="btn-add-action-empty" style="margin-top: 16px;">
+        <button class="toolbar-btn btn-primary" onclick="timelineEditor.showAddActionModal()" style="margin-top: 16px;">
           <span class="btn-icon">➕</span>
           <span>액션 추가</span>
         </button>
       </div>
     `;
-
-    // Attach event listener for the add action button
-    const addBtn = this.container.querySelector('#btn-add-action-empty');
-    if (addBtn) {
-      addBtn.addEventListener('click', () => this.showAddActionModal());
-    }
   }
 
   /**
@@ -259,7 +252,7 @@ class TimelineEditor {
     const action = this.actionStore.getAction(index);
 
     if (action) {
-      this.log.debug('Selected action', { index, type: action.type });
+      console.log('[TimelineEditor] Selected action:', index, action.type);
 
       // Dispatch event to properties panel
       document.dispatchEvent(new CustomEvent('action-selected', {
@@ -275,7 +268,7 @@ class TimelineEditor {
    * Edit an action
    */
   editAction(index) {
-    this.log.debug('Editing action', { index });
+    console.log('[TimelineEditor] Editing action:', index);
     this.selectAction(index);
   }
 
@@ -285,7 +278,7 @@ class TimelineEditor {
   deleteAction(index) {
     if (!confirm('이 액션을 삭제하시겠습니까?')) return;
 
-    this.log.info('Deleting action', { index });
+    console.log('[TimelineEditor] Deleting action:', index);
     this.actionStore.removeAction(index);
 
     // Clear selection if deleted action was selected
@@ -315,7 +308,7 @@ class TimelineEditor {
 
     if (!confirm('모든 액션을 삭제하시겠습니까?')) return;
 
-    this.log.info('Clearing all actions');
+    console.log('[TimelineEditor] Clearing all actions');
     this.actionStore.clearActions();
     this.selectedActionIndex = -1;
     this.render();
@@ -382,7 +375,7 @@ class TimelineEditor {
     actions.splice(toIndex, 0, movedAction);
 
     this.actionStore.setActions(actions);
-    this.log.debug('Reordered action', { from: fromIndex, to: toIndex });
+    console.log('[TimelineEditor] Reordered action from', fromIndex, 'to', toIndex);
   }
 }
 

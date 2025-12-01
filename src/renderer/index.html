@@ -281,28 +281,28 @@
                 <!-- Panel Content -->
                 <div class="panel-content" id="action-list-container">
 
-                    <!-- Tabs -->
+                    <!-- Tabs - New 4-category system -->
                     <div class="tabs mb-4">
                         <div class="tabs-list grid grid-cols-4">
-                            <button class="tab active" data-tab="basic">기본</button>
-                            <button class="tab" data-tab="system">시스템</button>
-                            <button class="tab" data-tab="image">이미지</button>
-                            <button class="tab" data-tab="logic">로직</button>
+                            <button class="tab active" data-tab="actions">액션</button>
+                            <button class="tab" data-tab="conditions">조건</button>
+                            <button class="tab" data-tab="flow">흐름</button>
+                            <button class="tab" data-tab="exit">종료</button>
                         </div>
                     </div>
 
                     <!-- Tab Contents -->
-                    <div class="tab-content active" data-tab="basic" id="basic-actions">
-                        <!-- Basic actions will be rendered here -->
+                    <div class="tab-content active" data-tab="actions" id="actions-actions">
+                        <!-- Action commands will be rendered here -->
                     </div>
-                    <div class="tab-content hidden" data-tab="system" id="system-actions">
-                        <!-- System actions will be rendered here -->
+                    <div class="tab-content hidden" data-tab="conditions" id="conditions-actions">
+                        <!-- Condition starters will be rendered here -->
                     </div>
-                    <div class="tab-content hidden" data-tab="image" id="image-actions">
-                        <!-- Image actions will be rendered here -->
+                    <div class="tab-content hidden" data-tab="flow" id="flow-actions">
+                        <!-- Flow control will be rendered here -->
                     </div>
-                    <div class="tab-content hidden" data-tab="logic" id="logic-actions">
-                        <!-- Logic actions will be rendered here -->
+                    <div class="tab-content hidden" data-tab="exit" id="exit-actions">
+                        <!-- Exit states will be rendered here -->
                     </div>
                 </div>
             </div>

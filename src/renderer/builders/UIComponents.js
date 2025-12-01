@@ -85,11 +85,9 @@ class UIComponents {
                 value="${value}"
                 placeholder="${placeholder}"
                 ${disabled ? 'disabled' : ''}
-                data-stop-propagation
-                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 action-value-input"
-                data-action-id="${actionId}"
-                data-field="${field}"
-                data-type="string"
+                onclick="event.stopPropagation()"
+                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                onchange="window.macroApp.updateActionValue('${actionId}', '${field}', this.value)"
             >
         `;
     }
@@ -105,11 +103,9 @@ class UIComponents {
                 ${min !== undefined ? `min="${min}"` : ''}
                 ${max !== undefined ? `max="${max}"` : ''}
                 ${disabled ? 'disabled' : ''}
-                data-stop-propagation
-                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 action-value-input"
-                data-action-id="${actionId}"
-                data-field="${field}"
-                data-type="int"
+                onclick="event.stopPropagation()"
+                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                onchange="window.macroApp.updateActionValue('${actionId}', '${field}', parseInt(this.value))"
             >
         `;
     }
@@ -144,12 +140,7 @@ class UIComponents {
                 ${label ? `<label class="setting-label">${label}</label>` : ''}
                 <div class="flex items-center gap-2 mt-2">
                     <button
-                        data-action="decrement-value"
-                        data-action-id="${actionId}"
-                        data-field="${field}"
-                        data-min="${min}"
-                        data-step="${step}"
-                        data-current="${value}"
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${actionId}', '${field}', Math.max(${min}, ${value} - ${step}))"
                         class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         ${value <= min ? 'disabled' : ''}
                     >
@@ -161,12 +152,7 @@ class UIComponents {
                         <span class="font-mono text-sm font-semibold text-slate-700">${value}${unit}</span>
                     </div>
                     <button
-                        data-action="increment-value"
-                        data-action-id="${actionId}"
-                        data-field="${field}"
-                        data-max="${max}"
-                        data-step="${step}"
-                        data-current="${value}"
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${actionId}', '${field}', Math.min(${max}, ${value} + ${step}))"
                         class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         ${value >= max ? 'disabled' : ''}
                     >
@@ -243,11 +229,9 @@ class UIComponents {
         return `
             <select
                 ${disabled ? 'disabled' : ''}
-                data-stop-propagation
-                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 action-value-input"
-                data-action-id="${actionId}"
-                data-field="${field}"
-                data-type="string"
+                onclick="event.stopPropagation()"
+                class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                onchange="window.macroApp.updateActionValue('${actionId}', '${field}', this.value)"
             >
                 ${options.map(opt => `
                     <option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>
@@ -267,11 +251,9 @@ class UIComponents {
                 <input
                     type="checkbox"
                     ${checked ? 'checked' : ''}
-                    data-stop-propagation
-                    class="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-600/20 action-value-input"
-                    data-action-id="${actionId}"
-                    data-field="${field}"
-                    data-type="boolean"
+                    onclick="event.stopPropagation()"
+                    class="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-600/20"
+                    onchange="window.macroApp.updateActionValue('${actionId}', '${field}', this.checked)"
                 >
                 <span class="text-sm text-slate-700">${label}</span>
             </label>
@@ -286,10 +268,7 @@ class UIComponents {
             <div class="flex gap-1">
                 ${options.map(opt => `
                     <button
-                        data-action="set-value"
-                        data-action-id="${actionId}"
-                        data-field="${field}"
-                        data-value="${opt.value}"
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${actionId}', '${field}', '${opt.value}');"
                         class="px-2 py-1 text-xs rounded transition-colors ${
                             value === opt.value
                                 ? 'bg-blue-500 text-white'
@@ -349,19 +328,21 @@ class UIComponents {
      * Used for unified condition system (image-match, sound-check, get-volume)
      */
     static comparisonOperator({ operator = '>=', value = 0, operators = [], actionId, conditionId = null, label = 'Comparison', unit = '', min, max, step = 1 }) {
+        const updateFunction = conditionId
+            ? `window.macroApp.updateConditionComparison('${actionId}', '${conditionId}', field, newValue)`
+            : `window.macroApp.updateActionComparison('${actionId}', field, newValue)`;
+
         return `
             <div class="space-y-3">
                 ${label ? `<label class="setting-label">${label}</label>` : ''}
                 <div class="grid grid-cols-2 gap-2">
                     <!-- Operator Selector -->
                     <div>
-                        <label class="text-xs text-slate-600 mb-1 block">Operator</label>
+                        <label class="text-xs text-slate-600 mb-1 block">연산자</label>
                         <select
-                            data-stop-propagation
-                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 comparison-input"
-                            data-action-id="${actionId}"
-                            data-condition-id="${conditionId || ''}"
-                            data-comparison-field="operator"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                            onchange="const field = 'operator'; const newValue = this.value; ${updateFunction}"
                         >
                             ${operators.map(op => `
                                 <option value="${op.value}" ${operator === op.value ? 'selected' : ''}>
@@ -380,11 +361,9 @@ class UIComponents {
                             ${min !== undefined ? `min="${min}"` : ''}
                             ${max !== undefined ? `max="${max}"` : ''}
                             ${step !== undefined ? `step="${step}"` : ''}
-                            data-stop-propagation
-                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300 comparison-input"
-                            data-action-id="${actionId}"
-                            data-condition-id="${conditionId || ''}"
-                            data-comparison-field="value"
+                            onclick="event.stopPropagation()"
+                            class="w-full h-8 px-3 border border-slate-200 rounded-lg text-sm bg-white shadow-sm transition-all duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 hover:border-slate-300"
+                            onchange="const field = 'value'; const newValue = parseFloat(this.value); ${updateFunction}"
                         >
                     </div>
                 </div>

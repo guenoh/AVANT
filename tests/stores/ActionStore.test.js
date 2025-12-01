@@ -2,7 +2,30 @@
  * ActionStore Unit Tests
  */
 
-const ActionStoreClass = require('../../src/renderer/stores/ActionStore');
+// Import the store class
+const fs = require('fs');
+const path = require('path');
+
+// Read ActionStore source and extract class
+const actionStoreSource = fs.readFileSync(
+  path.join(__dirname, '../../src/renderer/stores/ActionStore.js'),
+  'utf-8'
+);
+
+// Create a safe execution context
+const createActionStore = () => {
+  const context = {};
+  const code = actionStoreSource
+    .replace('window.ActionStore = new ActionStore();', '')
+    .replace('// Create and expose singleton instance globally', '');
+
+  // Execute in a function scope to capture the class
+  const fn = new Function('exports', code + '; return ActionStore;');
+  const ActionStoreClass = fn(context);
+  return ActionStoreClass;
+};
+
+const ActionStoreClass = createActionStore();
 
 describe('ActionStore', () => {
   let store;

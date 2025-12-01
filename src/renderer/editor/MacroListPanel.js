@@ -7,7 +7,6 @@ class MacroListPanel {
   constructor(macroStore, editor) {
     this.macroStore = macroStore;
     this.editor = editor;
-    this.log = window.logger.createScope('MacroListPanel');
 
     this.container = null;
     this.searchQuery = '';
@@ -20,7 +19,7 @@ class MacroListPanel {
    */
   init() {
     this.container = document.getElementById('macro-list-items');
-    this.log.debug('Initialized');
+    console.log('[MacroListPanel] Initialized');
   }
 
   /**
@@ -33,12 +32,12 @@ class MacroListPanel {
 
       // Get macros from store
       const macros = this.macroStore.get('macros');
-      this.log.info('Loaded macros', { count: macros.length });
+      console.log('[MacroListPanel] Loaded', macros.length, 'macros');
 
       // Render list
       this.render();
     } catch (error) {
-      this.log.error('Error loading macros', { error: error.message });
+      console.error('[MacroListPanel] Error loading macros:', error);
     }
   }
 
@@ -184,7 +183,7 @@ class MacroListPanel {
     const macro = this.macroStore.getMacroById(macroId);
 
     if (macro) {
-      this.log.info('Selected macro', { name: macro.name });
+      console.log('[MacroListPanel] Selected macro:', macro.name);
 
       // Dispatch event
       document.dispatchEvent(new CustomEvent('macro-selected', {
@@ -200,7 +199,7 @@ class MacroListPanel {
    * Run a macro
    */
   async runMacro(macroId) {
-    this.log.info('Running macro', { macroId });
+    console.log('[MacroListPanel] Running macro:', macroId);
 
     // Dispatch event
     document.dispatchEvent(new CustomEvent('macro-list:macro-run', {
@@ -212,7 +211,7 @@ class MacroListPanel {
    * Edit a macro
    */
   editMacro(macroId) {
-    this.log.info('Editing macro', { macroId });
+    console.log('[MacroListPanel] Editing macro:', macroId);
 
     const macro = this.macroStore.getMacroById(macroId);
     if (!macro) return;
@@ -247,14 +246,14 @@ class MacroListPanel {
       const result = await this.editor.api.macro.save(newMacro);
 
       if (result.success) {
-        this.log.success('Macro duplicated', { name: newName });
+        console.log('[MacroListPanel] Macro duplicated:', newName);
         this.macroStore.addMacro(newMacro);
         this.render();
       } else {
         alert('매크로 복제 실패: ' + result.error);
       }
     } catch (error) {
-      this.log.error('Error duplicating macro', { error: error.message });
+      console.error('[MacroListPanel] Error duplicating macro:', error);
       alert('매크로 복제 중 오류가 발생했습니다.');
     }
   }
@@ -273,7 +272,7 @@ class MacroListPanel {
       const result = await this.editor.api.macro.delete(macroId);
 
       if (result.success) {
-        this.log.success('Macro deleted', { name: macro.name });
+        console.log('[MacroListPanel] Macro deleted:', macro.name);
         this.macroStore.removeMacro(macroId);
 
         // Clear selection if deleted macro was selected
@@ -287,7 +286,7 @@ class MacroListPanel {
         alert('매크로 삭제 실패: ' + result.error);
       }
     } catch (error) {
-      this.log.error('Error deleting macro', { error: error.message });
+      console.error('[MacroListPanel] Error deleting macro:', error);
       alert('매크로 삭제 중 오류가 발생했습니다.');
     }
   }
@@ -299,7 +298,7 @@ class MacroListPanel {
     const name = prompt('새 매크로 이름:');
     if (!name) return;
 
-    this.log.info('Creating new macro', { name });
+    console.log('[MacroListPanel] Creating new macro:', name);
 
     // Clear current actions
     this.editor.actionStore.clearActions();
@@ -335,7 +334,7 @@ class MacroListPanel {
    * Refresh macro list
    */
   async refresh() {
-    this.log.debug('Refreshing...');
+    console.log('[MacroListPanel] Refreshing...');
     await this.loadMacros();
   }
 

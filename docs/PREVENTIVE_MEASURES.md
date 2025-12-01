@@ -40,15 +40,27 @@ this.IMAGE_ACTION_TYPES = ['image-match', 'tap-matched-image'];
 - Single place to add new image action types
 - No more scattered hardcoded checks
 
-### 2. Tailwind Color Mapping (✓ DONE)
-**Problem**: Icons had white/missing backgrounds for new actions.
+### 2. Tailwind Color Mapping & CSS Classes (✓ DONE)
+**Problem**: Icons had white/missing backgrounds for new actions because:
+1. Missing tailwindColorMapping entry in ActionConfigProvider.js
+2. **CSS classes not defined in colors.css** (e.g., `bg-blue-400` was missing)
 
-**Solution**: `tailwindColorMapping` in ActionConfigProvider.js provides centralized color configuration.
+**Solution**:
+- `tailwindColorMapping` in ActionConfigProvider.js provides centralized color configuration
+- **ALL color classes must be defined in src/renderer/styles/colors.css**
 
-**Verification**: All action types must have entry in tailwindColorMapping with:
-- `color`: Background color class (e.g., 'bg-blue-500')
-- `borderClass`: Border color class (e.g., 'border-blue-500')
-- `bgClass`: Light background for blocks (e.g., 'bg-blue-50')
+**Verification**: All action types must have:
+1. Entry in `tailwindColorMapping` with:
+   - `color`: Background color class (e.g., 'bg-blue-400')
+   - `borderClass`: Border color class (e.g., 'border-blue-400')
+   - `bgClass`: Light background for blocks (e.g., 'bg-blue-50')
+
+2. **CSS definitions in colors.css**:
+   - `.bg-[color]-[shade]` class defined
+   - `.border-[color]-[shade]` class defined
+   - If using new shade (e.g., blue-400), add it to colors.css
+
+**Common mistake**: Adding `bg-blue-400` to tailwindColorMapping but forgetting to define `.bg-blue-400 { background-color: #60a5fa; }` in CSS file
 
 ## Required Preventive Measures
 

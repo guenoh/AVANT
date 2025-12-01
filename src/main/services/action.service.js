@@ -585,46 +585,45 @@ class ActionService extends EventEmitter {
   }
 
   /**
-   * Get device volume level
-   * Returns volume as percentage (0-100)
+   * Get device volume level using logcat
+   * Returns volume as raw value (0-45 typically)
    */
   async getVolume(action) {
     try {
-      // Get the current media volume using dumpsys audio
-      const output = await this._execAdb('shell dumpsys audio');
+      // Trigger volume info by sending a volume key event
+      await this._execAdb('shell input keyevent KEYCODE_VOLUME_UP');
+      await new Promise(resolve => setTimeout(resolve, 300)); // Wait for logcat to update
+      await this._execAdb('shell input keyevent KEYCODE_VOLUME_DOWN');
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Parse the output to find the current media volume
-      // The output contains lines like: "- STREAM_MUSIC:\n     Muted: false\n     Min: 0\n     Max: 15\n     Current: 2 (speaker): 10, 40000 (default): 10"
-      const streamMusicMatch = output.match(/- STREAM_MUSIC:[\s\S]*?Current:.*?:\s*(\d+)/);
+      // Use shell grep to filter only volume-related logs (avoids maxBuffer error)
+      const logcatOutput = await this._execAdb('shell "logcat -d | grep currentVolume | tail -10"');
 
-      if (!streamMusicMatch) {
-        throw new Error('Could not parse volume from device');
+      // Get currentVolume from OsdVolumeView
+      const osdVolumeMatches = logcatOutput.match(/currentVolume= (\d+)/g);
+
+      if (!osdVolumeMatches || osdVolumeMatches.length === 0) {
+        throw new Error('Could not parse volume from logcat');
       }
 
-      const currentVolume = parseInt(streamMusicMatch[1], 10);
-
-      // Get max volume to calculate percentage
-      const maxMatch = output.match(/- STREAM_MUSIC:[\s\S]*?Max:\s*(\d+)/);
-      const maxVolume = maxMatch ? parseInt(maxMatch[1], 10) : 15; // Default to 15 if not found
-
-      // Calculate percentage (0-100)
-      const volumePercentage = Math.round((currentVolume / maxVolume) * 100);
+      // Get the last volume value (most recent)
+      const lastVolumeMatch = osdVolumeMatches[osdVolumeMatches.length - 1].match(/currentVolume= (\d+)/);
+      const currentVolume = parseInt(lastVolumeMatch[1], 10);
 
       this._addToHistory({
         type: 'get-volume',
-        volume: volumePercentage
+        volume: currentVolume
       });
 
       this.emit('action-executed', {
         type: 'get-volume',
-        volume: volumePercentage
+        volume: currentVolume
       });
 
       return {
         success: true,
-        volume: volumePercentage,
-        raw: currentVolume,
-        max: maxVolume
+        volume: currentVolume,
+        raw: currentVolume
       };
     } catch (error) {
       console.error('Get volume failed:', error);

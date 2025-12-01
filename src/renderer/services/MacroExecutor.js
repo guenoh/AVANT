@@ -1,6 +1,14 @@
 /**
  * MacroExecutor
  * Handles macro execution flow with control structures (if/while/loop)
+ *
+ * New flat condition block structure:
+ * [condition-starter] (image-match, get-volume, if, etc.)
+ *   [action1]         <- executed if condition is true
+ *   [action2]
+ * [else]              <- optional else block
+ *   [action3]         <- executed if condition is false
+ * [endif]             <- required end marker
  */
 
 class MacroExecutor {
@@ -12,6 +20,10 @@ class MacroExecutor {
         this.isRunning = false;
         this.shouldStop = false;
         this.currentActionIndex = -1;
+
+        // Stack to track condition block state during execution
+        // Each entry: { conditionMet: boolean, startIndex: number }
+        this.conditionStack = [];
     }
 
     /**
@@ -25,6 +37,7 @@ class MacroExecutor {
         this.isRunning = true;
         this.shouldStop = false;
         this.currentActionIndex = -1;
+        this.conditionStack = []; // Reset condition stack
 
         this.eventBus.emit('execution:start', {
             totalActions: actions.length,
@@ -81,7 +94,8 @@ class MacroExecutor {
     }
 
     /**
-     * Execute a range of actions
+     * Execute a range of actions with flat condition block handling
+     * Handles condition starters (if, image-match, get-volume), else, and endif
      */
     async _executeRange(actions, start, end, context, result) {
         for (let i = start; i < end; i++) {
@@ -103,11 +117,82 @@ class MacroExecutor {
             });
 
             try {
-                const actionResult = await this._executeAction(action, context, result);
+                // Handle else block - skip to endif if condition was true
+                if (action.type === 'else') {
+                    const currentCondition = this.conditionStack[this.conditionStack.length - 1];
+                    if (currentCondition && currentCondition.conditionMet) {
+                        // Condition was true, skip to endif
+                        const endifIndex = this._findMatchingEndif(actions, i);
+                        if (endifIndex !== -1) {
+                            result.skippedActions++;
+                            this.eventBus.emit('execution:action-skipped', {
+                                index: i,
+                                action,
+                                reason: 'else branch skipped (condition was true)'
+                            });
+                            i = endifIndex - 1; // -1 because loop will increment
+                            continue;
+                        }
+                    }
+                    // Else: condition was false, continue executing else branch
+                    result.completedActions++;
+                    this.eventBus.emit('execution:action-complete', {
+                        index: i,
+                        action,
+                        result: { success: true, message: 'Entering else branch' }
+                    });
+                    continue;
+                }
+
+                // Handle endif block - pop condition stack
+                if (action.type === 'endif') {
+                    this.conditionStack.pop();
+                    result.completedActions++;
+                    this.eventBus.emit('execution:action-complete', {
+                        index: i,
+                        action,
+                        result: { success: true, message: 'Condition block ended' }
+                    });
+                    continue;
+                }
+
+                // Execute the action
+                const actionResult = await this._executeAction(action, actions, i, context, result);
 
                 if (actionResult.skip) {
                     result.skippedActions++;
                     this.eventBus.emit('execution:action-skipped', { index: i, action });
+                    continue;
+                }
+
+                // Handle condition starter results
+                if (actionResult.isConditionStarter) {
+                    // Push condition state to stack
+                    this.conditionStack.push({
+                        conditionMet: actionResult.conditionMet,
+                        startIndex: i
+                    });
+
+                    // If condition is false, skip to else or endif
+                    if (!actionResult.conditionMet) {
+                        const elseIndex = this._findMatchingElse(actions, i);
+                        const endifIndex = this._findMatchingEndif(actions, i);
+
+                        if (elseIndex !== -1 && elseIndex < endifIndex) {
+                            // Jump to else block (else will be processed, which will continue execution)
+                            i = elseIndex - 1; // -1 because loop will increment
+                        } else if (endifIndex !== -1) {
+                            // No else block, jump to endif
+                            i = endifIndex - 1; // -1 because loop will increment
+                        }
+                    }
+
+                    result.completedActions++;
+                    this.eventBus.emit('execution:action-complete', {
+                        index: i,
+                        action,
+                        result: actionResult
+                    });
                     continue;
                 }
 
@@ -162,13 +247,85 @@ class MacroExecutor {
     }
 
     /**
-     * Execute a single action with control flow handling
+     * Find the matching else block for a condition starter at given index
+     * Returns -1 if no else block found before endif
      */
-    async _executeAction(action, context, result) {
-        // Handle control flow actions
+    _findMatchingElse(actions, startIndex) {
+        let depth = 0;
+        for (let i = startIndex + 1; i < actions.length; i++) {
+            const action = actions[i];
+
+            // Check if this action is a condition starter (increases depth)
+            if (this._isConditionStarter(action)) {
+                depth++;
+            } else if (action.type === 'endif') {
+                if (depth === 0) {
+                    // Found our matching endif before any else
+                    return -1;
+                }
+                depth--;
+            } else if (action.type === 'else' && depth === 0) {
+                // Found our matching else at the same level
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Find the matching endif block for a condition starter at given index
+     * Returns -1 if no endif found
+     */
+    _findMatchingEndif(actions, startIndex) {
+        let depth = 0;
+        for (let i = startIndex + 1; i < actions.length; i++) {
+            const action = actions[i];
+
+            // Check if this action is a condition starter (increases depth)
+            if (this._isConditionStarter(action)) {
+                depth++;
+            } else if (action.type === 'endif') {
+                if (depth === 0) {
+                    // Found our matching endif
+                    return i;
+                }
+                depth--;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Check if an action is a condition starter (starts a condition block)
+     */
+    _isConditionStarter(action) {
+        // Check for explicit flag or known condition starter types
+        const conditionTypes = ['if', 'image-match', 'get-volume', 'sound-check'];
+        return conditionTypes.includes(action.type);
+    }
+
+    /**
+     * Execute a single action with control flow handling
+     * @param {Object} action - The action to execute
+     * @param {Array} actions - The full actions array (for finding else/endif)
+     * @param {number} index - Current action index
+     * @param {Object} context - Execution context
+     * @param {Object} result - Execution result accumulator
+     */
+    async _executeAction(action, actions, index, context, result) {
+        // Handle condition starter blocks (new flat structure)
         switch (action.type) {
             case 'if':
-                return await this._handleIf(action, context, result);
+                return await this._handleIfCondition(action, context);
+
+            case 'image-match':
+                return await this._handleImageMatchCondition(action, context);
+
+            case 'get-volume':
+                return await this._handleVolumeCondition(action, context);
+
+            case 'sound-check':
+                return await this._handleSoundCheckCondition(action, context);
 
             case 'while':
                 return await this._handleWhile(action, context, result);
@@ -220,24 +377,220 @@ class MacroExecutor {
     }
 
     /**
-     * Handle if-then-else control structure
+     * Handle if condition starter (new flat structure)
+     * Evaluates conditions and returns isConditionStarter flag
      */
-    async _handleIf(action, context, result) {
-        const conditionMet = await this._evaluateCondition(action.condition, context);
+    async _handleIfCondition(action, context) {
+        try {
+            // Evaluate all conditions with AND/OR logic
+            const conditions = action.conditions || [];
+            const conditionOperator = action.conditionOperator || 'AND';
 
-        this.eventBus.emit('execution:condition-evaluated', {
-            action,
-            condition: action.condition,
-            result: conditionMet
-        });
+            let conditionMet = conditionOperator === 'AND'; // Start with true for AND, false for OR
 
-        if (conditionMet && action.thenActions && action.thenActions.length > 0) {
-            await this._executeRange(action.thenActions, 0, action.thenActions.length, context, result);
-        } else if (!conditionMet && action.elseActions && action.elseActions.length > 0) {
-            await this._executeRange(action.elseActions, 0, action.elseActions.length, context, result);
+            for (const condition of conditions) {
+                const result = await this._evaluateCondition(condition, context);
+
+                if (conditionOperator === 'AND') {
+                    conditionMet = conditionMet && result;
+                    if (!conditionMet) break; // Short circuit
+                } else { // OR
+                    conditionMet = conditionMet || result;
+                    if (conditionMet) break; // Short circuit
+                }
+            }
+
+            // If no conditions, consider it true
+            if (conditions.length === 0) {
+                conditionMet = true;
+            }
+
+            this.eventBus.emit('execution:condition-evaluated', {
+                action,
+                conditionType: 'if',
+                conditions,
+                conditionOperator,
+                result: conditionMet
+            });
+
+            return {
+                success: true,
+                isConditionStarter: true,
+                conditionMet
+            };
+        } catch (error) {
+            console.error('[if] Condition evaluation failed:', error);
+            return {
+                success: false,
+                isConditionStarter: true,
+                conditionMet: false,
+                error: error.message
+            };
         }
+    }
 
-        return { success: true };
+    /**
+     * Handle image-match condition starter (new flat structure)
+     * Evaluates image matching and returns isConditionStarter flag
+     */
+    async _handleImageMatchCondition(action, context) {
+        const { deviceId, imageMatcher, coordinateService } = context;
+
+        try {
+            // Capture current screen
+            const screenImage = await this._captureScreen(deviceId);
+
+            // Execute image match
+            const imageResult = await this.actionService.executeImageMatchAction(
+                action,
+                screenImage,
+                { deviceId, imageMatcher, coordinateService }
+            );
+
+            // Get comparison params
+            const comparison = action.comparison || { operator: '>=', value: action.threshold || 0.95 };
+            const matchScore = imageResult.matchScore || (imageResult.success ? 1.0 : 0);
+
+            // Evaluate the condition
+            const conditionMet = this._evaluateComparison(
+                matchScore,
+                comparison.operator,
+                comparison.value
+            );
+
+            this.eventBus.emit('execution:condition-evaluated', {
+                action,
+                conditionType: 'image-match',
+                matchScore,
+                comparison,
+                result: conditionMet
+            });
+
+            return {
+                success: true,
+                isConditionStarter: true,
+                conditionMet,
+                matchScore
+            };
+        } catch (error) {
+            console.error('[image-match] Condition evaluation failed:', error);
+            return {
+                success: false,
+                isConditionStarter: true,
+                conditionMet: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Handle get-volume condition starter (new flat structure)
+     * Evaluates device volume and returns isConditionStarter flag
+     */
+    async _handleVolumeCondition(action, context) {
+        try {
+            // Get volume from device
+            const volumeResult = await window.visionAuto.action.execute({
+                type: 'get-volume',
+                streamType: action.streamType || 'music'
+            });
+
+            if (!volumeResult.success) {
+                console.error('[get-volume] Failed to get volume:', volumeResult.error);
+                return {
+                    success: false,
+                    isConditionStarter: true,
+                    conditionMet: false,
+                    error: volumeResult.error
+                };
+            }
+
+            // Get comparison params
+            const comparison = action.comparison || { operator: '>=', value: 50 };
+            const volume = volumeResult.volume;
+
+            // Evaluate the condition
+            const conditionMet = this._evaluateComparison(
+                volume,
+                comparison.operator,
+                comparison.value
+            );
+
+            this.eventBus.emit('execution:condition-evaluated', {
+                action,
+                conditionType: 'get-volume',
+                volume,
+                comparison,
+                result: conditionMet
+            });
+
+            return {
+                success: true,
+                isConditionStarter: true,
+                conditionMet,
+                volume
+            };
+        } catch (error) {
+            console.error('[get-volume] Condition evaluation failed:', error);
+            return {
+                success: false,
+                isConditionStarter: true,
+                conditionMet: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Handle sound-check condition starter (new flat structure)
+     * Evaluates sound similarity and returns isConditionStarter flag
+     */
+    async _handleSoundCheckCondition(action, context) {
+        try {
+            const soundResult = await this.actionService.executeSoundCheckAction(action, context);
+
+            if (!soundResult.success) {
+                return {
+                    success: false,
+                    isConditionStarter: true,
+                    conditionMet: false,
+                    error: soundResult.error
+                };
+            }
+
+            // Get comparison params
+            const comparison = action.comparison || { operator: '>=', value: action.threshold || 0.8 };
+
+            // Evaluate the condition
+            const conditionMet = this._evaluateComparison(
+                soundResult.similarity,
+                comparison.operator,
+                comparison.value
+            );
+
+            this.eventBus.emit('execution:condition-evaluated', {
+                action,
+                conditionType: 'sound-check',
+                similarity: soundResult.similarity,
+                comparison,
+                result: conditionMet
+            });
+
+            return {
+                success: true,
+                isConditionStarter: true,
+                conditionMet,
+                similarity: soundResult.similarity
+            };
+        } catch (error) {
+            console.error('[sound-check] Condition evaluation failed:', error);
+            return {
+                success: false,
+                isConditionStarter: true,
+                conditionMet: false,
+                error: error.message
+            };
+        }
     }
 
     /**

@@ -1939,7 +1939,7 @@ class MacroBuilderApp {
 
             // Re-render
             this.renderActionSequence();
-            this.saveToLocalStorage();
+            this.markAsChanged();
         }
         // Handle regular action drops
         else if (this.draggedActionId) {
@@ -1950,7 +1950,7 @@ class MacroBuilderApp {
                 const [draggedAction] = this.actions.splice(draggedIndex, 1);
                 this.actions.push(draggedAction);
                 this.renderActionSequence();
-                this.saveToLocalStorage();
+                this.markAsChanged();
             }
         }
     }
