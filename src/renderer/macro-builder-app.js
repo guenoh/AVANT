@@ -1968,6 +1968,32 @@ class MacroBuilderApp {
             const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
             const blockCount = endIndex - startIndex + 1;
 
+            // Validate paired block order BEFORE making changes
+            // Check order within movingBlocks array (this order is preserved after move)
+            if (pairAction) {
+                const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
+                const closingTypes = ['end-loop', 'endif', 'end-while'];
+
+                const isOpening = openingTypes.includes(draggedAction.type);
+                const isClosing = closingTypes.includes(draggedAction.type);
+
+                // Find positions within the moving blocks
+                const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
+                const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
+
+                // Opening block must always come before closing block
+                if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
+                    console.warn('Cannot move: opening block would be after closing block');
+                    this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
+                    return;
+                }
+                if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
+                    console.warn('Cannot move: closing block would be before opening block');
+                    this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
+                    return;
+                }
+            }
+
             // Remove all blocks in the range from current position
             this.actions.splice(startIndex, blockCount);
 
@@ -2517,6 +2543,32 @@ class MacroBuilderApp {
         const rect = actionBlock.getBoundingClientRect();
         const midpoint = rect.top + rect.height / 2;
         const isAfter = event.clientY > midpoint;
+
+        // Validate paired block order BEFORE making changes
+        // Check order within movingBlocks array (this order is preserved after move)
+        if (pairAction) {
+            const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
+            const closingTypes = ['end-loop', 'endif', 'end-while'];
+
+            const isOpening = openingTypes.includes(draggedAction.type);
+            const isClosing = closingTypes.includes(draggedAction.type);
+
+            // Find positions within the moving blocks
+            const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
+            const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
+
+            // Opening block must always come before closing block
+            if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
+                console.warn('Cannot move: opening block would be after closing block');
+                this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
+                return;
+            }
+            if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
+                console.warn('Cannot move: closing block would be before opening block');
+                this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
+                return;
+            }
+        }
 
         // Remove all blocks in the range from current position
         this.actions.splice(startIndex, blockCount);
