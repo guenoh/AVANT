@@ -40,10 +40,6 @@ class MacroBuilderApp {
         // Image matching result storage
         this.lastMatchedCoordinate = null; // Store last image-match result {x, y}
 
-        // Variable system for dynamic scenarios
-        this.variables = {}; // Runtime variable storage { variableName: value }
-        this.lastActionResult = null; // Store result from last executed action
-
         // ADB device list
         this.adbDevices = null;
 
@@ -1798,150 +1794,58 @@ class MacroBuilderApp {
     }
 
     // Drag and Drop handlers
+    async handleActionBlockDragStart(event, actionId) {
+        // Load drag-drop helpers
+        const helpers = await import('./utils/DragDropHelpers.js');
 
-    // Helper: Get range of blocks to move (including paired blocks and everything in between)
-    _getPairedBlocksRange(actionId) {
-        const draggedAction = this.actions.find(a => a.id === actionId);
-        if (!draggedAction) return null;
+        // Resolve paired blocks and start drag
+        const pairedInfo = helpers.resolvePairedBlocks(this.actions, actionId);
+        helpers.DragState.startDrag(actionId, pairedInfo);
 
-        let blocksToMove = [draggedAction];
-        let pairAction = null;
-
-        // Check if this is a paired block
-        if (draggedAction.pairId) {
-            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== actionId);
-            if (pairAction) {
-                blocksToMove.push(pairAction);
-            }
-        }
-
-        // Find the range (from start to end, including everything in between)
-        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
-
-        return {
-            draggedAction,
-            pairAction,
-            startIndex,
-            endIndex,
-            movingBlocks,
-            blockCount: endIndex - startIndex + 1
-        };
-    }
-
-    // Helper: Validate paired block order
-    // Note: movingBlocks is created via slice(startIndex, endIndex+1), which means
-    // it ALWAYS preserves the original array order. Therefore, if the original
-    // array has valid paired blocks (loop before end-loop), movingBlocks will too.
-    // This validation is kept for safety but will always pass for valid pairs.
-    _validatePairedBlockOrder(movingBlocks, draggedAction, pairAction) {
-        // Since movingBlocks preserves original order, paired blocks are always
-        // in correct sequence (opening before closing). No validation needed.
-        return true;
-    }
-
-    // Helper: Calculate insertion index safely
-    _calculateInsertIndex(targetIndex, isAfter, startIndex, blockCount) {
-        let insertIndex = targetIndex;
-        if (isAfter) {
-            insertIndex++;
-        }
-
-        // Adjust insertion index if it's after the blocks being moved
-        if (insertIndex > startIndex) {
-            insertIndex -= blockCount;
-        }
-
-        return insertIndex;
-    }
-
-    // Helper: Move action blocks safely (preventing data loss)
-    _moveActionBlocks(draggedActionId, targetIndex, isAfter = false) {
-        const range = this._getPairedBlocksRange(draggedActionId);
-        if (!range) {
-            console.error('Failed to get paired blocks range');
-            return false;
-        }
-
-        const { draggedAction, pairAction, startIndex, movingBlocks, blockCount } = range;
-
-        // Validate paired block order
-        if (!this._validatePairedBlockOrder(movingBlocks, draggedAction, pairAction)) {
-            return false;
-        }
-
-        // Calculate safe insertion index
-        const insertIndex = this._calculateInsertIndex(targetIndex, isAfter, startIndex, blockCount);
-
-        // Perform the move
-        this.actions.splice(startIndex, blockCount);
-        this.actions.splice(insertIndex, 0, ...movingBlocks);
-
-        return true;
-    }
-
-    handleActionBlockDragStart(event, actionId) {
-        this.isDraggingAction = true;
-        this.draggedActionId = actionId; // Store for use in dragover
-
-        const action = this.actions.find(a => a.id === actionId);
-        if (!action) return;
-
-        event.dataTransfer.setData('actionId', actionId);
-        event.dataTransfer.setData('actionType', action.type);
-        event.dataTransfer.effectAllowed = 'move';
-
-        // Set custom drag image to the action block itself
+        // Visual feedback
         const actionBlock = event.target.closest('[data-action-id]');
         if (actionBlock) {
             const dragImage = actionBlock.querySelector('.action-block');
             if (dragImage) {
-                // Add dragging class for visual feedback
                 dragImage.classList.add('dragging');
                 event.dataTransfer.setDragImage(dragImage, 20, 20);
             }
         }
+
+        event.dataTransfer.effectAllowed = 'move';
     }
 
-    handleActionDragEnd(event) {
-        console.log('🟢 [DEBUG] handleActionDragEnd CALLED', {
-            isDraggingAction: this.isDraggingAction,
-            draggedActionId: this.draggedActionId,
-            draggedCondition: this.draggedCondition,
-            timestamp: new Date().toISOString()
+    async handleActionDragEnd(event) {
+        // Load drag-drop helpers
+        const helpers = await import('./utils/DragDropHelpers.js');
+
+        // Immediate cleanup - no setTimeout race condition
+        helpers.DragState.clear();
+        helpers.PlaceholderManager.remove();
+
+        // Remove visual feedback
+        document.querySelectorAll('.action-block.dragging').forEach(el => {
+            el.classList.remove('dragging');
         });
-
-        // Only do visual cleanup here - state clearing happens in drop handlers
-        // to avoid race conditions between dragend and drop events
-
-        // Remove dragging class from all blocks
-        document.querySelectorAll('.action-block').forEach(block => {
-            block.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
         });
-
-        // Remove drag-over classes from all containers
         document.querySelectorAll('[data-action-id]').forEach(container => {
             container.classList.remove('drag-over-before', 'drag-over-after');
         });
 
-        // Remove placeholder
-        this.removeDragPlaceholder();
-
-        // Clear drag states after a delay to allow drop event to complete first
-        setTimeout(() => {
-            console.log('🟢 [DEBUG] Clearing drag states in timeout');
-            this.isDraggingAction = false;
-            this.draggedActionId = null;
-            this.draggedCondition = null;
-            this.conditionDropTarget = null;
-        }, 100);
+        // Clear condition drag state (keep for condition drag compatibility)
+        this.draggedCondition = null;
+        this.conditionDropTarget = null;
     }
 
     // Container drag handlers for dropping conditions in empty areas
-    handleContainerDragOver(event) {
+    async handleContainerDragOver(event) {
         // Only handle if we're dragging something
-        if (!this.draggedCondition && !this.draggedActionId) {
+        const helpers = await import('./utils/DragDropHelpers.js');
+        const state = helpers.DragState.get();
+
+        if (!this.draggedCondition && !state.isDragging) {
             return;
         }
 
@@ -1949,7 +1853,7 @@ class MacroBuilderApp {
         event.stopPropagation();
     }
 
-    handleContainerDrop(event) {
+    async handleContainerDrop(event) {
         event.preventDefault();
         event.stopPropagation();
 
@@ -1957,11 +1861,17 @@ class MacroBuilderApp {
         if (this.draggedCondition) {
             const { parentActionId, conditionId } = this.draggedCondition;
 
+            // Find the parent action with the condition
             const parentAction = this.actions.find(a => a.id === parentActionId);
-            if (!parentAction || !parentAction.conditions) return;
+            if (!parentAction || !parentAction.conditions) {
+                return;
+            }
 
+            // Find and remove the condition from parent
             const conditionIndex = parentAction.conditions.findIndex(c => c.id === conditionId);
-            if (conditionIndex === -1) return;
+            if (conditionIndex === -1) {
+                return;
+            }
 
             const condition = parentAction.conditions[conditionIndex];
             parentAction.conditions.splice(conditionIndex, 1);
@@ -1973,41 +1883,31 @@ class MacroBuilderApp {
                 ...condition.params
             };
 
+            // Add to end of actions array
             this.actions.push(newAction);
+
+            // Clear drag state
             this.draggedCondition = null;
+
+            // Re-render
             this.renderActionSequence();
-            this.markAsChanged();
+            this.saveToLocalStorage();
+            return;
         }
-        // Handle regular action drops to end of list
-        else if (this.draggedActionId) {
-            const range = this._getPairedBlocksRange(this.draggedActionId);
-            if (!range) return;
 
-            const { startIndex, movingBlocks, blockCount } = range;
+        // Handle regular action drops (delegate to last action)
+        if (this.actions.length === 0) return;
 
-            // No validation needed - movingBlocks preserves original order
-            // which ensures paired blocks (loop/end-loop) maintain correct sequence
-
-            // Move blocks to end
-            this.actions.splice(startIndex, blockCount);
-            this.actions.push(...movingBlocks);
-
-            this.renderActionSequence();
-            this.markAsChanged();
-
-            // Clear drag state immediately after successful drop
-            this.isDraggingAction = false;
-            this.draggedActionId = null;
-        }
+        const lastAction = this.actions[this.actions.length - 1];
+        await this.handleActionDrop(event, lastAction.id);
     }
 
-    handleActionDragOver(event, targetActionId) {
+    async handleActionDragOver(event, targetActionId) {
         event.preventDefault();
         event.stopPropagation();
 
         // Check if dragging a condition
         if (this.draggedCondition) {
-            console.log('🟠 [DEBUG] Handling condition dragover');
             // Handle condition drag over action
             const targetElement = event.currentTarget;
             const actionBlock = targetElement.querySelector('.action-block');
@@ -2044,80 +1944,46 @@ class MacroBuilderApp {
             return;
         }
 
-        // Use stored draggedActionId (getData doesn't work in dragover for security reasons)
-        const draggedActionId = this.draggedActionId;
-        if (!draggedActionId || draggedActionId === targetActionId) return;
+        // Handle action drag
+        const helpers = await import('./utils/DragDropHelpers.js');
+        const state = helpers.DragState.get();
+        if (!state.isDragging) return;
 
         const targetElement = event.currentTarget;
+        if (!targetElement) return;
+
         const actionBlock = targetElement.querySelector('.action-block');
         if (!actionBlock) return;
 
-        // Get dragged and target actions
-        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
-        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-        if (draggedIndex === -1 || targetIndex === -1) return;
-
-        const draggedAction = this.actions[draggedIndex];
-        const targetAction = this.actions[targetIndex];
-
-        // Determine if dropping before or after based on mouse position
+        // Calculate insert position
         const rect = actionBlock.getBoundingClientRect();
         const midpoint = rect.top + rect.height / 2;
-        let isAfter = event.clientY > midpoint;
+        const insertAfter = event.clientY > midpoint;
 
-        // Smart position adjustment for END blocks
-        // If target is an END block (end-if, end-loop, end-while), always insert AFTER it
-        if (targetAction.type.startsWith('end-')) {
-            isAfter = true;
+        // Validate not a no-op
+        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
+        if (helpers.isNoOpMove(state.pairedBlockInfo.indices, targetIndex, insertAfter)) {
+            helpers.PlaceholderManager.remove();
+            return;
         }
 
-        // Check if this would be a no-op move (same position)
-        // Case 1: Dragging to position immediately after itself (next block)
-        if (!isAfter && targetIndex === draggedIndex + 1) {
-            return; // No-op, same position
-        }
-        // Case 2: Dragging to position immediately before itself
-        if (isAfter && targetIndex === draggedIndex - 1) {
-            return; // No-op, same position
-        }
+        // Store drop target for later use
+        helpers.DragState.setDropTarget(targetActionId, insertAfter);
 
-        // Remove existing placeholder
-        this.removeDragPlaceholder();
+        // Show placeholder
+        helpers.PlaceholderManager.show(targetElement, insertAfter);
 
-        // Create and insert placeholder element
-        const placeholder = document.createElement('div');
-        placeholder.className = 'drag-placeholder';
-        placeholder.setAttribute('data-target-id', targetActionId);
-        placeholder.setAttribute('data-insert-after', isAfter);
-        placeholder.style.cssText = `
-            height: 80px;
-            margin: 12px 0;
-            border: 3px dashed #3b82f6;
-            border-radius: 10px;
-            background: rgba(59, 130, 246, 0.08);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-            animation: placeholderPulse 1.5s ease-in-out infinite;
-        `;
-
-        // Make placeholder accept drop events
-        placeholder.addEventListener('dragover', (e) => {
+        // Make placeholder accept drops
+        helpers.PlaceholderManager.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
         });
 
-        placeholder.addEventListener('drop', (e) => {
+        helpers.PlaceholderManager.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const targetId = placeholder.getAttribute('data-target-id');
-            const insertAfter = placeholder.getAttribute('data-insert-after') === 'true';
-            this.handleActionDropOnPlaceholder(e, targetId, insertAfter);
+            this.handleActionDrop(e, targetActionId);
         });
-
-        if (isAfter) {
-            targetElement.insertAdjacentElement('afterend', placeholder);
-        } else {
-            targetElement.insertAdjacentElement('beforebegin', placeholder);
-        }
     }
 
     removeDragPlaceholder() {
@@ -2398,112 +2264,70 @@ class MacroBuilderApp {
         console.log('🟡 [DEBUG] COMPLETE: Converted condition to action at position', insertIndex);
     }
 
-    handleActionDragLeave(event, targetActionId) {
-        // Note: We don't remove placeholder on drag leave because
-        // the user might be moving between nested elements
-        // Placeholder will be updated or removed on next dragover or drop
-    }
 
-    handleActionDropOnPlaceholder(event, targetActionId, insertAfter) {
-        // Reuse the main drop handler with the stored position
-        const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
-        if (!draggedActionId || draggedActionId === targetActionId) {
-            this.removeDragPlaceholder();
-            return;
-        }
-
-        // Find the dragged action and its pair (if exists)
-        const draggedIndex = this.actions.findIndex(a => a.id === draggedActionId);
-        const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
-
-        if (draggedIndex === -1 || targetIndex === -1) {
-            this.removeDragPlaceholder();
-            return;
-        }
-
-        const draggedAction = this.actions[draggedIndex];
-        let blocksToMove = [draggedAction];
-        let pairAction = null;
-
-        if (draggedAction.pairId) {
-            pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
-            if (pairAction) {
-                blocksToMove.push(pairAction);
-            }
-        }
-
-        // Find the range of blocks to move
-        const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-        const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
-
-        // Extract ALL blocks in the range
-        const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
-        const blockCount = endIndex - startIndex + 1;
-
-        // Remove all blocks in the range from current position
-        this.actions.splice(startIndex, blockCount);
-
-        // Recalculate target index after removal
-        let insertIndex = this.actions.findIndex(a => a.id === targetActionId);
-        if (insertIndex === -1) {
-            this.removeDragPlaceholder();
-            return;
-        }
-
-        if (insertAfter) {
-            insertIndex++;
-        }
-
-        // Insert all blocks at new position
-        this.actions.splice(insertIndex, 0, ...movingBlocks);
-
-        // Remove placeholder
-        this.removeDragPlaceholder();
-
-        // Mark as changed and re-render
-        this.markAsChanged();
-        this.renderActionSequence();
-
-        console.log(`Reordered (via placeholder): moved ${blockCount} block(s) to position ${insertIndex}`);
-    }
-
-    handleActionDrop(event, targetActionId) {
+    async handleActionDrop(event, targetActionId) {
         event.preventDefault();
         event.stopPropagation();
 
-        // Handle condition drops
+        // Check if a condition is being dragged first
         const isConditionDrag = event.dataTransfer.getData('conditionDrag') === 'true';
+
         if (isConditionDrag || this.draggedCondition) {
             this.handleConditionToActionDrop(event, targetActionId);
             return;
         }
 
-        // Handle action drops
-        const draggedActionId = this.draggedActionId || event.dataTransfer.getData('actionId');
-        if (!draggedActionId || draggedActionId === targetActionId) return;
+        // Handle action drop
+        const helpers = await import('./utils/DragDropHelpers.js');
+        const state = helpers.DragState.get();
+        if (!state.isDragging) return;
+
+        // Use stored drop target if available (from placeholder drop)
+        let insertAfter;
+        if (state.dropTarget && state.dropTarget.targetActionId === targetActionId) {
+            insertAfter = state.dropTarget.insertAfter;
+        } else {
+            // Calculate insert position from DOM (direct drop on action)
+            const targetElement = event.currentTarget;
+            if (!targetElement) return;
+
+            const actionBlock = targetElement.querySelector('.action-block');
+            if (!actionBlock) return;
+
+            const rect = actionBlock.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            insertAfter = event.clientY > midpoint;
+        }
 
         const targetIndex = this.actions.findIndex(a => a.id === targetActionId);
         if (targetIndex === -1) return;
 
-        // Determine if dropping before or after target
-        const targetElement = event.currentTarget;
-        const actionBlock = targetElement.querySelector('.action-block');
-        if (!actionBlock) return;
+        // Extract blocks to move
+        const indicesToMove = state.pairedBlockInfo.indices;
+        const blocksToMove = indicesToMove.map(i => this.actions[i]);
 
-        const rect = actionBlock.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        const isAfter = event.clientY > midpoint;
+        // Remove from old positions
+        const newActions = this.actions.filter((_, i) =>
+            !indicesToMove.includes(i)
+        );
 
-        // Move blocks using helper function
-        if (this._moveActionBlocks(draggedActionId, targetIndex, isAfter)) {
-            this.removeDragPlaceholder();
-            this.markAsChanged();
-            this.renderActionSequence();
+        // Calculate adjusted insert index
+        const insertIndex = helpers.calculateInsertIndex(
+            indicesToMove,
+            targetIndex,
+            insertAfter
+        );
 
-            // Clear drag state immediately after successful drop
-            this.isDraggingAction = false;
-            this.draggedActionId = null;
-        }
+        // Insert at new position
+        newActions.splice(insertIndex, 0, ...blocksToMove);
+
+        // Update state
+        this.actions = newActions;
+        this.markAsChanged();
+        this.renderActionSequence();
+
+        // Cleanup
+        helpers.PlaceholderManager.remove();
     }
 
     handleConditionDrop(event, targetActionId) {
@@ -2848,12 +2672,6 @@ class MacroBuilderApp {
             'wait': '대기'
         };
         return labels[type] || type;
-    }
-
-    getCurrentScenario() {
-        return {
-            actions: this.actions
-        };
     }
 
     renderConditionCard(actionId, condition, index, totalConditions) {
@@ -3215,7 +3033,6 @@ class MacroBuilderApp {
             <div style="margin-left: ${depth * 24}px; position: relative;"
                  data-action-id="${action.id}"
                  ondragover="window.macroApp.handleActionDragOver(event, '${action.id}')"
-                 ondragleave="window.macroApp.handleActionDragLeave(event, '${action.id}')"
                  ondrop="window.macroApp.handleActionDrop(event, '${action.id}')">
                 ${depth > 0 ? '<div style="position: absolute; left: -12px; top: 0; bottom: 0; width: 2px; background-color: var(--slate-300);"></div>' : ''}
                 ${!isLast ? `<div class="action-connector" style="left: ${24 + depth * 24}px;"></div>` : ''}
@@ -3366,7 +3183,25 @@ class MacroBuilderApp {
     updateActionValue(id, key, value) {
         const action = this.actions.find(a => a.id === id);
         if (action) {
-            action[key] = value;
+            // Handle nested fields like 'calculation.maxValue'
+            if (key.includes('.')) {
+                const parts = key.split('.');
+                let target = action;
+
+                // Navigate to the parent object, creating nested objects as needed
+                for (let i = 0; i < parts.length - 1; i++) {
+                    if (!target[parts[i]]) {
+                        target[parts[i]] = {};
+                    }
+                    target = target[parts[i]];
+                }
+
+                // Set the final value
+                target[parts[parts.length - 1]] = value;
+            } else {
+                action[key] = value;
+            }
+
             // Mark as changed
             this.markAsChanged();
 
@@ -3463,35 +3298,14 @@ class MacroBuilderApp {
                 return conditionTypes;
             case 'log':
                 return action.message || '로그 메시지';
-            case 'set-variable':
-                const source = action.source || 'previous';
-                const varName = action.variableName || 'unnamed';
-                if (source === 'previous') {
-                    return `${varName} = Previous Result`;
-                } else {
-                    return `${varName} = ${action.value || 0}`;
-                }
-            case 'calc-variable':
-                const targetVar = action.targetVariable || 'result';
-                const op1Type = action.operand1Type || 'variable';
-                const op2Type = action.operand2Type || 'constant';
-                const operation = action.operation || '+';
-
-                const op1Str = op1Type === 'variable'
-                    ? (action.operand1Variable || '?')
-                    : (action.operand1Value || 0);
-                const op2Str = op2Type === 'variable'
-                    ? (action.operand2Variable || '?')
-                    : (action.operand2Value || 0);
-
-                return `${targetVar} = ${op1Str} ${operation} ${op2Str}`;
             case 'loop':
-                const loopCountType = action.countType || 'constant';
-                if (loopCountType === 'variable') {
-                    return `변수 ${action.variableName || '?'}회 반복`;
-                } else {
-                    return `${action.count || action.loopCount || 1}회 반복`;
+                if (action.countMode === 'calculated' && action.calculation) {
+                    const calc = action.calculation;
+                    const refActionIndex = this.actions.findIndex(a => a.id === calc.referenceActionId);
+                    const refLabel = refActionIndex >= 0 ? `#${refActionIndex + 1}` : '?';
+                    return `${calc.maxValue} - ${refLabel}값`;
                 }
+                return `${action.loopCount || 1}회 반복`;
             case 'success':
                 return action.message || '성공 종료';
             case 'skip':
@@ -3742,29 +3556,6 @@ class MacroBuilderApp {
         return totalCount;
     }
 
-    // ==================== Variable System Methods ====================
-
-    setVariable(name, value) {
-        this.variables[name] = value;
-        console.log(`[Variable] Set: ${name} = ${value}`);
-    }
-
-    getVariable(name) {
-        const value = this.variables[name];
-        if (value === undefined) {
-            console.warn(`[Variable] Variable '${name}' is not defined`);
-        }
-        return value;
-    }
-
-    clearVariables() {
-        console.log('[Variable] Clearing all variables');
-        this.variables = {};
-        this.lastActionResult = null;
-    }
-
-    // ==================== Macro Execution Methods ====================
-
     async runMacro(scenarioKey = null) {
         if (!this.isDeviceConnected) {
             this.addLog('error', '장치가 연결되지 않았습니다');
@@ -3779,7 +3570,6 @@ class MacroBuilderApp {
         this.isRunning = true;
         this.shouldStop = false;
         this.scenarioResult = null; // Reset result at start
-        this.clearVariables(); // Clear variables at start of macro execution
         const runBtn = document.getElementById('btn-run-macro');
         if (runBtn) {
             runBtn.innerHTML = `
@@ -3978,34 +3768,7 @@ class MacroBuilderApp {
                 } else if (action.type === 'loop') {
                     const loopStart = i;
                     const loopEnd = this.findBlockEnd(i, ['end-loop']);
-
-                    // Get loop count from either constant or variable
-                    let loopCount;
-                    const countType = action.countType || 'constant';
-
-                    if (countType === 'variable') {
-                        const variableName = action.variableName;
-                        if (!variableName) {
-                            this.addLog('error', '[loop] Variable name is required when using variable mode');
-                            throw new Error('Loop variable name is required');
-                        }
-
-                        loopCount = this.getVariable(variableName);
-                        if (loopCount === undefined) {
-                            this.addLog('error', `[loop] Variable '${variableName}' is not defined`);
-                            throw new Error(`Variable '${variableName}' not found`);
-                        }
-
-                        loopCount = Math.floor(Number(loopCount));
-                        if (isNaN(loopCount) || loopCount < 0) {
-                            this.addLog('error', `[loop] Invalid loop count from variable '${variableName}': ${loopCount}`);
-                            throw new Error(`Invalid loop count: ${loopCount}`);
-                        }
-
-                        console.log(`[loop] Using variable '${variableName}' = ${loopCount}`);
-                    } else {
-                        loopCount = action.count || action.loopCount || 1; // Support both old and new format
-                    }
+                    const loopCount = action.loopCount || 1;
 
                     for (let j = 0; j < loopCount; j++) {
                         await this.executeActionsRange(loopStart + 1, loopEnd, scenarioKey);
@@ -4047,9 +3810,6 @@ class MacroBuilderApp {
                         const volumeValue = result.volume;
                         const comparison = action.comparison || { operator: '>=', value: 50 };
 
-                        // Store volume value for use by set-variable
-                        this.lastActionResult = volumeValue;
-
                         switch (comparison.operator) {
                             case '>=':
                                 conditionMet = volumeValue >= comparison.value;
@@ -4059,6 +3819,10 @@ class MacroBuilderApp {
                                 break;
                             case '==':
                                 conditionMet = volumeValue === comparison.value;
+                                break;
+                            case '!=':
+                            case '!==':
+                                conditionMet = volumeValue !== comparison.value;
                                 break;
                             case '>':
                                 conditionMet = volumeValue > comparison.value;
@@ -4394,113 +4158,6 @@ class MacroBuilderApp {
                     x: matchResult.x,
                     y: matchResult.y
                 };
-            }
-
-            // Handle set-variable action (frontend processing)
-            if (action.type === 'set-variable') {
-                const variableName = action.variableName;
-                const source = action.source || 'previous';
-
-                if (!variableName) {
-                    return { success: false, error: 'Variable name is required' };
-                }
-
-                let value;
-                if (source === 'previous') {
-                    // Use result from previous action
-                    value = this.lastActionResult;
-                    if (value === null || value === undefined) {
-                        console.warn('[set-variable] No previous action result available');
-                        value = 0; // Default to 0 if no previous result
-                    }
-                } else {
-                    // Use constant value
-                    value = action.value || 0;
-                }
-
-                // Store the value in variable
-                this.setVariable(variableName, value);
-
-                // Also update lastActionResult so next action can use this value
-                this.lastActionResult = value;
-
-                return { success: true, value: value };
-            }
-
-            if (action.type === 'calc-variable') {
-                const targetVariable = action.targetVariable;
-
-                if (!targetVariable) {
-                    return { success: false, error: 'Target variable name is required' };
-                }
-
-                // Get first operand value
-                let operand1;
-                const operand1Type = action.operand1Type || 'variable';
-                if (operand1Type === 'variable') {
-                    const variableName = action.operand1Variable;
-                    if (!variableName) {
-                        return { success: false, error: 'First variable name is required' };
-                    }
-                    operand1 = this.getVariable(variableName);
-                    if (operand1 === undefined) {
-                        return { success: false, error: `Variable '${variableName}' is not defined` };
-                    }
-                } else {
-                    operand1 = action.operand1Value || 0;
-                }
-
-                // Get second operand value
-                let operand2;
-                const operand2Type = action.operand2Type || 'constant';
-                if (operand2Type === 'variable') {
-                    const variableName = action.operand2Variable;
-                    if (!variableName) {
-                        return { success: false, error: 'Second variable name is required' };
-                    }
-                    operand2 = this.getVariable(variableName);
-                    if (operand2 === undefined) {
-                        return { success: false, error: `Variable '${variableName}' is not defined` };
-                    }
-                } else {
-                    operand2 = action.operand2Value || 0;
-                }
-
-                // Convert to numbers
-                operand1 = Number(operand1);
-                operand2 = Number(operand2);
-
-                // Perform operation
-                const operation = action.operation || '+';
-                let result;
-                switch (operation) {
-                    case '+':
-                        result = operand1 + operand2;
-                        break;
-                    case '-':
-                        result = operand1 - operand2;
-                        break;
-                    case '*':
-                        result = operand1 * operand2;
-                        break;
-                    case '/':
-                        if (operand2 === 0) {
-                            return { success: false, error: 'Division by zero' };
-                        }
-                        result = operand1 / operand2;
-                        break;
-                    default:
-                        return { success: false, error: `Unknown operation: ${operation}` };
-                }
-
-                // Store result in target variable
-                this.setVariable(targetVariable, result);
-
-                // Update lastActionResult
-                this.lastActionResult = result;
-
-                console.log(`[calc-variable] ${operand1} ${operation} ${operand2} = ${result} -> ${targetVariable}`);
-                return { success: true, value: result };
             }
 
             // Map frontend action format to backend format
@@ -8395,7 +8052,14 @@ class MacroBuilderApp {
             block.classList.remove('dragging', 'drop-before', 'drop-after');
         });
 
-        console.log('Drag ended');
+        // Remove drag placeholder
+        this.removeDragPlaceholder();
+
+        // Reset drag state to allow next drag operation
+        this.draggedActionId = null;
+        this.draggedCondition = null;
+
+        console.log('Drag ended - state fully reset');
     }
 
     // ========================================
