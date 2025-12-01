@@ -11,6 +11,7 @@ class ActionSettingsBuilder {
             ['click', this.buildClickSettings.bind(this)],
             ['long-press', this.buildClickSettings.bind(this)],  // Shares same UI with click
             ['drag', this.buildDragSettings.bind(this)],
+            ['input', this.buildInputSettings.bind(this)],
             ['keyboard', this.buildKeyboardSettings.bind(this)],
             ['wait', this.buildWaitSettings.bind(this)],
             ['screenshot', this.buildScreenshotSettings.bind(this)],
@@ -93,6 +94,21 @@ class ActionSettingsBuilder {
         });
 
         return UI.section(startPoint + endPoint);
+    }
+
+    /**
+     * Input settings (ADB text input)
+     */
+    buildInputSettings(action) {
+        const H = TemplateHelpers;
+        const content = H.textInput({
+            value: action.text || '',
+            actionId: action.id,
+            field: 'text',
+            label: '입력할 텍스트',
+            placeholder: '텍스트 입력'
+        });
+        return H.settingsContainer(content);
     }
 
     /**
@@ -284,39 +300,13 @@ class ActionSettingsBuilder {
         const H = TemplateHelpers;
         const UI = UIComponents;
 
-        const countType = action.countType || 'constant';
-        const isConstant = countType === 'constant';
-
-        const countTypeSelector = `
-            <div class="space-y-2">
-                <label class="text-xs font-medium text-slate-700 block">Count Type</label>
-                <div class="flex gap-2">
-                    <button
-                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'countType', 'constant'); window.macroApp.refreshActionSettings('${action.id}');"
-                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${isConstant ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
-                    >
-                        Fixed Number
-                    </button>
-                    <button
-                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'countType', 'variable'); window.macroApp.refreshActionSettings('${action.id}');"
-                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${!isConstant ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
-                    >
-                        Variable
-                    </button>
-                </div>
-            </div>
-        `;
-
         // Get previous actions that produce variables
-        let variableSourceDropdown = '';
-        if (!isConstant && window.macroApp) {
+        let variableSources = [];
+        if (window.macroApp) {
             const actions = window.macroApp.actions;
             if (actions) {
-                // Find current action index
                 const currentIndex = actions.findIndex(a => a.id === action.id);
 
-                // Get previous actions that create variables
-                const variableSources = [];
                 for (let i = 0; i < currentIndex; i++) {
                     const prevAction = actions[i];
                     let variableName = null;
@@ -334,62 +324,53 @@ class ActionSettingsBuilder {
                             actionId: prevAction.id,
                             type: prevAction.type,
                             variableName: variableName,
-                            label: this.getActionLabel(prevAction.type)
+                            label: prevAction.label || this.getActionLabel(prevAction.type),
+                            index: i + 1
                         });
                     }
-                }
-
-                if (variableSources.length > 0) {
-                    const options = variableSources.map(src =>
-                        `<option value="${src.variableName}" ${action.variableName === src.variableName ? 'selected' : ''}>
-                            ${src.label} (변수: ${src.variableName})
-                        </option>`
-                    ).join('');
-
-                    variableSourceDropdown = `
-                        <div class="space-y-2">
-                            <label class="text-xs font-medium text-slate-700 block">Source Action</label>
-                            <select
-                                onchange="window.macroApp.updateActionValue('${action.id}', 'variableName', this.value); window.macroApp.refreshActionSettings('${action.id}');"
-                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">-- 액션 선택 --</option>
-                                ${options}
-                            </select>
-                        </div>
-                    `;
                 }
             }
         }
 
-        const countInput = isConstant
-            ? H.incrementControl({
-                value: action.count || 1,
-                min: 1,
-                max: 1000,
-                step: 1,
-                actionId: action.id,
-                field: 'count',
-                label: '반복 횟수'
-            })
-            : (variableSourceDropdown || H.textInput({
-                value: action.variableName || '',
-                actionId: action.id,
-                field: 'variableName',
-                label: 'Variable Name',
-                placeholder: 'e.g., volume'
-            }));
+        // Variable dropdown (if variables exist)
+        let variableDropdown = '';
+        if (variableSources.length > 0) {
+            const options = variableSources.map(src =>
+                `<option value="${src.variableName}" ${action.loopVariable === src.variableName ? 'selected' : ''}>
+                    #${src.index} ${src.label} (${src.variableName})
+                </option>`
+            ).join('');
+
+            variableDropdown = `
+                <div class="space-y-2">
+                    <label class="text-xs font-medium text-slate-700 block">Variable Source</label>
+                    <select
+                        onchange="window.macroApp.updateActionValue('${action.id}', 'loopVariable', this.value);"
+                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">-- 변수를 사용하지 않음 --</option>
+                        ${options}
+                    </select>
+                </div>
+            `;
+        }
+
+        const loopExpressionInput = H.textInput({
+            value: action.loopExpression || '5',
+            actionId: action.id,
+            field: 'loopExpression',
+            label: 'Loop Count',
+            placeholder: 'e.g., 5, var, var + 10, (var - 5) * 2'
+        });
 
         const infoAlert = UI.alert(
-            isConstant
-                ? '지정한 횟수만큼 반복합니다'
-                : '변수 값만큼 반복합니다 (예: get-volume으로 가져온 volume 변수)',
+            '숫자, var, 수식을 입력할 수 있습니다. var는 위에서 선택한 변수를 나타냅니다.',
             'info'
         );
 
         return H.settingsContainer(
-            countTypeSelector +
-            countInput +
+            variableDropdown +
+            loopExpressionInput +
             infoAlert
         );
     }

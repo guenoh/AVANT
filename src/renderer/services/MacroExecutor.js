@@ -24,6 +24,10 @@ class MacroExecutor {
         // Stack to track condition block state during execution
         // Each entry: { conditionMet: boolean, startIndex: number }
         this.conditionStack = [];
+
+        // Variable storage for runtime values
+        // Map of variableName -> value
+        this.variables = new Map();
     }
 
     /**
@@ -38,6 +42,7 @@ class MacroExecutor {
         this.shouldStop = false;
         this.currentActionIndex = -1;
         this.conditionStack = []; // Reset condition stack
+        this.variables.clear(); // Reset variables
 
         this.eventBus.emit('execution:start', {
             totalActions: actions.length,
@@ -230,6 +235,14 @@ class MacroExecutor {
                 if (actionResult.jumpTo !== undefined) {
                     i = actionResult.jumpTo - 1; // -1 because loop will increment
                     continue;
+                }
+
+                // Apply global action delay if configured
+                // Skip delay for control flow blocks (else, endif)
+                const skipDelayTypes = ['else', 'endif'];
+                if (this.options.actionDelay && this.options.actionDelay > 0 && !skipDelayTypes.includes(action.type)) {
+                    console.log(`[MacroExecutor] Applying delay: ${this.options.actionDelay}ms for action ${action.type}`);
+                    await new Promise(resolve => setTimeout(resolve, this.options.actionDelay));
                 }
             } catch (error) {
                 result.failedActions++;
@@ -509,6 +522,10 @@ class MacroExecutor {
             const comparison = action.comparison || { operator: '>=', value: 50 };
             const volume = volumeResult.volume;
 
+            // Store volume in variables map
+            const variableName = action.variableName || 'volume';
+            this.variables.set(variableName, volume);
+
             // Evaluate the condition
             const conditionMet = this._evaluateComparison(
                 volume,
@@ -626,7 +643,47 @@ class MacroExecutor {
      * Handle fixed loop control structure
      */
     async _handleLoop(action, context, result) {
-        const count = action.count || 1;
+        let count = 1;
+
+        // Evaluate loop expression if present
+        if (action.loopExpression) {
+            try {
+                let expression = action.loopExpression.trim();
+                let originalExpression = expression;
+
+                // Replace 'var' with the selected variable value
+                if (action.loopVariable && expression.includes('var')) {
+                    const variableValue = this.variables.get(action.loopVariable);
+                    if (variableValue !== undefined) {
+                        // Replace all occurrences of 'var' with the variable value
+                        expression = expression.replace(/\bvar\b/g, variableValue);
+                        console.log(`[loop] Expression: ${originalExpression} -> ${expression} (var = ${variableValue})`);
+                    } else {
+                        console.warn(`[loop] Variable '${action.loopVariable}' not found, using 0`);
+                        expression = expression.replace(/\bvar\b/g, '0');
+                    }
+                }
+
+                // Evaluate the expression
+                count = this._evaluateExpression(expression);
+
+                // Ensure count is a valid number
+                if (isNaN(count) || count < 0) {
+                    console.warn(`[loop] Invalid expression result: ${count}, defaulting to 1`);
+                    count = 1;
+                } else {
+                    count = Math.floor(count); // Ensure integer
+                    console.log(`[loop] Evaluated result: ${count} iterations`);
+                }
+            } catch (error) {
+                console.error('[loop] Expression evaluation failed:', error);
+                count = 1;
+            }
+        } else {
+            // Fall back to action.count
+            count = action.count || 1;
+            console.log(`[loop] Fixed count: ${count} iterations`);
+        }
 
         for (let i = 0; i < count; i++) {
             if (this.shouldStop) break;
@@ -735,6 +792,29 @@ class MacroExecutor {
             default:
                 console.warn(`Unknown operator: ${operator}`);
                 return false;
+        }
+    }
+
+    /**
+     * Safely evaluate mathematical expression
+     * Supports: numbers, +, -, *, /, %, (, )
+     */
+    _evaluateExpression(expression) {
+        // Remove all whitespace
+        expression = expression.replace(/\s+/g, '');
+
+        // Validate expression contains only allowed characters
+        if (!/^[0-9+\-*/%().\s]+$/.test(expression)) {
+            throw new Error(`Invalid characters in expression: ${expression}`);
+        }
+
+        // Use Function constructor to safely evaluate
+        // This is safer than eval() as it doesn't have access to local scope
+        try {
+            const result = new Function(`return ${expression}`)();
+            return result;
+        } catch (error) {
+            throw new Error(`Expression evaluation failed: ${error.message}`);
         }
     }
 

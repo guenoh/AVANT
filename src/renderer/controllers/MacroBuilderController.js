@@ -472,6 +472,19 @@ class MacroBuilderController {
         }
 
         try {
+            // Read global action delay from toolbar
+            const delaySelect = document.getElementById('toolbar-delay-select');
+            const actionDelay = delaySelect ? parseInt(delaySelect.value) : 0;
+
+            console.log('[MacroBuilderController] Global delay setting:', {
+                element: delaySelect,
+                value: delaySelect?.value,
+                parsedDelay: actionDelay
+            });
+
+            // Update MacroExecutor options with current delay setting
+            this.services.macroExecutor.options.actionDelay = actionDelay;
+
             const context = {
                 deviceId: this.state.deviceId,
                 imageMatcher: window.imageMatcher,

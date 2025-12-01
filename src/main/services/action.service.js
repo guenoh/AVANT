@@ -590,14 +590,18 @@ class ActionService extends EventEmitter {
    */
   async getVolume(action) {
     try {
-      // Trigger volume info by sending a volume key event
-      await this._execAdb('shell input keyevent KEYCODE_VOLUME_UP');
-      await new Promise(resolve => setTimeout(resolve, 300)); // Wait for logcat to update
-      await this._execAdb('shell input keyevent KEYCODE_VOLUME_DOWN');
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Clear logcat buffer to ignore old logs
+      await this._execAdb('logcat -c');
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Use shell grep to filter only volume-related logs (avoids maxBuffer error)
-      const logcatOutput = await this._execAdb('shell "logcat -d | grep currentVolume | tail -10"');
+      // Trigger volume info by toggling mute (doesn't change volume level)
+      await this._execAdb('shell input keyevent KEYCODE_VOLUME_MUTE');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await this._execAdb('shell input keyevent KEYCODE_VOLUME_MUTE');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Get only recent logs (after clearing buffer)
+      const logcatOutput = await this._execAdb('shell "logcat -d | grep currentVolume"');
 
       // Get currentVolume from OsdVolumeView
       const osdVolumeMatches = logcatOutput.match(/currentVolume= (\d+)/g);

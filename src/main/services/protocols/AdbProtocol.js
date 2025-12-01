@@ -246,9 +246,10 @@ class AdbProtocol extends BaseProtocol {
     }
 
     async inputText(text) {
-        // Escape special characters
-        const escaped = text.replace(/(["\s'&|;<>()$`\\])/g, '\\$1');
-        await this._execShell(`input text "${escaped}"`);
+        // Use ADB Keyboard broadcast method for better unicode/Korean support
+        // Escape single quotes by replacing ' with '\''
+        const escaped = text.replace(/'/g, "'\\''");
+        await this._execShell(`am broadcast -a ADB_INPUT_TEXT --es msg '${escaped}'`);
     }
 
     async pressKey(keyCode) {

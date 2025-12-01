@@ -294,9 +294,29 @@ class ScreenService extends EventEmitter {
         });
       } catch (error) {
         console.error('Frame capture error:', error);
-        // 에러 발생시 스트림 중지
-        if (error.message && error.message.includes('destroyed')) {
+
+        // Detect device disconnection or critical errors
+        const isDeviceError = error.message && (
+          error.message.includes('device') ||
+          error.message.includes('offline') ||
+          error.message.includes('No device connected') ||
+          error.message.includes('not found') ||
+          error.message.includes('killed')
+        );
+
+        const isWindowError = error.message && error.message.includes('destroyed');
+
+        // Stop stream on device disconnection or window destruction
+        if (isDeviceError || isWindowError) {
+          console.log('Critical error detected, stopping stream');
           this.currentStream = null;
+
+          // Emit device disconnection event if it's a device error
+          if (isDeviceError) {
+            this.emit('device-disconnected', { reason: error.message });
+          }
+
+          return; // Exit immediately
         }
       }
 

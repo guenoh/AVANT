@@ -392,10 +392,10 @@ function setupIpcHandlers() {
         case 'swipe':
         case 'drag':
           await protocolManager.swipe(
-            action.startX || action.x,
-            action.startY || action.y,
-            action.endX,
-            action.endY,
+            action.x1 || action.startX || action.x,
+            action.y1 || action.startY || action.y,
+            action.x2 || action.endX,
+            action.y2 || action.endY,
             action.duration || 300
           );
           return { success: true };
@@ -487,10 +487,10 @@ function setupIpcHandlers() {
             case 'swipe':
             case 'drag':
               await protocolManager.swipe(
-                action.startX || action.x,
-                action.startY || action.y,
-                action.endX,
-                action.endY,
+                action.x1 || action.startX || action.x,
+                action.y1 || action.startY || action.y,
+                action.x2 || action.endX,
+                action.y2 || action.endY,
                 action.duration || 300
               );
               results.push({ success: true });
