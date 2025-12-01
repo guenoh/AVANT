@@ -1944,14 +1944,40 @@ class MacroBuilderApp {
         // Handle regular action drops
         else if (this.draggedActionId) {
             console.log('💜 [DEBUG] Processing regular action drop in container');
-            // For regular actions dropped in empty area, move to end
+
             const draggedIndex = this.actions.findIndex(a => a.id === this.draggedActionId);
-            if (draggedIndex !== -1) {
-                const [draggedAction] = this.actions.splice(draggedIndex, 1);
-                this.actions.push(draggedAction);
-                this.renderActionSequence();
-                this.markAsChanged();
+            if (draggedIndex === -1) return;
+
+            const draggedAction = this.actions[draggedIndex];
+            let blocksToMove = [draggedAction];
+            let pairAction = null;
+
+            // Check if this is a paired block (loop/end-loop, if/endif, etc.)
+            if (draggedAction.pairId) {
+                pairAction = this.actions.find(a => a.pairId === draggedAction.pairId && a.id !== draggedAction.id);
+                if (pairAction) {
+                    blocksToMove.push(pairAction);
+                }
             }
+
+            // Find the range of blocks to move (from start to end, including everything in between)
+            const startIndex = Math.min(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+            const endIndex = Math.max(...blocksToMove.map(b => this.actions.findIndex(a => a.id === b.id)));
+
+            // Extract ALL blocks in the range (including any actions between pair blocks)
+            const movingBlocks = this.actions.slice(startIndex, endIndex + 1);
+            const blockCount = endIndex - startIndex + 1;
+
+            // Remove all blocks in the range from current position
+            this.actions.splice(startIndex, blockCount);
+
+            // Add all blocks to the end (maintaining their order)
+            this.actions.push(...movingBlocks);
+
+            console.log(`💜 [DEBUG] Moved ${blockCount} block(s) to end (paired blocks preserved)`);
+
+            this.renderActionSequence();
+            this.markAsChanged();
         }
     }
 
