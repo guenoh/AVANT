@@ -1912,13 +1912,8 @@ class MacroBuilderApp {
             timestamp: new Date().toISOString()
         });
 
-        setTimeout(() => {
-            console.log('🟢 [DEBUG] Clearing drag states in timeout');
-            this.isDraggingAction = false;
-            this.draggedActionId = null; // Clear dragged action
-            this.draggedCondition = null; // Clear dragged condition
-            this.conditionDropTarget = null; // Clear condition drop target
-        }, 100);
+        // Only do visual cleanup here - state clearing happens in drop handlers
+        // to avoid race conditions between dragend and drop events
 
         // Remove dragging class from all blocks
         document.querySelectorAll('.action-block').forEach(block => {
@@ -1932,6 +1927,15 @@ class MacroBuilderApp {
 
         // Remove placeholder
         this.removeDragPlaceholder();
+
+        // Clear drag states after a delay to allow drop event to complete first
+        setTimeout(() => {
+            console.log('🟢 [DEBUG] Clearing drag states in timeout');
+            this.isDraggingAction = false;
+            this.draggedActionId = null;
+            this.draggedCondition = null;
+            this.conditionDropTarget = null;
+        }, 100);
     }
 
     // Container drag handlers for dropping conditions in empty areas
@@ -1990,6 +1994,10 @@ class MacroBuilderApp {
 
             this.renderActionSequence();
             this.markAsChanged();
+
+            // Clear drag state immediately after successful drop
+            this.isDraggingAction = false;
+            this.draggedActionId = null;
         }
     }
 
@@ -2491,6 +2499,10 @@ class MacroBuilderApp {
             this.removeDragPlaceholder();
             this.markAsChanged();
             this.renderActionSequence();
+
+            // Clear drag state immediately after successful drop
+            this.isDraggingAction = false;
+            this.draggedActionId = null;
         }
     }
 
