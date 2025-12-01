@@ -310,15 +310,15 @@ class ActionSettingsBuilder {
         // Get previous actions that produce variables
         let variableSourceDropdown = '';
         if (!isConstant && window.macroApp) {
-            const currentScenario = window.macroApp.getCurrentScenario();
-            if (currentScenario && currentScenario.actions) {
+            const actions = window.macroApp.actions;
+            if (actions) {
                 // Find current action index
-                const currentIndex = currentScenario.actions.findIndex(a => a.id === action.id);
+                const currentIndex = actions.findIndex(a => a.id === action.id);
 
                 // Get previous actions that create variables
                 const variableSources = [];
                 for (let i = 0; i < currentIndex; i++) {
-                    const prevAction = currentScenario.actions[i];
+                    const prevAction = actions[i];
                     let variableName = null;
 
                     if (prevAction.type === 'get-volume') {
