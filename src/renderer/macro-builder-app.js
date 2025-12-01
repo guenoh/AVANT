@@ -2860,6 +2860,12 @@ class MacroBuilderApp {
         return labels[type] || type;
     }
 
+    getCurrentScenario() {
+        return {
+            actions: this.actions
+        };
+    }
+
     renderConditionCard(actionId, condition, index, totalConditions) {
         const isLast = index === totalConditions - 1;
         const isFirst = index === 0;
