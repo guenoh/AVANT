@@ -1122,7 +1122,7 @@ class ActionConfigProvider {
             'else': { color: 'bg-orange-400', borderClass: 'border-orange-400', bgClass: 'bg-orange-50' },
             'else-if': { color: 'bg-orange-400', borderClass: 'border-orange-400', bgClass: 'bg-orange-50' },
             'end-if': { color: 'bg-orange-400', borderClass: 'border-orange-400', bgClass: 'bg-orange-50' },
-            'end-loop': { color: 'bg-cyan-400', borderClass: 'border-cyan-400', bgClass: 'bg-cyan-50' },
+            'end-loop': { color: 'bg-cyan-600', borderClass: 'border-cyan-600', bgClass: 'bg-cyan-50' },
             'end-while': { color: 'bg-cyan-400', borderClass: 'border-cyan-400', bgClass: 'bg-cyan-50' },
             'while': { color: 'bg-cyan-700', borderClass: 'border-cyan-700', bgClass: 'bg-cyan-50' },
 
