@@ -265,14 +265,26 @@ class ActionConfigProvider {
                 id: 'loop',
                 name: '반복',
                 category: 'control',
-                description: 'N번 반복 실행',
+                description: 'N번 반복 실행 (고정 숫자 또는 변수 참조)',
                 icon: '🔁',
                 color: '#0891b2',
                 requiresCoordinates: false,
                 fields: [
-                    { name: 'count', type: 'number', label: 'Repeat Count', required: true, min: 1, max: 1000, default: 1 }
+                    {
+                        name: 'countType',
+                        type: 'select',
+                        label: 'Count Type',
+                        required: true,
+                        options: [
+                            { value: 'constant', label: 'Fixed Number' },
+                            { value: 'variable', label: 'Variable' }
+                        ],
+                        default: 'constant'
+                    },
+                    { name: 'count', type: 'number', label: 'Repeat Count', required: false, min: 1, max: 1000, default: 1 },
+                    { name: 'variableName', type: 'text', label: 'Variable Name', required: false, placeholder: 'e.g., volume' }
                 ],
-                defaultParams: { count: 1, actions: [] },
+                defaultParams: { countType: 'constant', count: 1, variableName: '', actions: [] },
                 executionTime: null, // Variable
                 isControl: true
             },
@@ -369,6 +381,142 @@ class ActionConfigProvider {
                 conditionReturnType: 'number', // Returns volume level (0-100)
                 comparisonOperators: ActionConfigProvider.getComparisonOperators(),
                 defaultComparison: { operator: '>=', value: 50 }
+            },
+
+            'set-variable': {
+                id: 'set-variable',
+                name: '변수 설정',
+                category: 'variables',
+                description: '이전 액션의 결과값이나 상수를 변수에 저장합니다. 저장된 변수는 나중에 연산이나 루프에서 사용할 수 있습니다.',
+                icon: '📦',
+                color: '#10b981',
+                requiresCoordinates: false,
+                fields: [
+                    {
+                        name: 'variableName',
+                        type: 'text',
+                        label: 'Variable Name',
+                        required: true,
+                        placeholder: 'e.g., myVolume'
+                    },
+                    {
+                        name: 'source',
+                        type: 'select',
+                        label: 'Value Source',
+                        required: true,
+                        options: [
+                            { value: 'previous', label: 'Previous Action Result' },
+                            { value: 'constant', label: 'Constant Value' }
+                        ],
+                        default: 'previous'
+                    },
+                    {
+                        name: 'value',
+                        type: 'number',
+                        label: 'Constant Value',
+                        required: false,
+                        placeholder: '0'
+                    }
+                ],
+                defaultParams: {
+                    variableName: '',
+                    source: 'previous',
+                    value: 0
+                },
+                executionTime: 10
+            },
+
+            'calc-variable': {
+                id: 'calc-variable',
+                name: '변수 연산',
+                category: 'variables',
+                description: '두 개의 값(변수 또는 상수)으로 산술 연산을 수행하고 결과를 변수에 저장합니다. 예: volume / 10 = loopCount',
+                icon: '🔢',
+                color: '#10b981',
+                requiresCoordinates: false,
+                fields: [
+                    {
+                        name: 'targetVariable',
+                        type: 'text',
+                        label: 'Target Variable',
+                        required: true,
+                        placeholder: 'e.g., loopCount'
+                    },
+                    {
+                        name: 'operand1Type',
+                        type: 'select',
+                        label: 'First Operand Type',
+                        required: true,
+                        options: [
+                            { value: 'variable', label: 'Variable' },
+                            { value: 'constant', label: 'Constant' }
+                        ],
+                        default: 'variable'
+                    },
+                    {
+                        name: 'operand1Variable',
+                        type: 'text',
+                        label: 'First Variable Name',
+                        required: false,
+                        placeholder: 'e.g., volume'
+                    },
+                    {
+                        name: 'operand1Value',
+                        type: 'number',
+                        label: 'First Constant Value',
+                        required: false,
+                        placeholder: '0'
+                    },
+                    {
+                        name: 'operation',
+                        type: 'select',
+                        label: 'Operation',
+                        required: true,
+                        options: [
+                            { value: '+', label: '+  (Add)' },
+                            { value: '-', label: '-  (Subtract)' },
+                            { value: '*', label: '*  (Multiply)' },
+                            { value: '/', label: '/  (Divide)' }
+                        ],
+                        default: '+'
+                    },
+                    {
+                        name: 'operand2Type',
+                        type: 'select',
+                        label: 'Second Operand Type',
+                        required: true,
+                        options: [
+                            { value: 'variable', label: 'Variable' },
+                            { value: 'constant', label: 'Constant' }
+                        ],
+                        default: 'constant'
+                    },
+                    {
+                        name: 'operand2Variable',
+                        type: 'text',
+                        label: 'Second Variable Name',
+                        required: false,
+                        placeholder: 'e.g., divisor'
+                    },
+                    {
+                        name: 'operand2Value',
+                        type: 'number',
+                        label: 'Second Constant Value',
+                        required: false,
+                        placeholder: '0'
+                    }
+                ],
+                defaultParams: {
+                    targetVariable: '',
+                    operand1Type: 'variable',
+                    operand1Variable: '',
+                    operand1Value: 0,
+                    operation: '+',
+                    operand2Type: 'constant',
+                    operand2Variable: '',
+                    operand2Value: 0
+                },
+                executionTime: 10
             },
 
             // Condition flow blocks
@@ -496,6 +644,13 @@ class ActionConfigProvider {
                 icon: '📊',
                 color: '#8b5cf6',
                 protocols: ['adb']
+            },
+            variables: {
+                id: 'variables',
+                name: 'Variables',
+                description: 'Variable storage and manipulation',
+                icon: '📦',
+                color: '#10b981'
             }
         };
     }
@@ -890,7 +1045,9 @@ class ActionConfigProvider {
             'fail': 'x-circle',
             'test': 'settings',
             'sound-check': 'mic',
-            'get-volume': 'volume'
+            'get-volume': 'volume',
+            'set-variable': 'package',
+            'calc-variable': 'calculator'
         };
 
         // Korean labels for action types
@@ -921,7 +1078,9 @@ class ActionConfigProvider {
             'fail': '실패',
             'test': '테스트',
             'sound-check': '소리 감지',
-            'get-volume': '볼륨 확인'
+            'get-volume': '볼륨 확인',
+            'set-variable': '변수 설정',
+            'calc-variable': '변수 연산'
         };
 
         // Explicit Tailwind color mapping for each action type
@@ -942,6 +1101,8 @@ class ActionConfigProvider {
             'image-match': { color: 'bg-orange-500', borderClass: 'border-orange-500', bgClass: 'bg-orange-50' },
             'sound-check': { color: 'bg-amber-500', borderClass: 'border-amber-500', bgClass: 'bg-amber-50' },
             'get-volume': { color: 'bg-orange-600', borderClass: 'border-orange-600', bgClass: 'bg-orange-50' },
+            'set-variable': { color: 'bg-emerald-500', borderClass: 'border-emerald-500', bgClass: 'bg-emerald-50' },
+            'calc-variable': { color: 'bg-emerald-600', borderClass: 'border-emerald-600', bgClass: 'bg-emerald-50' },
             'if': { color: 'bg-amber-600', borderClass: 'border-amber-600', bgClass: 'bg-amber-50' },
 
             // 3. Flow Control (Teal/Cyan tones) - Execution flow
@@ -1069,7 +1230,7 @@ class ActionConfigProvider {
         const paletteCategories = {
             actions: ['click', 'long-press', 'drag', 'input', 'tap-matched-image'],
             conditions: ['image-match', 'sound-check', 'get-volume'],
-            flow: ['wait', 'loop', 'log'],
+            flow: ['wait', 'loop', 'log', 'set-variable', 'calc-variable'],
             exit: ['success', 'skip', 'fail']
         };
 

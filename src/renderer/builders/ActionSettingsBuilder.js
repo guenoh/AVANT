@@ -29,6 +29,8 @@ class ActionSettingsBuilder {
             ['back', this.buildNoSettings.bind(this)],
             ['sound-check', this.buildSoundCheckSettings.bind(this)],
             ['get-volume', this.buildGetVolumeSettings.bind(this)],
+            ['set-variable', this.buildSetVariableSettings.bind(this)],
+            ['calc-variable', this.buildCalcVariableSettings.bind(this)],
             // Condition markers
             ['else', this.buildElseSettings.bind(this)],
             ['endif', this.buildEndifSettings.bind(this)]
@@ -280,16 +282,61 @@ class ActionSettingsBuilder {
      */
     buildLoopSettings(action) {
         const H = TemplateHelpers;
-        const content = H.incrementControl({
-            value: action.loopCount || 1,
-            min: 1,
-            max: 1000,
-            step: 1,
-            actionId: action.id,
-            field: 'loopCount',
-            label: '반복 횟수'
-        });
-        return H.settingsContainer(content);
+        const UI = UIComponents;
+
+        const countType = action.countType || 'constant';
+        const isConstant = countType === 'constant';
+
+        const countTypeSelector = `
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-700 block">Count Type</label>
+                <div class="flex gap-2">
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'countType', 'constant'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${isConstant ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Fixed Number
+                    </button>
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'countType', 'variable'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${!isConstant ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Variable
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const countInput = isConstant
+            ? H.incrementControl({
+                value: action.count || 1,
+                min: 1,
+                max: 1000,
+                step: 1,
+                actionId: action.id,
+                field: 'count',
+                label: '반복 횟수'
+            })
+            : H.textInput({
+                value: action.variableName || '',
+                actionId: action.id,
+                field: 'variableName',
+                label: 'Variable Name',
+                placeholder: 'e.g., volume'
+            });
+
+        const infoAlert = UI.alert(
+            isConstant
+                ? '지정한 횟수만큼 반복합니다'
+                : '변수 값만큼 반복합니다 (예: get-volume으로 가져온 volume 변수)',
+            'info'
+        );
+
+        return H.settingsContainer(
+            countTypeSelector +
+            countInput +
+            infoAlert
+        );
     }
 
     /**
@@ -607,35 +654,10 @@ UI.slider({
 
     /**
      * Get volume settings - condition starter block
-     * Only shows stream type and comparison settings (no embedded action containers)
+     * Simplified: only shows comparison settings (no stream type or variable)
      */
     buildGetVolumeSettings(action) {
         const UI = UIComponents;
-
-        const streamTypeSelect = UI.formGroup('스트림 타입',
-            UI.select({
-                value: action.streamType || 'music',
-                options: [
-                    { value: 'music', label: 'Music/Media' },
-                    { value: 'ring', label: 'Ringtone' },
-                    { value: 'alarm', label: 'Alarm' },
-                    { value: 'notification', label: 'Notification' }
-                ],
-                actionId: action.id,
-                field: 'streamType'
-            }),
-            '가져올 볼륨 스트림 종류를 선택하세요'
-        );
-
-        const variableInput = UI.formGroup('변수명 (선택사항)',
-            UI.textInput({
-                value: action.saveToVariable || '',
-                placeholder: 'e.g., currentVolume',
-                actionId: action.id,
-                field: 'saveToVariable'
-            }),
-            '볼륨 값을 저장할 변수명을 입력하세요'
-        );
 
         // Get comparison data (for condition usage)
         const comparison = action.comparison || { operator: '>=', value: 50 };
@@ -649,7 +671,7 @@ UI.slider({
             operators: operators,
             actionId: action.id,
             label: '볼륨 조건',
-            unit: '레벨 (0-100)',
+            unit: 'Value (raw 0-100)',
             min: 0,
             max: 100,
             step: 1
@@ -685,9 +707,6 @@ UI.slider({
 
         return UI.section(
             infoAlert +
-            streamTypeSelect +
-            variableInput +
-            UI.divider() +
             comparisonUI +
             conditionInfo +
             elseToggle
@@ -737,6 +756,193 @@ UI.slider({
         );
 
         return UI.section(infoAlert + usageGuide);
+    }
+
+    /**
+     * Set variable settings
+     * Allows storing a value in a variable
+     */
+    buildSetVariableSettings(action) {
+        const H = TemplateHelpers;
+        const UI = UIComponents;
+
+        const source = action.source || 'previous';
+        const isPrevious = source === 'previous';
+
+        const variableNameInput = H.textInput({
+            value: action.variableName || '',
+            actionId: action.id,
+            field: 'variableName',
+            label: 'Variable Name',
+            placeholder: 'e.g., myVolume'
+        });
+
+        const sourceSelector = `
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-700 block">Value Source</label>
+                <div class="flex gap-2">
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'source', 'previous'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${isPrevious ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Previous Action Result
+                    </button>
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'source', 'constant'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${!isPrevious ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Constant Value
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const constantValueInput = !isPrevious ? H.numberInput({
+            value: action.value || 0,
+            actionId: action.id,
+            field: 'value',
+            label: 'Constant Value',
+            placeholder: '0'
+        }) : '';
+
+        const infoAlert = UI.alert(
+            isPrevious
+                ? '이전 액션의 결과를 변수에 저장합니다 (예: get-volume의 볼륨 값)'
+                : '지정한 상수 값을 변수에 저장합니다',
+            'info'
+        );
+
+        return H.settingsContainer(
+            variableNameInput +
+            sourceSelector +
+            constantValueInput +
+            infoAlert
+        );
+    }
+
+    /**
+     * Calculate variable settings
+     */
+    buildCalcVariableSettings(action) {
+        const H = TemplateHelpers;
+        const UI = UIComponents;
+
+        const operand1Type = action.operand1Type || 'variable';
+        const operand2Type = action.operand2Type || 'constant';
+        const operation = action.operation || '+';
+        const isOp1Variable = operand1Type === 'variable';
+        const isOp2Variable = operand2Type === 'variable';
+
+        const targetVariableInput = H.textInput({
+            value: action.targetVariable || '',
+            actionId: action.id,
+            field: 'targetVariable',
+            label: 'Target Variable',
+            placeholder: 'e.g., loopCount'
+        });
+
+        const operand1TypeSelector = `
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-700 block">First Operand Type</label>
+                <div class="flex gap-2">
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'operand1Type', 'variable'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${isOp1Variable ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Variable
+                    </button>
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'operand1Type', 'constant'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${!isOp1Variable ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Constant
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const operand1Input = isOp1Variable
+            ? H.textInput({
+                value: action.operand1Variable || '',
+                actionId: action.id,
+                field: 'operand1Variable',
+                label: 'First Variable Name',
+                placeholder: 'e.g., volume'
+            })
+            : H.numberInput({
+                value: action.operand1Value || 0,
+                actionId: action.id,
+                field: 'operand1Value',
+                label: 'First Constant Value',
+                placeholder: '0'
+            });
+
+        const operationSelector = `
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-700 block">Operation</label>
+                <div class="grid grid-cols-4 gap-2">
+                    ${['+', '-', '*', '/'].map(op => `
+                        <button
+                            onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'operation', '${op}'); window.macroApp.refreshActionSettings('${action.id}');"
+                            class="px-3 py-2 text-sm rounded-md font-bold transition-all ${operation === op ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                        >
+                            ${op}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        const operand2TypeSelector = `
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-700 block">Second Operand Type</label>
+                <div class="flex gap-2">
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'operand2Type', 'variable'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${isOp2Variable ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Variable
+                    </button>
+                    <button
+                        onclick="event.stopPropagation(); window.macroApp.updateActionValue('${action.id}', 'operand2Type', 'constant'); window.macroApp.refreshActionSettings('${action.id}');"
+                        class="flex-1 px-3 py-2 text-xs rounded-md font-medium transition-all ${!isOp2Variable ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}"
+                    >
+                        Constant
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const operand2Input = isOp2Variable
+            ? H.textInput({
+                value: action.operand2Variable || '',
+                actionId: action.id,
+                field: 'operand2Variable',
+                label: 'Second Variable Name',
+                placeholder: 'e.g., divisor'
+            })
+            : H.numberInput({
+                value: action.operand2Value || 0,
+                actionId: action.id,
+                field: 'operand2Value',
+                label: 'Second Constant Value',
+                placeholder: '0'
+            });
+
+        const infoAlert = UI.alert(
+            '두 값으로 연산을 수행하고 결과를 변수에 저장합니다 (예: volume / 10 = loopCount)',
+            'info'
+        );
+
+        return H.settingsContainer(
+            targetVariableInput +
+            operand1TypeSelector +
+            operand1Input +
+            operationSelector +
+            operand2TypeSelector +
+            operand2Input +
+            infoAlert
+        );
     }
 
     /**

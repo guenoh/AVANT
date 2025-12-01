@@ -40,6 +40,10 @@ class MacroBuilderApp {
         // Image matching result storage
         this.lastMatchedCoordinate = null; // Store last image-match result {x, y}
 
+        // Variable system for dynamic scenarios
+        this.variables = {}; // Runtime variable storage { variableName: value }
+        this.lastActionResult = null; // Store result from last executed action
+
         // ADB device list
         this.adbDevices = null;
 
@@ -3463,8 +3467,35 @@ class MacroBuilderApp {
                 return conditionTypes;
             case 'log':
                 return action.message || '로그 메시지';
+            case 'set-variable':
+                const source = action.source || 'previous';
+                const varName = action.variableName || 'unnamed';
+                if (source === 'previous') {
+                    return `${varName} = Previous Result`;
+                } else {
+                    return `${varName} = ${action.value || 0}`;
+                }
+            case 'calc-variable':
+                const targetVar = action.targetVariable || 'result';
+                const op1Type = action.operand1Type || 'variable';
+                const op2Type = action.operand2Type || 'constant';
+                const operation = action.operation || '+';
+
+                const op1Str = op1Type === 'variable'
+                    ? (action.operand1Variable || '?')
+                    : (action.operand1Value || 0);
+                const op2Str = op2Type === 'variable'
+                    ? (action.operand2Variable || '?')
+                    : (action.operand2Value || 0);
+
+                return `${targetVar} = ${op1Str} ${operation} ${op2Str}`;
             case 'loop':
-                return `${action.loopCount || 1}회 반복`;
+                const loopCountType = action.countType || 'constant';
+                if (loopCountType === 'variable') {
+                    return `변수 ${action.variableName || '?'}회 반복`;
+                } else {
+                    return `${action.count || action.loopCount || 1}회 반복`;
+                }
             case 'success':
                 return action.message || '성공 종료';
             case 'skip':
@@ -3488,11 +3519,7 @@ class MacroBuilderApp {
                 }
                 return `${duration}초간 측정`;
             case 'get-volume':
-                const streamType = action.streamType || 'music';
-                const streamLabels = { music: 'Music', ring: 'Ring', alarm: 'Alarm', notification: 'Notification' };
-                const streamLabel = streamLabels[streamType] || streamType;
-                const variable = action.saveToVariable ? ` → ${action.saveToVariable}` : '';
-                return `${streamLabel} 볼륨${variable}`;
+                return '시스템 볼륨 확인';
             default:
                 return '';
         }
@@ -3719,6 +3746,29 @@ class MacroBuilderApp {
         return totalCount;
     }
 
+    // ==================== Variable System Methods ====================
+
+    setVariable(name, value) {
+        this.variables[name] = value;
+        console.log(`[Variable] Set: ${name} = ${value}`);
+    }
+
+    getVariable(name) {
+        const value = this.variables[name];
+        if (value === undefined) {
+            console.warn(`[Variable] Variable '${name}' is not defined`);
+        }
+        return value;
+    }
+
+    clearVariables() {
+        console.log('[Variable] Clearing all variables');
+        this.variables = {};
+        this.lastActionResult = null;
+    }
+
+    // ==================== Macro Execution Methods ====================
+
     async runMacro(scenarioKey = null) {
         if (!this.isDeviceConnected) {
             this.addLog('error', '장치가 연결되지 않았습니다');
@@ -3733,6 +3783,7 @@ class MacroBuilderApp {
         this.isRunning = true;
         this.shouldStop = false;
         this.scenarioResult = null; // Reset result at start
+        this.clearVariables(); // Clear variables at start of macro execution
         const runBtn = document.getElementById('btn-run-macro');
         if (runBtn) {
             runBtn.innerHTML = `
@@ -3931,7 +3982,34 @@ class MacroBuilderApp {
                 } else if (action.type === 'loop') {
                     const loopStart = i;
                     const loopEnd = this.findBlockEnd(i, ['end-loop']);
-                    const loopCount = action.loopCount || 1;
+
+                    // Get loop count from either constant or variable
+                    let loopCount;
+                    const countType = action.countType || 'constant';
+
+                    if (countType === 'variable') {
+                        const variableName = action.variableName;
+                        if (!variableName) {
+                            this.addLog('error', '[loop] Variable name is required when using variable mode');
+                            throw new Error('Loop variable name is required');
+                        }
+
+                        loopCount = this.getVariable(variableName);
+                        if (loopCount === undefined) {
+                            this.addLog('error', `[loop] Variable '${variableName}' is not defined`);
+                            throw new Error(`Variable '${variableName}' not found`);
+                        }
+
+                        loopCount = Math.floor(Number(loopCount));
+                        if (isNaN(loopCount) || loopCount < 0) {
+                            this.addLog('error', `[loop] Invalid loop count from variable '${variableName}': ${loopCount}`);
+                            throw new Error(`Invalid loop count: ${loopCount}`);
+                        }
+
+                        console.log(`[loop] Using variable '${variableName}' = ${loopCount}`);
+                    } else {
+                        loopCount = action.count || action.loopCount || 1; // Support both old and new format
+                    }
 
                     for (let j = 0; j < loopCount; j++) {
                         await this.executeActionsRange(loopStart + 1, loopEnd, scenarioKey);
@@ -3956,6 +4034,94 @@ class MacroBuilderApp {
                     this.addLog('error', `Fail: ${message}`);
                     this.scenarioResult = { status: 'fail', message: message };
                     break; // Exit execution
+                } else if (action.type === 'get-volume' || action.type === 'image-match' || action.type === 'sound-check') {
+                    // New flat condition starters - execute condition and evaluate
+                    const result = await this.executeAction(action);
+
+                    // Add delay
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    // Evaluate condition based on action result
+                    let conditionMet = false;
+
+                    if (action.type === 'get-volume' && result.success) {
+                        const volumeValue = result.volume;
+                        const comparison = action.comparison || { operator: '>=', value: 50 };
+
+                        // Store volume value for use by set-variable
+                        this.lastActionResult = volumeValue;
+
+                        switch (comparison.operator) {
+                            case '>=':
+                                conditionMet = volumeValue >= comparison.value;
+                                break;
+                            case '<=':
+                                conditionMet = volumeValue <= comparison.value;
+                                break;
+                            case '==':
+                                conditionMet = volumeValue === comparison.value;
+                                break;
+                            case '>':
+                                conditionMet = volumeValue > comparison.value;
+                                break;
+                            case '<':
+                                conditionMet = volumeValue < comparison.value;
+                                break;
+                            default:
+                                conditionMet = false;
+                        }
+
+                        // Color code: green for true, gray for false
+                        const logType = conditionMet ? 'success' : 'info';
+                        this.addLog(logType, `${this.getActionTypeName(action.type)} 실행 완료 (볼륨: ${volumeValue}, 조건: ${conditionMet ? '참' : '거짓'})`);
+                    } else if (action.type === 'image-match' && result.success) {
+                        conditionMet = result.found || false;
+                        // Color code: green for true, gray for false
+                        const logType = conditionMet ? 'success' : 'info';
+                        this.addLog(logType, `${this.getActionTypeName(action.type)} 실행 완료 (조건: ${conditionMet ? '참' : '거짓'})`);
+                    } else if (action.type === 'sound-check' && result.success) {
+                        conditionMet = result.conditionMet || false;
+                        // Color code: green for true, gray for false
+                        const logType = conditionMet ? 'success' : 'info';
+                        this.addLog(logType, `${this.getActionTypeName(action.type)} 실행 완료 (조건: ${conditionMet ? '참' : '거짓'})`);
+                    } else {
+                        // Execution failed
+                        conditionMet = false;
+                        this.addLog('error', `${this.getActionTypeName(action.type)} 실행 실패: ${result.error}`);
+                    }
+
+                    // Handle condition branching (similar to if/else)
+                    const endifIndex = this.findPairedEndif(i);
+                    const elseIndex = this.findElseInBlock(i, endifIndex);
+
+                    if (conditionMet) {
+                        // Execute actions until else or endif
+                        const blockEnd = elseIndex !== -1 ? elseIndex : endifIndex;
+                        await this.executeActionsRange(i + 1, blockEnd, scenarioKey);
+                        // Jump to endif
+                        i = endifIndex + 1;
+                    } else {
+                        // Condition not met
+                        if (elseIndex !== -1) {
+                            // Execute else block
+                            this.addLog('info', 'ELSE 블록 실행');
+                            await this.executeActionsRange(elseIndex + 1, endifIndex, scenarioKey);
+                        }
+                        // Jump to endif
+                        i = endifIndex + 1;
+                    }
+                } else if (action.type === 'endif') {
+                    // Add delay and log for endif
+                    const delay = parseInt(document.getElementById('option-delay')?.value || 300);
+                    if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+
+                    this.addLog('info', `${this.getActionTypeName(action.type)} 완료`);
+                    i++;
                 } else if (action.type === 'end-if' || action.type === 'end-loop' || action.type === 'end-while') {
                     // Add delay and log for end markers
                     const delay = parseInt(document.getElementById('option-delay')?.value || 300);
@@ -4036,6 +4202,45 @@ class MacroBuilderApp {
         }
 
         return this.actions.length;
+    }
+
+    findPairedEndif(startIndex) {
+        // Find the endif that pairs with the condition starter at startIndex
+        const starterAction = this.actions[startIndex];
+        const pairId = starterAction.pairId;
+
+        if (!pairId) {
+            console.error('No pairId found for action at index', startIndex);
+            return this.actions.length;
+        }
+
+        for (let i = startIndex + 1; i < this.actions.length; i++) {
+            const action = this.actions[i];
+            if (action.type === 'endif' && action.pairId === pairId) {
+                return i;
+            }
+        }
+
+        return this.actions.length;
+    }
+
+    findElseInBlock(startIndex, endifIndex) {
+        // Find the else block between startIndex and endifIndex
+        const starterAction = this.actions[startIndex];
+        const pairId = starterAction.pairId;
+
+        if (!pairId) {
+            return -1;
+        }
+
+        for (let i = startIndex + 1; i < endifIndex; i++) {
+            const action = this.actions[i];
+            if (action.type === 'else' && action.pairId === pairId) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     async evaluateConditions(action) {
@@ -4165,6 +4370,141 @@ class MacroBuilderApp {
             // Handle sound-check action (frontend processing)
             if (action.type === 'sound-check') {
                 return await this.executeSoundCheckAction(action);
+            }
+
+            // Handle tap-matched-image action (frontend processing)
+            if (action.type === 'tap-matched-image') {
+                // First, find the image using executeImageMatchAction
+                const matchResult = await this.executeImageMatchAction(action);
+
+                if (!matchResult.success || !matchResult.found) {
+                    // Don't log here - let executeActionsRange handle logging
+                    return matchResult;
+                }
+
+                // Now click the matched coordinate
+                const clickAction = {
+                    type: 'click',
+                    x: matchResult.x,
+                    y: matchResult.y
+                };
+
+                // Don't log intermediate steps - let executeActionsRange handle logging
+                const clickResult = await window.api.action.execute(this.mapActionToBackend(clickAction));
+
+                // Return combined result with coordinates
+                return {
+                    ...clickResult,
+                    x: matchResult.x,
+                    y: matchResult.y
+                };
+            }
+
+            // Handle set-variable action (frontend processing)
+            if (action.type === 'set-variable') {
+                const variableName = action.variableName;
+                const source = action.source || 'previous';
+
+                if (!variableName) {
+                    return { success: false, error: 'Variable name is required' };
+                }
+
+                let value;
+                if (source === 'previous') {
+                    // Use result from previous action
+                    value = this.lastActionResult;
+                    if (value === null || value === undefined) {
+                        console.warn('[set-variable] No previous action result available');
+                        value = 0; // Default to 0 if no previous result
+                    }
+                } else {
+                    // Use constant value
+                    value = action.value || 0;
+                }
+
+                // Store the value in variable
+                this.setVariable(variableName, value);
+
+                // Also update lastActionResult so next action can use this value
+                this.lastActionResult = value;
+
+                return { success: true, value: value };
+            }
+
+            if (action.type === 'calc-variable') {
+                const targetVariable = action.targetVariable;
+
+                if (!targetVariable) {
+                    return { success: false, error: 'Target variable name is required' };
+                }
+
+                // Get first operand value
+                let operand1;
+                const operand1Type = action.operand1Type || 'variable';
+                if (operand1Type === 'variable') {
+                    const variableName = action.operand1Variable;
+                    if (!variableName) {
+                        return { success: false, error: 'First variable name is required' };
+                    }
+                    operand1 = this.getVariable(variableName);
+                    if (operand1 === undefined) {
+                        return { success: false, error: `Variable '${variableName}' is not defined` };
+                    }
+                } else {
+                    operand1 = action.operand1Value || 0;
+                }
+
+                // Get second operand value
+                let operand2;
+                const operand2Type = action.operand2Type || 'constant';
+                if (operand2Type === 'variable') {
+                    const variableName = action.operand2Variable;
+                    if (!variableName) {
+                        return { success: false, error: 'Second variable name is required' };
+                    }
+                    operand2 = this.getVariable(variableName);
+                    if (operand2 === undefined) {
+                        return { success: false, error: `Variable '${variableName}' is not defined` };
+                    }
+                } else {
+                    operand2 = action.operand2Value || 0;
+                }
+
+                // Convert to numbers
+                operand1 = Number(operand1);
+                operand2 = Number(operand2);
+
+                // Perform operation
+                const operation = action.operation || '+';
+                let result;
+                switch (operation) {
+                    case '+':
+                        result = operand1 + operand2;
+                        break;
+                    case '-':
+                        result = operand1 - operand2;
+                        break;
+                    case '*':
+                        result = operand1 * operand2;
+                        break;
+                    case '/':
+                        if (operand2 === 0) {
+                            return { success: false, error: 'Division by zero' };
+                        }
+                        result = operand1 / operand2;
+                        break;
+                    default:
+                        return { success: false, error: `Unknown operation: ${operation}` };
+                }
+
+                // Store result in target variable
+                this.setVariable(targetVariable, result);
+
+                // Update lastActionResult
+                this.lastActionResult = result;
+
+                console.log(`[calc-variable] ${operand1} ${operation} ${operand2} = ${result} -> ${targetVariable}`);
+                return { success: true, value: result };
             }
 
             // Map frontend action format to backend format
@@ -4358,7 +4698,7 @@ class MacroBuilderApp {
                 }
 
                 const errorMsg = `이미지를 찾지 못했습니다 (최고 점수: ${(result.score * 100).toFixed(1)}%)`;
-                this.addLog('warning', errorMsg);
+                // Don't log here - let executeActionsRange handle logging
                 return { success: false, found: false, score: result.score, error: errorMsg };
             }
         } catch (error) {
@@ -4378,7 +4718,7 @@ class MacroBuilderApp {
             const expectation = action.expectation || 'present';
             const threshold = action.threshold || { min: 40, max: 80 };
 
-            this.addLog('info', `사운드 체크 시작: ${duration/1000}초 동안 측정`);
+            // Don't log here - let executeActionsRange handle logging
 
             // AudioCapture should be available globally from the included script
             if (!window.AudioCapture) {
@@ -6606,6 +6946,15 @@ class MacroBuilderApp {
     markAsChanged() {
         this.hasUnsavedChanges = true;
         this.updateToolbarButtons(true);
+
+        // Auto-save to registry after a short delay (debounce)
+        if (this.currentScenarioKey) {
+            clearTimeout(this._autoSaveTimeout);
+            this._autoSaveTimeout = setTimeout(() => {
+                this.saveToRegistry(this.currentScenarioKey);
+                console.log('[Auto-save] Scenario saved automatically');
+            }, 1000); // Save after 1 second of inactivity
+        }
     }
 
     markAsSaved() {
@@ -7106,19 +7455,36 @@ class MacroBuilderApp {
         const actionList = document.getElementById('action-sequence-list');
         if (!actionList) return;
 
-        // Get registry and results
+        // Get registry, results, and scenario data
         const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
         const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
+        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
 
         // Merge and sort scenarios
         const scenarios = Object.entries(registry).map(([key, registryData]) => {
             const executionResult = results[key];
+
+            // Get actual action count from scenario_data instead of cached registry value
+            let actualActionsCount = 0;
+            const fileData = scenarioData[key];
+            if (fileData && fileData.scenarios && fileData.scenarios.length > 0) {
+                // Sum up actions from all scenarios in this file
+                // Exclude structural markers (else, endif) from count
+                actualActionsCount = fileData.scenarios.reduce((sum, scenario) => {
+                    const actions = scenario.actions || [];
+                    const validActions = actions.filter(action =>
+                        action.type !== 'else' && action.type !== 'endif'
+                    );
+                    return sum + validActions.length;
+                }, 0);
+            }
+
             return {
                 key,
                 name: registryData.name,
                 filename: registryData.filename,
                 savedAt: registryData.savedAt,
-                actionsCount: registryData.actionsCount,
+                actionsCount: actualActionsCount,
                 status: executionResult ? executionResult.status : 'never_run',
                 message: executionResult ? executionResult.message : '미실행',
                 timestamp: executionResult ? executionResult.timestamp : registryData.savedAt
@@ -8214,11 +8580,16 @@ class MacroBuilderApp {
             // Save back to localStorage
             localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
 
-            // Update registry timestamp and filename
+            // Update registry timestamp, filename, and action count
             const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
             if (registry[this.currentFilePath]) {
                 registry[this.currentFilePath].timestamp = Date.now();
                 registry[this.currentFilePath].filename = this.currentFilePath; // Ensure filename is set
+                // Count only meaningful actions (exclude structural markers like else, endif)
+                const meaningfulActionsCount = this.actions.filter(action =>
+                    action.type !== 'else' && action.type !== 'endif'
+                ).length;
+                registry[this.currentFilePath].actionsCount = meaningfulActionsCount;
                 localStorage.setItem('scenario_registry', JSON.stringify(registry));
             }
 
