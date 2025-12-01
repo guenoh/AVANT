@@ -1,10 +1,11 @@
 /**
  * Macro Store - Manages macro list and execution state
+ * Extends BaseStore for reactive state management
  */
 
-class MacroStore {
+class MacroStore extends BaseStore {
   constructor() {
-    this._state = {
+    super({
       // Macro list
       macros: [],
       selectedMacro: null,
@@ -17,59 +18,6 @@ class MacroStore {
       // Edit mode
       isEditMode: false,
       editingMacroId: null
-    };
-
-    this._listeners = new Set();
-  }
-
-  /**
-   * Get current state (immutable)
-   */
-  getState() {
-    return { ...this._state };
-  }
-
-  /**
-   * Get specific state property
-   */
-  get(key) {
-    return this._state[key];
-  }
-
-  /**
-   * Update state and notify listeners
-   */
-  setState(updates) {
-    const oldState = { ...this._state };
-    this._state = { ...this._state, ...updates };
-
-    this._notify({
-      type: 'state-change',
-      oldState,
-      newState: this._state,
-      changes: updates
-    });
-  }
-
-  /**
-   * Subscribe to state changes
-   * @returns {Function} Unsubscribe function
-   */
-  subscribe(listener) {
-    this._listeners.add(listener);
-    return () => this._listeners.delete(listener);
-  }
-
-  /**
-   * Notify all listeners
-   */
-  _notify(event) {
-    this._listeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in store listener:', error);
-      }
     });
   }
 
@@ -84,7 +32,7 @@ class MacroStore {
    * Add macro to list
    */
   addMacro(macro) {
-    const macros = [...this._state.macros, macro];
+    const macros = [...this.get('macros'), macro];
     this.setState({ macros });
   }
 
@@ -92,7 +40,7 @@ class MacroStore {
    * Update macro in list
    */
   updateMacro(macroId, updates) {
-    const macros = this._state.macros.map(m =>
+    const macros = this.get('macros').map(m =>
       m.id === macroId ? { ...m, ...updates } : m
     );
     this.setState({ macros });
@@ -102,7 +50,7 @@ class MacroStore {
    * Remove macro from list
    */
   removeMacro(macroId) {
-    const macros = this._state.macros.filter(m => m.id !== macroId);
+    const macros = this.get('macros').filter(m => m.id !== macroId);
     this.setState({ macros });
   }
 
@@ -110,7 +58,7 @@ class MacroStore {
    * Select macro
    */
   selectMacro(macroId) {
-    const macro = this._state.macros.find(m => m.id === macroId);
+    const macro = this.get('macros').find(m => m.id === macroId);
     this.setState({ selectedMacro: macro });
   }
 
@@ -153,46 +101,9 @@ class MacroStore {
    * Get macro by ID
    */
   getMacroById(macroId) {
-    return this._state.macros.find(m => m.id === macroId);
-  }
-
-  /**
-   * Reset store to initial state
-   */
-  reset() {
-    this._state = {
-      macros: [],
-      selectedMacro: null,
-      isRunning: false,
-      runningMacroId: null,
-      currentActionIndex: -1,
-      isEditMode: false,
-      editingMacroId: null
-    };
-
-    this._notify({
-      type: 'reset',
-      newState: this._state
-    });
-  }
-
-  /**
-   * Get debug state info
-   */
-  getDebugInfo() {
-    return {
-      state: this._state,
-      listenerCount: this._listeners.size
-    };
+    return this.get('macros').find(m => m.id === macroId);
   }
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = MacroStore;
-}
-
-// Create and expose singleton instance globally in browser
-if (typeof window !== 'undefined') {
-  window.MacroStore = new MacroStore();
-}
+// Create and expose singleton instance globally
+window.MacroStore = new MacroStore();

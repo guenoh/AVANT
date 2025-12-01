@@ -1,10 +1,11 @@
 /**
  * Action Store - Manages action list and execution state
+ * Extends BaseStore for reactive state management
  */
 
-class ActionStore {
+class ActionStore extends BaseStore {
   constructor() {
-    this._state = {
+    super({
       // Action list
       actions: [],
 
@@ -19,59 +20,6 @@ class ActionStore {
       isClickMode: false,
       clickModeType: null,
       clickModePoints: []
-    };
-
-    this._listeners = new Set();
-  }
-
-  /**
-   * Get current state (immutable)
-   */
-  getState() {
-    return { ...this._state };
-  }
-
-  /**
-   * Get specific state property
-   */
-  get(key) {
-    return this._state[key];
-  }
-
-  /**
-   * Update state and notify listeners
-   */
-  setState(updates) {
-    const oldState = { ...this._state };
-    this._state = { ...this._state, ...updates };
-
-    this._notify({
-      type: 'state-change',
-      oldState,
-      newState: this._state,
-      changes: updates
-    });
-  }
-
-  /**
-   * Subscribe to state changes
-   * @returns {Function} Unsubscribe function
-   */
-  subscribe(listener) {
-    this._listeners.add(listener);
-    return () => this._listeners.delete(listener);
-  }
-
-  /**
-   * Notify all listeners
-   */
-  _notify(event) {
-    this._listeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in store listener:', error);
-      }
     });
   }
 
@@ -86,7 +34,7 @@ class ActionStore {
    * Add action to list
    */
   addAction(action) {
-    const actions = [...this._state.actions, action];
+    const actions = [...this.get('actions'), action];
     this.setState({ actions });
   }
 
@@ -94,7 +42,7 @@ class ActionStore {
    * Update action in list
    */
   updateAction(index, updates) {
-    const actions = this._state.actions.map((a, i) =>
+    const actions = this.get('actions').map((a, i) =>
       i === index ? { ...a, ...updates } : a
     );
     this.setState({ actions });
@@ -104,7 +52,7 @@ class ActionStore {
    * Remove action from list
    */
   removeAction(index) {
-    const actions = this._state.actions.filter((_, i) => i !== index);
+    const actions = this.get('actions').filter((_, i) => i !== index);
     this.setState({ actions });
   }
 
@@ -146,7 +94,7 @@ class ActionStore {
     this.setState({
       isClickMode,
       clickModeType: isClickMode ? type : null,
-      clickModePoints: isClickMode ? [] : this._state.clickModePoints
+      clickModePoints: isClickMode ? [] : this.get('clickModePoints')
     });
   }
 
@@ -154,7 +102,7 @@ class ActionStore {
    * Add click mode point
    */
   addClickModePoint(point) {
-    const points = [...this._state.clickModePoints, point];
+    const points = [...this.get('clickModePoints'), point];
     this.setState({ clickModePoints: points });
   }
 
@@ -169,46 +117,9 @@ class ActionStore {
    * Get action by index
    */
   getAction(index) {
-    return this._state.actions[index];
-  }
-
-  /**
-   * Reset store to initial state
-   */
-  reset() {
-    this._state = {
-      actions: [],
-      isRecording: false,
-      isExecuting: false,
-      executingActionIndex: -1,
-      isClickMode: false,
-      clickModeType: null,
-      clickModePoints: []
-    };
-
-    this._notify({
-      type: 'reset',
-      newState: this._state
-    });
-  }
-
-  /**
-   * Get debug state info
-   */
-  getDebugInfo() {
-    return {
-      state: this._state,
-      listenerCount: this._listeners.size
-    };
+    return this.get('actions')[index];
   }
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ActionStore;
-}
-
-// Create and expose singleton instance globally in browser
-if (typeof window !== 'undefined') {
-  window.ActionStore = new ActionStore();
-}
+// Create and expose singleton instance globally
+window.ActionStore = new ActionStore();

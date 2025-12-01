@@ -1,10 +1,11 @@
 /**
  * Screen Store - Manages screen capture and streaming state
+ * Extends BaseStore for reactive state management
  */
 
-class ScreenStore {
+class ScreenStore extends BaseStore {
   constructor() {
-    this._state = {
+    super({
       // Streaming state
       isStreaming: false,
       streamFps: 30,
@@ -25,59 +26,6 @@ class ScreenStore {
         latency: 0,
         frameCount: 0,
         lastFrameTime: null
-      }
-    };
-
-    this._listeners = new Set();
-  }
-
-  /**
-   * Get current state (immutable)
-   */
-  getState() {
-    return { ...this._state };
-  }
-
-  /**
-   * Get specific state property
-   */
-  get(key) {
-    return this._state[key];
-  }
-
-  /**
-   * Update state and notify listeners
-   */
-  setState(updates) {
-    const oldState = { ...this._state };
-    this._state = { ...this._state, ...updates };
-
-    this._notify({
-      type: 'state-change',
-      oldState,
-      newState: this._state,
-      changes: updates
-    });
-  }
-
-  /**
-   * Subscribe to state changes
-   * @returns {Function} Unsubscribe function
-   */
-  subscribe(listener) {
-    this._listeners.add(listener);
-    return () => this._listeners.delete(listener);
-  }
-
-  /**
-   * Notify all listeners
-   */
-  _notify(event) {
-    this._listeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in store listener:', error);
       }
     });
   }
@@ -123,8 +71,8 @@ class ScreenStore {
    * Update recording duration
    */
   updateRecordingDuration() {
-    if (this._state.isRecording && this._state.recordingStartTime) {
-      const duration = Math.floor((Date.now() - this._state.recordingStartTime) / 1000);
+    if (this.get('isRecording') && this.get('recordingStartTime')) {
+      const duration = Math.floor((Date.now() - this.get('recordingStartTime')) / 1000);
       this.setState({ recordingDuration: duration });
     }
   }
@@ -145,7 +93,7 @@ class ScreenStore {
   updateStreamStats(stats) {
     this.setState({
       streamStats: {
-        ...this._state.streamStats,
+        ...this.get('streamStats'),
         ...stats
       }
     });
@@ -155,10 +103,11 @@ class ScreenStore {
    * Increment frame count
    */
   incrementFrameCount() {
+    const streamStats = this.get('streamStats');
     this.setState({
       streamStats: {
-        ...this._state.streamStats,
-        frameCount: this._state.streamStats.frameCount + 1,
+        ...streamStats,
+        frameCount: streamStats.frameCount + 1,
         lastFrameTime: Date.now()
       }
     });
@@ -177,51 +126,7 @@ class ScreenStore {
       }
     });
   }
-
-  /**
-   * Reset store to initial state
-   */
-  reset() {
-    this._state = {
-      isStreaming: false,
-      streamFps: 30,
-      lastFrame: null,
-      isRecording: false,
-      recordingStartTime: null,
-      recordingDuration: 0,
-      canvasWidth: 0,
-      canvasHeight: 0,
-      streamStats: {
-        fps: 0,
-        latency: 0,
-        frameCount: 0,
-        lastFrameTime: null
-      }
-    };
-
-    this._notify({
-      type: 'reset',
-      newState: this._state
-    });
-  }
-
-  /**
-   * Get debug state info
-   */
-  getDebugInfo() {
-    return {
-      state: this._state,
-      listenerCount: this._listeners.size
-    };
-  }
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ScreenStore;
-}
-
-// Create and expose singleton instance globally in browser
-if (typeof window !== 'undefined') {
-  window.ScreenStore = new ScreenStore();
-}
+// Create and expose singleton instance globally
+window.ScreenStore = new ScreenStore();

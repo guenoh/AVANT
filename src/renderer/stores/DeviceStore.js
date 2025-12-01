@@ -1,11 +1,11 @@
 /**
  * Device Store - Manages device connection state
- * Follows EventEmitter pattern for reactive state management
+ * Extends BaseStore for reactive state management
  */
 
-class DeviceStore {
+class DeviceStore extends BaseStore {
   constructor() {
-    this._state = {
+    super({
       // Connection state
       selectedDevice: null,
       connectionType: 'adb', // 'adb' | 'ccnc'
@@ -22,59 +22,6 @@ class DeviceStore {
 
       // Error state
       lastError: null
-    };
-
-    this._listeners = new Set();
-  }
-
-  /**
-   * Get current state (immutable)
-   */
-  getState() {
-    return { ...this._state };
-  }
-
-  /**
-   * Get specific state property
-   */
-  get(key) {
-    return this._state[key];
-  }
-
-  /**
-   * Update state and notify listeners
-   */
-  setState(updates) {
-    const oldState = { ...this._state };
-    this._state = { ...this._state, ...updates };
-
-    this._notify({
-      type: 'state-change',
-      oldState,
-      newState: this._state,
-      changes: updates
-    });
-  }
-
-  /**
-   * Subscribe to state changes
-   * @returns {Function} Unsubscribe function
-   */
-  subscribe(listener) {
-    this._listeners.add(listener);
-    return () => this._listeners.delete(listener);
-  }
-
-  /**
-   * Notify all listeners
-   */
-  _notify(event) {
-    this._listeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in store listener:', error);
-      }
     });
   }
 
@@ -83,10 +30,9 @@ class DeviceStore {
    */
   setConnectionType(type) {
     if (type !== 'adb' && type !== 'ccnc') {
-      console.error('Invalid connection type:', type);
+      console.error('[DeviceStore] Invalid connection type:', type);
       return;
     }
-
     this.setState({ connectionType: type });
   }
 
@@ -152,46 +98,7 @@ class DeviceStore {
       connectionStatus: 'failed'
     });
   }
-
-  /**
-   * Reset store to initial state
-   */
-  reset() {
-    this._state = {
-      selectedDevice: null,
-      connectionType: 'adb',
-      connectionStatus: 'disconnected',
-      availableDevices: [],
-      isScanning: false,
-      ccncHost: 'localhost',
-      ccncPort: 20000,
-      ccncFps: 30,
-      lastError: null
-    };
-
-    this._notify({
-      type: 'reset',
-      newState: this._state
-    });
-  }
-
-  /**
-   * Get debug state info
-   */
-  getDebugInfo() {
-    return {
-      state: this._state,
-      listenerCount: this._listeners.size
-    };
-  }
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = DeviceStore;
-}
-
-// Create and expose singleton instance globally in browser
-if (typeof window !== 'undefined') {
-  window.DeviceStore = new DeviceStore();
-}
+// Create and expose singleton instance globally
+window.DeviceStore = new DeviceStore();

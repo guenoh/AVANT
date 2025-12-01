@@ -54,8 +54,8 @@
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
                     <h3 class="modal-title">새 시나리오</h3>
-                    <button id="btn-close-dialog" class="btn-icon">
-                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button id="btn-close-dialog" class="modal-close">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
@@ -69,8 +69,8 @@
                     <p id="scenario-name-error" class="input-error" style="display: none;"></p>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-cancel-scenario" class="btn-outline">취소</button>
-                    <button id="btn-create-scenario" class="btn-primary">생성</button>
+                    <button id="btn-cancel-scenario" class="btn-sm btn-outline">취소</button>
+                    <button id="btn-create-scenario" class="btn-sm btn-primary">생성</button>
                 </div>
             </div>
         </div>
@@ -80,8 +80,8 @@
             <div class="modal-content" style="max-width: 480px;">
                 <div class="modal-header">
                     <h3 class="modal-title">액션 추가하기</h3>
-                    <button id="btn-close-prompt-dialog" class="btn-icon">
-                        <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button id="btn-close-prompt-dialog" class="modal-close">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
@@ -96,7 +96,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-prompt" class="btn-primary" style="width: 100%;">확인</button>
+                    <button id="btn-confirm-prompt" class="btn-sm btn-primary" style="width: 100%;">확인</button>
                 </div>
             </div>
         </div>
@@ -406,6 +406,7 @@
 
     <!-- Scripts -->
     <!-- Stores -->
+    <script src="stores/BaseStore.js"></script>
     <script src="stores/DeviceStore.js"></script>
     <script src="stores/ScreenStore.js"></script>
     <script src="stores/MacroStore.js"></script>
