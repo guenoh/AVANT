@@ -2570,16 +2570,19 @@ class MacroBuilderApp {
             }
         }
 
-        // Remove all blocks in the range from current position
-        this.actions.splice(startIndex, blockCount);
-
-        // Recalculate target index after removal
-        let insertIndex = this.actions.findIndex(a => a.id === targetActionId);
-        if (insertIndex === -1) return;
-
+        // Calculate insertion index BEFORE removing blocks (to prevent data loss)
+        let insertIndex = targetIndex;
         if (isAfter) {
             insertIndex++;
         }
+
+        // Adjust insertion index if it's after the blocks being moved
+        if (insertIndex > startIndex) {
+            insertIndex -= blockCount;
+        }
+
+        // Remove all blocks in the range from current position
+        this.actions.splice(startIndex, blockCount);
 
         // Insert all blocks at new position (maintaining their order)
         this.actions.splice(insertIndex, 0, ...movingBlocks);
