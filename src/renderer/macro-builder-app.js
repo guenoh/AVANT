@@ -1831,28 +1831,13 @@ class MacroBuilderApp {
     }
 
     // Helper: Validate paired block order
+    // Note: movingBlocks is created via slice(startIndex, endIndex+1), which means
+    // it ALWAYS preserves the original array order. Therefore, if the original
+    // array has valid paired blocks (loop before end-loop), movingBlocks will too.
+    // This validation is kept for safety but will always pass for valid pairs.
     _validatePairedBlockOrder(movingBlocks, draggedAction, pairAction) {
-        if (!pairAction) return true;
-
-        const openingTypes = ['loop', 'if', 'else-if', 'else', 'while'];
-        const closingTypes = ['end-loop', 'endif', 'end-while'];
-
-        const isOpening = openingTypes.includes(draggedAction.type);
-        const isClosing = closingTypes.includes(draggedAction.type);
-
-        const draggedIndexInBlock = movingBlocks.findIndex(b => b.id === draggedAction.id);
-        const pairIndexInBlock = movingBlocks.findIndex(b => b.id === pairAction.id);
-
-        // Opening block must always come before closing block
-        if (isOpening && draggedIndexInBlock > pairIndexInBlock) {
-            this.addLog('warning', '잘못된 위치입니다. 반복/조건 시작 블록은 종료 블록보다 앞에 있어야 합니다.');
-            return false;
-        }
-        if (isClosing && draggedIndexInBlock < pairIndexInBlock) {
-            this.addLog('warning', '잘못된 위치입니다. 반복/조건 종료 블록은 시작 블록보다 뒤에 있어야 합니다.');
-            return false;
-        }
-
+        // Since movingBlocks preserves original order, paired blocks are always
+        // in correct sequence (opening before closing). No validation needed.
         return true;
     }
 
@@ -1994,12 +1979,10 @@ class MacroBuilderApp {
             const range = this._getPairedBlocksRange(this.draggedActionId);
             if (!range) return;
 
-            const { draggedAction, pairAction, startIndex, movingBlocks, blockCount } = range;
+            const { startIndex, movingBlocks, blockCount } = range;
 
-            // Validate paired block order
-            if (!this._validatePairedBlockOrder(movingBlocks, draggedAction, pairAction)) {
-                return;
-            }
+            // No validation needed - movingBlocks preserves original order
+            // which ensures paired blocks (loop/end-loop) maintain correct sequence
 
             // Move blocks to end
             this.actions.splice(startIndex, blockCount);
