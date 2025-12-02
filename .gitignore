@@ -44,3 +44,8 @@ coverage/
 # Test results
 test-results/
 test-*.png
+playwright-report/
+.playwright-mcp/
+
+# Claude Code
+.claude/

@@ -394,23 +394,6 @@ contextBridge.exposeInMainWorld('api', {
 
 ---
 
-## Backup & Restore
-
-프로젝트는 정기적으로 백업됩니다:
-
-```
-_backup/
-└── 2025-10-28_cleanup/
-    ├── README.md           # Backup details
-    ├── main/               # Unused main process files
-    ├── renderer/           # Unused renderer components
-    └── shared/             # Unused shared types
-```
-
-백업 복원 방법은 `_backup/*/README.md` 참조
-
----
-
 ## Contributing
 
 이슈 및 풀 리퀘스트 환영합니다!
