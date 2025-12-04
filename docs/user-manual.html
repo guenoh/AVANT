@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision Auto - User Manual</title>
+    <title>Vision Auto - 사용자 매뉴얼</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -56,6 +56,21 @@
         header p {
             color: var(--text-secondary);
             margin-top: 4px;
+        }
+
+        .lang-switch {
+            float: right;
+            margin-top: -40px;
+        }
+
+        .lang-switch a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .lang-switch a:hover {
+            text-decoration: underline;
         }
 
         /* Navigation */
@@ -292,6 +307,11 @@
             .step {
                 padding-left: 40px;
             }
+
+            .lang-switch {
+                float: none;
+                margin-top: 8px;
+            }
         }
 
         /* Print Styles */
@@ -310,725 +330,728 @@
     <header>
         <div class="container">
             <h1>Vision Auto</h1>
-            <p>Android Device Automation User Manual</p>
+            <p>Android 디바이스 자동화 사용자 매뉴얼</p>
+            <div class="lang-switch">
+                <a href="user-manual.en.html">English</a>
+            </div>
         </div>
     </header>
 
     <nav>
         <div class="container">
             <ul>
-                <li><a href="#introduction">Introduction</a></li>
-                <li><a href="#installation">Installation</a></li>
-                <li><a href="#device-setup">Device Setup</a></li>
-                <li><a href="#interface">Interface Guide</a></li>
-                <li><a href="#actions">Action Types</a></li>
-                <li><a href="#scenarios">Creating Scenarios</a></li>
-                <li><a href="#execution">Execution</a></li>
-                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                <li><a href="#introduction">소개</a></li>
+                <li><a href="#installation">설치</a></li>
+                <li><a href="#device-setup">디바이스 설정</a></li>
+                <li><a href="#interface">인터페이스 가이드</a></li>
+                <li><a href="#actions">액션 유형</a></li>
+                <li><a href="#scenarios">시나리오 생성</a></li>
+                <li><a href="#execution">실행</a></li>
+                <li><a href="#troubleshooting">문제 해결</a></li>
             </ul>
         </div>
     </nav>
 
     <main>
         <div class="container">
-            <!-- Introduction -->
+            <!-- 소개 -->
             <section id="introduction">
-                <h2>1. Introduction</h2>
+                <h2>1. 소개</h2>
 
-                <h3>What is Vision Auto?</h3>
-                <p>Vision Auto is a desktop application for automating Android devices using image recognition technology. It enables users to create automation scenarios without requiring programming knowledge or access to the internal structure of apps.</p>
+                <h3>Vision Auto란?</h3>
+                <p>Vision Auto는 이미지 인식 기술을 사용하여 Android 디바이스를 자동화하는 데스크톱 애플리케이션입니다. 프로그래밍 지식이나 앱의 내부 구조에 대한 접근 없이도 자동화 시나리오를 생성할 수 있습니다.</p>
 
-                <h3>Key Features</h3>
+                <h3>주요 기능</h3>
                 <div class="card-grid">
                     <div class="card">
-                        <h4>Image-Based Automation</h4>
-                        <p>Find and interact with UI elements by visual appearance, not internal identifiers.</p>
+                        <h4>이미지 기반 자동화</h4>
+                        <p>내부 식별자가 아닌 시각적 모양으로 UI 요소를 찾고 상호작용합니다.</p>
                     </div>
                     <div class="card">
-                        <h4>Real-time Screen Mirroring</h4>
-                        <p>See exactly what's happening on your device in real-time.</p>
+                        <h4>실시간 화면 미러링</h4>
+                        <p>디바이스에서 일어나는 일을 실시간으로 정확히 볼 수 있습니다.</p>
                     </div>
                     <div class="card">
-                        <h4>Conditional Logic</h4>
-                        <p>Create complex scenarios with IF/ELSE branching based on screen content.</p>
+                        <h4>조건부 로직</h4>
+                        <p>화면 콘텐츠를 기반으로 IF/ELSE 분기가 있는 복잡한 시나리오를 생성합니다.</p>
                     </div>
                     <div class="card">
-                        <h4>No Root Required</h4>
-                        <p>Works with standard Android devices using only USB debugging.</p>
+                        <h4>루팅 불필요</h4>
+                        <p>USB 디버깅만 사용하여 표준 Android 디바이스에서 작동합니다.</p>
                     </div>
                 </div>
 
-                <h3>Use Cases</h3>
+                <h3>활용 사례</h3>
                 <ul>
-                    <li><strong>Quality Assurance Testing</strong>: Automate repetitive test scenarios</li>
-                    <li><strong>Device Configuration</strong>: Set up multiple devices with consistent settings</li>
-                    <li><strong>App Demonstrations</strong>: Create reproducible demo sequences</li>
-                    <li><strong>Data Collection</strong>: Automate data extraction from visual interfaces</li>
+                    <li><strong>품질 보증 테스트</strong>: 반복적인 테스트 시나리오 자동화</li>
+                    <li><strong>디바이스 설정</strong>: 일관된 설정으로 여러 디바이스 구성</li>
+                    <li><strong>앱 데모</strong>: 재현 가능한 데모 시퀀스 생성</li>
+                    <li><strong>데이터 수집</strong>: 시각적 인터페이스에서 데이터 추출 자동화</li>
                 </ul>
             </section>
 
-            <!-- Installation -->
+            <!-- 설치 -->
             <section id="installation">
-                <h2>2. Installation</h2>
+                <h2>2. 설치</h2>
 
-                <h3>Prerequisites</h3>
+                <h3>사전 요구사항</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Requirement</th>
-                            <th>Details</th>
+                            <th>요구사항</th>
+                            <th>세부 사항</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Operating System</td>
-                            <td>macOS 12+, Windows 10+, or Linux (Ubuntu 20.04+)</td>
+                            <td>운영 체제</td>
+                            <td>macOS 12+, Windows 10+, 또는 Linux (Ubuntu 20.04+)</td>
                         </tr>
                         <tr>
                             <td>Node.js</td>
-                            <td>Version 18.0 or later</td>
+                            <td>버전 18.0 이상</td>
                         </tr>
                         <tr>
                             <td>ADB</td>
-                            <td>Android Debug Bridge (any recent version)</td>
+                            <td>Android Debug Bridge (최신 버전)</td>
                         </tr>
                         <tr>
                             <td>RAM</td>
-                            <td>4 GB minimum, 8 GB recommended</td>
+                            <td>최소 4GB, 권장 8GB</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Installing ADB</h3>
+                <h3>ADB 설치</h3>
 
-                <h4>macOS (using Homebrew)</h4>
+                <h4>macOS (Homebrew 사용)</h4>
                 <pre><code>brew install android-platform-tools</code></pre>
 
                 <h4>Windows</h4>
                 <ol>
-                    <li>Download Android SDK Platform Tools from the official Android website</li>
-                    <li>Extract the ZIP file to a folder (e.g., <code>C:\platform-tools</code>)</li>
-                    <li>Add the folder path to your system's PATH environment variable</li>
+                    <li>공식 Android 웹사이트에서 Android SDK Platform Tools 다운로드</li>
+                    <li>폴더에 ZIP 파일 압축 해제 (예: <code>C:\platform-tools</code>)</li>
+                    <li>시스템 PATH 환경 변수에 폴더 경로 추가</li>
                 </ol>
 
                 <h4>Linux (Debian/Ubuntu)</h4>
                 <pre><code>sudo apt-get update
 sudo apt-get install android-tools-adb</code></pre>
 
-                <h4>Verify Installation</h4>
+                <h4>설치 확인</h4>
                 <pre><code>adb version</code></pre>
 
-                <h3>Installing Vision Auto</h3>
+                <h3>Vision Auto 설치</h3>
                 <div class="steps">
                     <div class="step">
-                        <h4>Clone the Repository</h4>
-                        <pre><code>git clone https://github.com/your-username/vision-auto.git
-cd vision-auto</code></pre>
+                        <h4>저장소 복제</h4>
+                        <pre><code>git clone https://github.com/guenoh/AVANT.git
+cd AVANT</code></pre>
                     </div>
                     <div class="step">
-                        <h4>Install Dependencies</h4>
+                        <h4>의존성 설치</h4>
                         <pre><code>npm install</code></pre>
                     </div>
                     <div class="step">
-                        <h4>Start the Application</h4>
+                        <h4>애플리케이션 시작</h4>
                         <pre><code>npm start</code></pre>
                     </div>
                 </div>
             </section>
 
-            <!-- Device Setup -->
+            <!-- 디바이스 설정 -->
             <section id="device-setup">
-                <h2>3. Device Setup</h2>
+                <h2>3. 디바이스 설정</h2>
 
-                <h3>Enabling Developer Options</h3>
+                <h3>개발자 옵션 활성화</h3>
                 <div class="steps">
                     <div class="step">
-                        <h4>Open Settings</h4>
-                        <p>Navigate to Settings on your Android device.</p>
+                        <h4>설정 열기</h4>
+                        <p>Android 디바이스에서 설정으로 이동합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Find Build Number</h4>
-                        <p>Go to "About Phone" and locate "Build Number".</p>
+                        <h4>빌드 번호 찾기</h4>
+                        <p>"휴대전화 정보"로 이동하여 "빌드 번호"를 찾습니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Tap Seven Times</h4>
-                        <p>Tap on "Build Number" seven times. You will see a message confirming Developer Options are enabled.</p>
+                        <h4>7번 탭하기</h4>
+                        <p>"빌드 번호"를 7번 탭합니다. 개발자 옵션이 활성화되었다는 메시지가 표시됩니다.</p>
                     </div>
                 </div>
 
-                <h3>Enabling USB Debugging</h3>
+                <h3>USB 디버깅 활성화</h3>
                 <div class="steps">
                     <div class="step">
-                        <h4>Open Developer Options</h4>
-                        <p>Go to Settings > Developer Options (or Settings > System > Developer Options).</p>
+                        <h4>개발자 옵션 열기</h4>
+                        <p>설정 > 개발자 옵션 (또는 설정 > 시스템 > 개발자 옵션)으로 이동합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Enable USB Debugging</h4>
-                        <p>Find "USB debugging" and toggle it ON.</p>
+                        <h4>USB 디버깅 활성화</h4>
+                        <p>"USB 디버깅"을 찾아 켭니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Connect Device</h4>
-                        <p>Connect your device to the computer via USB cable.</p>
+                        <h4>디바이스 연결</h4>
+                        <p>USB 케이블을 통해 디바이스를 컴퓨터에 연결합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Accept Authorization</h4>
-                        <p>On your device, accept the "Allow USB debugging?" prompt. Check "Always allow" for convenience.</p>
+                        <h4>인증 수락</h4>
+                        <p>디바이스에서 "USB 디버깅을 허용하시겠습니까?" 프롬프트를 수락합니다. 편의를 위해 "항상 허용"을 체크합니다.</p>
                     </div>
                 </div>
 
                 <div class="info-box tip">
-                    <h5>Tip: Stay Awake Setting</h5>
-                    <p>Enable "Stay awake" in Developer Options to prevent the screen from turning off while the device is connected. This is useful during long automation sessions.</p>
+                    <h5>팁: 화면 켜짐 유지 설정</h5>
+                    <p>개발자 옵션에서 "화면 켜짐 유지"를 활성화하면 디바이스가 연결된 동안 화면이 꺼지지 않습니다. 긴 자동화 세션에 유용합니다.</p>
                 </div>
 
-                <h3>Verifying Connection</h3>
+                <h3>연결 확인</h3>
                 <pre><code>adb devices</code></pre>
-                <p>Expected output:</p>
+                <p>예상 출력:</p>
                 <pre><code>List of devices attached
 XXXXXXXXXX    device</code></pre>
 
                 <div class="info-box warning">
-                    <h5>If the device shows "unauthorized"</h5>
-                    <p>Disconnect and reconnect the USB cable, then accept the authorization prompt on your device. If no prompt appears, try running <code>adb kill-server</code> and reconnecting.</p>
+                    <h5>디바이스가 "unauthorized"로 표시되는 경우</h5>
+                    <p>USB 케이블을 분리했다가 다시 연결한 다음 디바이스에서 인증 프롬프트를 수락합니다. 프롬프트가 나타나지 않으면 <code>adb kill-server</code>를 실행하고 다시 연결해 보세요.</p>
                 </div>
             </section>
 
-            <!-- Interface Guide -->
+            <!-- 인터페이스 가이드 -->
             <section id="interface">
-                <h2>4. Interface Guide</h2>
+                <h2>4. 인터페이스 가이드</h2>
 
-                <h3>Main Window Layout</h3>
+                <h3>메인 창 레이아웃</h3>
                 <pre><code>+------------------------------------------------------------------+
-|  Toolbar                                                          |
+|  툴바                                                             |
 +------------------------------------------------------------------+
 |          |                              |                         |
-|  Device  |        Screen Preview        |     Scenario Panel      |
-|  Panel   |                              |                         |
-|          |                              |     - Action List       |
-|          |                              |     - Settings          |
-|          |                              |     - Controls          |
+|  디바이스 |        화면 미리보기          |     시나리오 패널        |
+|  패널    |                              |                         |
+|          |                              |     - 액션 목록          |
+|          |                              |     - 설정              |
+|          |                              |     - 컨트롤            |
 +----------+------------------------------+-------------------------+
-|                        Log Panel                                  |
+|                        로그 패널                                   |
 +------------------------------------------------------------------+</code></pre>
 
-                <h3>Panel Descriptions</h3>
+                <h3>패널 설명</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Panel</th>
-                            <th>Purpose</th>
+                            <th>패널</th>
+                            <th>용도</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Device Panel</td>
-                            <td>Select and manage connected devices. Shows connection status and device information.</td>
+                            <td>디바이스 패널</td>
+                            <td>연결된 디바이스를 선택하고 관리합니다. 연결 상태와 디바이스 정보를 표시합니다.</td>
                         </tr>
                         <tr>
-                            <td>Screen Preview</td>
-                            <td>Real-time display of the device screen. Supports crop mode for selecting image regions.</td>
+                            <td>화면 미리보기</td>
+                            <td>디바이스 화면을 실시간으로 표시합니다. 이미지 영역 선택을 위한 크롭 모드를 지원합니다.</td>
                         </tr>
                         <tr>
-                            <td>Scenario Panel</td>
-                            <td>Build and manage automation scenarios. Contains the action palette and action list.</td>
+                            <td>시나리오 패널</td>
+                            <td>자동화 시나리오를 빌드하고 관리합니다. 액션 팔레트와 액션 목록이 포함됩니다.</td>
                         </tr>
                         <tr>
-                            <td>Log Panel</td>
-                            <td>Displays execution logs, match results, and error messages.</td>
+                            <td>로그 패널</td>
+                            <td>실행 로그, 매칭 결과, 오류 메시지를 표시합니다.</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Toolbar Functions</h3>
+                <h3>툴바 기능</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Button</th>
-                            <th>Function</th>
+                            <th>버튼</th>
+                            <th>기능</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Refresh</td>
-                            <td>Capture a new screenshot from the device</td>
+                            <td>새로고침</td>
+                            <td>디바이스에서 새 스크린샷 캡처</td>
                         </tr>
                         <tr>
-                            <td>Crop Mode</td>
-                            <td>Enable region selection for image matching</td>
+                            <td>크롭 모드</td>
+                            <td>이미지 매칭을 위한 영역 선택 활성화</td>
                         </tr>
                         <tr>
-                            <td>Play</td>
-                            <td>Execute the current scenario</td>
+                            <td>재생</td>
+                            <td>현재 시나리오 실행</td>
                         </tr>
                         <tr>
-                            <td>Stop</td>
-                            <td>Stop the running scenario</td>
+                            <td>중지</td>
+                            <td>실행 중인 시나리오 중지</td>
                         </tr>
                         <tr>
-                            <td>Save</td>
-                            <td>Save the current scenario to a file</td>
+                            <td>저장</td>
+                            <td>현재 시나리오를 파일로 저장</td>
                         </tr>
                         <tr>
-                            <td>Load</td>
-                            <td>Load a scenario from a file</td>
+                            <td>불러오기</td>
+                            <td>파일에서 시나리오 불러오기</td>
                         </tr>
                     </tbody>
                 </table>
             </section>
 
-            <!-- Action Types -->
+            <!-- 액션 유형 -->
             <section id="actions">
-                <h2>5. Action Types</h2>
+                <h2>5. 액션 유형</h2>
 
-                <h3>Basic Actions</h3>
+                <h3>기본 액션</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Action</th>
-                            <th>Description</th>
-                            <th>Parameters</th>
+                            <th>액션</th>
+                            <th>설명</th>
+                            <th>매개변수</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Tap</td>
-                            <td>Single touch at specified coordinates</td>
-                            <td>X position, Y position</td>
+                            <td>탭</td>
+                            <td>지정된 좌표에서 단일 터치</td>
+                            <td>X 위치, Y 위치</td>
                         </tr>
                         <tr>
-                            <td>Long Press</td>
-                            <td>Extended touch at specified coordinates</td>
-                            <td>X position, Y position, Duration (ms)</td>
+                            <td>롱프레스</td>
+                            <td>지정된 좌표에서 확장된 터치</td>
+                            <td>X 위치, Y 위치, 지속 시간 (ms)</td>
                         </tr>
                         <tr>
-                            <td>Swipe</td>
-                            <td>Slide from one point to another</td>
-                            <td>Start X/Y, End X/Y, Duration (ms)</td>
+                            <td>스와이프</td>
+                            <td>한 지점에서 다른 지점으로 슬라이드</td>
+                            <td>시작 X/Y, 끝 X/Y, 지속 시간 (ms)</td>
                         </tr>
                         <tr>
-                            <td>Drag</td>
-                            <td>Touch and hold while moving</td>
-                            <td>Start X/Y, End X/Y, Duration (ms)</td>
+                            <td>드래그</td>
+                            <td>터치 후 홀드하면서 이동</td>
+                            <td>시작 X/Y, 끝 X/Y, 지속 시간 (ms)</td>
                         </tr>
                         <tr>
-                            <td>Text Input</td>
-                            <td>Enter text on the focused field</td>
-                            <td>Text string</td>
+                            <td>텍스트 입력</td>
+                            <td>포커스된 필드에 텍스트 입력</td>
+                            <td>텍스트 문자열</td>
                         </tr>
                         <tr>
-                            <td>Wait</td>
-                            <td>Pause execution for specified duration</td>
-                            <td>Duration (ms)</td>
+                            <td>대기</td>
+                            <td>지정된 시간 동안 실행 일시 중지</td>
+                            <td>지속 시간 (ms)</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Hardware Key Actions</h3>
+                <h3>하드웨어 키 액션</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Action</th>
-                            <th>Description</th>
+                            <th>액션</th>
+                            <th>설명</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>Home</td>
-                            <td>Navigate to the home screen</td>
+                            <td>홈 화면으로 이동</td>
                         </tr>
                         <tr>
                             <td>Back</td>
-                            <td>Go back or close the current dialog</td>
+                            <td>뒤로 가기 또는 현재 다이얼로그 닫기</td>
                         </tr>
                         <tr>
-                            <td>Recent Apps</td>
-                            <td>Open the recent apps view</td>
+                            <td>최근 앱</td>
+                            <td>최근 앱 보기 열기</td>
                         </tr>
                         <tr>
-                            <td>Volume Up/Down</td>
-                            <td>Adjust device volume</td>
+                            <td>볼륨 업/다운</td>
+                            <td>디바이스 볼륨 조정</td>
                         </tr>
                         <tr>
-                            <td>Power</td>
-                            <td>Toggle screen on/off</td>
+                            <td>전원</td>
+                            <td>화면 켜기/끄기 토글</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Smart Actions</h3>
+                <h3>스마트 액션</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Action</th>
-                            <th>Description</th>
-                            <th>Parameters</th>
+                            <th>액션</th>
+                            <th>설명</th>
+                            <th>매개변수</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Image Match</td>
-                            <td>Search for an image on the screen</td>
-                            <td>Template image, Threshold (%), Timeout (ms)</td>
+                            <td>이미지 매칭</td>
+                            <td>화면에서 이미지 검색</td>
+                            <td>템플릿 이미지, 임계값 (%), 타임아웃 (ms)</td>
                         </tr>
                         <tr>
-                            <td>Tap Matched</td>
-                            <td>Tap the location of the last successful match</td>
-                            <td>None</td>
+                            <td>매칭 탭</td>
+                            <td>마지막으로 성공한 매칭 위치 탭</td>
+                            <td>없음</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Control Flow Actions</h3>
+                <h3>제어 흐름 액션</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Action</th>
-                            <th>Description</th>
+                            <th>액션</th>
+                            <th>설명</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>IF</td>
-                            <td>Execute contained actions if the condition (image match) is true</td>
+                            <td>조건(이미지 매칭)이 참이면 포함된 액션 실행</td>
                         </tr>
                         <tr>
                             <td>ELSE IF</td>
-                            <td>Alternative condition check if previous IF was false</td>
+                            <td>이전 IF가 거짓이면 대체 조건 확인</td>
                         </tr>
                         <tr>
                             <td>ELSE</td>
-                            <td>Execute if all previous conditions were false</td>
+                            <td>모든 이전 조건이 거짓이면 실행</td>
                         </tr>
                         <tr>
                             <td>WHILE</td>
-                            <td>Repeat contained actions while the condition is true</td>
+                            <td>조건이 참인 동안 포함된 액션 반복</td>
                         </tr>
                         <tr>
                             <td>LOOP</td>
-                            <td>Repeat contained actions a fixed number of times</td>
+                            <td>포함된 액션을 고정 횟수만큼 반복</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Result Actions</h3>
+                <h3>결과 액션</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Action</th>
-                            <th>Description</th>
+                            <th>액션</th>
+                            <th>설명</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Success</td>
-                            <td>Mark the scenario as passed and stop execution</td>
+                            <td>성공</td>
+                            <td>시나리오를 통과로 표시하고 실행 중지</td>
                         </tr>
                         <tr>
-                            <td>Fail</td>
-                            <td>Mark the scenario as failed and stop execution</td>
+                            <td>실패</td>
+                            <td>시나리오를 실패로 표시하고 실행 중지</td>
                         </tr>
                         <tr>
-                            <td>Skip</td>
-                            <td>Skip remaining actions (neutral result)</td>
+                            <td>건너뛰기</td>
+                            <td>나머지 액션 건너뛰기 (중립 결과)</td>
                         </tr>
                     </tbody>
                 </table>
             </section>
 
-            <!-- Creating Scenarios -->
+            <!-- 시나리오 생성 -->
             <section id="scenarios">
-                <h2>6. Creating Scenarios</h2>
+                <h2>6. 시나리오 생성</h2>
 
-                <h3>Capturing Image Regions</h3>
+                <h3>이미지 영역 캡처</h3>
                 <div class="steps">
                     <div class="step">
-                        <h4>Enable Crop Mode</h4>
-                        <p>Click the "Crop Mode" button in the toolbar. The button will change color to indicate it's active.</p>
+                        <h4>크롭 모드 활성화</h4>
+                        <p>툴바에서 "크롭 모드" 버튼을 클릭합니다. 버튼 색상이 변경되어 활성화를 나타냅니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Select Region</h4>
-                        <p>Click and drag on the screen preview to select the target region. A selection box will appear as you drag.</p>
+                        <h4>영역 선택</h4>
+                        <p>화면 미리보기에서 클릭하고 드래그하여 대상 영역을 선택합니다. 드래그할 때 선택 상자가 나타납니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Configure Action</h4>
-                        <p>A dialog will appear with the captured image. Set the match threshold and the action to perform when matched.</p>
+                        <h4>액션 설정</h4>
+                        <p>캡처된 이미지와 함께 다이얼로그가 나타납니다. 매칭 임계값과 매칭 시 수행할 액션을 설정합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Add to Scenario</h4>
-                        <p>Click "Add Action" to add the image match action to your scenario.</p>
+                        <h4>시나리오에 추가</h4>
+                        <p>"액션 추가"를 클릭하여 시나리오에 이미지 매칭 액션을 추가합니다.</p>
                     </div>
                 </div>
 
-                <h3>Best Practices for Image Selection</h3>
+                <h3>이미지 선택 모범 사례</h3>
 
                 <div class="card-grid">
                     <div class="card">
-                        <h4>Good Selections</h4>
+                        <h4>좋은 선택</h4>
                         <ul>
-                            <li>Unique visual elements</li>
-                            <li>Include surrounding context</li>
-                            <li>Distinct colors or patterns</li>
-                            <li>Static elements</li>
+                            <li>고유한 시각적 요소</li>
+                            <li>주변 컨텍스트 포함</li>
+                            <li>뚜렷한 색상 또는 패턴</li>
+                            <li>정적 요소</li>
                         </ul>
                     </div>
                     <div class="card">
-                        <h4>Avoid</h4>
+                        <h4>피해야 할 것</h4>
                         <ul>
-                            <li>Regions smaller than 20x20 pixels</li>
-                            <li>Animated or changing content</li>
-                            <li>Elements that appear multiple times</li>
-                            <li>Pure white or solid color areas</li>
+                            <li>20x20 픽셀보다 작은 영역</li>
+                            <li>애니메이션되거나 변경되는 콘텐츠</li>
+                            <li>여러 번 나타나는 요소</li>
+                            <li>순수 흰색 또는 단색 영역</li>
                         </ul>
                     </div>
                 </div>
 
-                <h3>Setting Match Thresholds</h3>
+                <h3>매칭 임계값 설정</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Threshold Range</th>
-                            <th>Recommended Use</th>
+                            <th>임계값 범위</th>
+                            <th>권장 용도</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>95-100%</td>
-                            <td>Pixel-perfect matches, static content that never changes</td>
+                            <td>픽셀 완벽 매칭, 절대 변하지 않는 정적 콘텐츠</td>
                         </tr>
                         <tr>
                             <td>85-95%</td>
-                            <td>Standard UI elements with minor variations (recommended starting point)</td>
+                            <td>약간의 변형이 있는 표준 UI 요소 (권장 시작점)</td>
                         </tr>
                         <tr>
                             <td>75-85%</td>
-                            <td>Dynamic content with consistent layout</td>
+                            <td>일관된 레이아웃의 동적 콘텐츠</td>
                         </tr>
                         <tr>
                             <td>60-75%</td>
-                            <td>Significant variation expected (use with caution, may cause false positives)</td>
+                            <td>상당한 변형 예상 (주의해서 사용, 오탐지 발생 가능)</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Building Conditional Logic</h3>
-                <h4>Example: Login Flow with Error Handling</h4>
-                <pre><code>IF [Login Button visible]
-    Tap matched location
-    Wait 3000ms
-    IF [Home Screen visible]
-        Success
-    ELSE IF [Error Message visible]
-        Tap [Retry Button]
+                <h3>조건부 로직 구축</h3>
+                <h4>예제: 오류 처리가 있는 로그인 흐름</h4>
+                <pre><code>IF [로그인 버튼 표시됨]
+    매칭된 위치 탭
+    3000ms 대기
+    IF [홈 화면 표시됨]
+        성공
+    ELSE IF [에러 메시지 표시됨]
+        [재시도 버튼] 탭
     ELSE
-        Fail
+        실패
     ENDIF
 ENDIF</code></pre>
 
-                <h4>Example: Scroll Until Found</h4>
-                <pre><code>WHILE [Target Item NOT visible]
-    Swipe up
-    Wait 500ms
+                <h4>예제: 찾을 때까지 스크롤</h4>
+                <pre><code>WHILE [대상 항목 표시 안됨]
+    위로 스와이프
+    500ms 대기
 ENDWHILE
-Tap matched location</code></pre>
+매칭된 위치 탭</code></pre>
 
-                <h3>Saving and Loading Scenarios</h3>
-                <p>Scenarios are saved as JSON files that can be shared and reused across different computers.</p>
+                <h3>시나리오 저장 및 불러오기</h3>
+                <p>시나리오는 다른 컴퓨터에서 공유하고 재사용할 수 있는 JSON 파일로 저장됩니다.</p>
                 <ul>
-                    <li><strong>Save</strong>: Click "Save Scenario" and enter a descriptive name</li>
-                    <li><strong>Load</strong>: Click "Load Scenario" and select the file</li>
-                    <li><strong>Export</strong>: Use export function for sharing with others</li>
+                    <li><strong>저장</strong>: "시나리오 저장"을 클릭하고 설명적인 이름 입력</li>
+                    <li><strong>불러오기</strong>: "시나리오 불러오기"를 클릭하고 파일 선택</li>
+                    <li><strong>내보내기</strong>: 다른 사람과 공유하기 위해 내보내기 기능 사용</li>
                 </ul>
             </section>
 
-            <!-- Execution -->
+            <!-- 실행 -->
             <section id="execution">
-                <h2>7. Scenario Execution</h2>
+                <h2>7. 시나리오 실행</h2>
 
-                <h3>Running a Scenario</h3>
+                <h3>시나리오 실행하기</h3>
                 <div class="steps">
                     <div class="step">
-                        <h4>Verify Connection</h4>
-                        <p>Ensure your device is connected and visible in the device panel.</p>
+                        <h4>연결 확인</h4>
+                        <p>디바이스가 연결되어 있고 디바이스 패널에 표시되는지 확인합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Check Actions</h4>
-                        <p>Review the action list to confirm all actions are correctly configured.</p>
+                        <h4>액션 확인</h4>
+                        <p>액션 목록을 검토하여 모든 액션이 올바르게 설정되었는지 확인합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Start Execution</h4>
-                        <p>Click the "Play" button to begin execution.</p>
+                        <h4>실행 시작</h4>
+                        <p>"재생" 버튼을 클릭하여 실행을 시작합니다.</p>
                     </div>
                     <div class="step">
-                        <h4>Monitor Progress</h4>
-                        <p>Watch the screen preview and log panel for execution progress and results.</p>
+                        <h4>진행 상황 모니터링</h4>
+                        <p>화면 미리보기와 로그 패널에서 실행 진행 상황과 결과를 확인합니다.</p>
                     </div>
                 </div>
 
-                <h3>Execution States</h3>
+                <h3>실행 상태</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>State</th>
-                            <th>Description</th>
+                            <th>상태</th>
+                            <th>설명</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Idle</td>
-                            <td>Ready to execute</td>
+                            <td>대기 중</td>
+                            <td>실행 준비 완료</td>
                         </tr>
                         <tr>
-                            <td>Running</td>
-                            <td>Scenario is executing</td>
+                            <td>실행 중</td>
+                            <td>시나리오 실행 중</td>
                         </tr>
                         <tr>
-                            <td>Paused</td>
-                            <td>Execution is paused (if applicable)</td>
+                            <td>일시 중지됨</td>
+                            <td>실행이 일시 중지됨 (해당하는 경우)</td>
                         </tr>
                         <tr>
-                            <td>Completed</td>
-                            <td>Scenario finished successfully</td>
+                            <td>완료됨</td>
+                            <td>시나리오가 성공적으로 완료됨</td>
                         </tr>
                         <tr>
-                            <td>Failed</td>
-                            <td>Scenario encountered an error</td>
+                            <td>실패함</td>
+                            <td>시나리오에서 오류 발생</td>
                         </tr>
                         <tr>
-                            <td>Stopped</td>
-                            <td>User stopped the execution</td>
+                            <td>중지됨</td>
+                            <td>사용자가 실행을 중지함</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Understanding Results</h3>
-                <p>After execution, the log panel displays detailed results including:</p>
+                <h3>결과 이해하기</h3>
+                <p>실행 후 로그 패널에 다음을 포함한 상세 결과가 표시됩니다:</p>
                 <ul>
-                    <li>Each action executed and its duration</li>
-                    <li>Image match scores and results</li>
-                    <li>Any errors or warnings encountered</li>
-                    <li>Overall scenario result (Pass/Fail)</li>
+                    <li>실행된 각 액션과 소요 시간</li>
+                    <li>이미지 매칭 점수 및 결과</li>
+                    <li>발생한 오류 또는 경고</li>
+                    <li>전체 시나리오 결과 (통과/실패)</li>
                 </ul>
 
                 <div class="info-box tip">
-                    <h5>Tip: AI Analysis</h5>
-                    <p>If a scenario fails, you can use the AI Analysis feature to get recommendations for fixing the issue. The analysis considers match scores, device logs, and action history to provide actionable suggestions.</p>
+                    <h5>팁: AI 분석</h5>
+                    <p>시나리오가 실패하면 AI 분석 기능을 사용하여 문제 해결을 위한 권장 사항을 받을 수 있습니다. 분석은 매칭 점수, 디바이스 로그, 액션 이력을 고려하여 실행 가능한 제안을 제공합니다.</p>
                 </div>
             </section>
 
-            <!-- Troubleshooting -->
+            <!-- 문제 해결 -->
             <section id="troubleshooting">
-                <h2>8. Troubleshooting</h2>
+                <h2>8. 문제 해결</h2>
 
-                <h3>Device Not Detected</h3>
+                <h3>디바이스가 감지되지 않음</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Device does not appear in the device dropdown.</p>
+                    <h5>문제</h5>
+                    <p>디바이스가 디바이스 드롭다운에 나타나지 않습니다.</p>
                 </div>
-                <p><strong>Solutions:</strong></p>
+                <p><strong>해결 방법:</strong></p>
                 <ol>
-                    <li>Verify the USB cable is data-capable (not charge-only)</li>
-                    <li>Check USB debugging is enabled on the device</li>
-                    <li>Accept the "Allow USB debugging" prompt on the device</li>
-                    <li>Restart the ADB server:
+                    <li>USB 케이블이 데이터 전송 가능한지 확인 (충전 전용이 아닌지)</li>
+                    <li>디바이스에서 USB 디버깅이 활성화되어 있는지 확인</li>
+                    <li>디바이스에서 "USB 디버깅 허용" 프롬프트 수락</li>
+                    <li>ADB 서버 재시작:
                         <pre><code>adb kill-server
 adb start-server
 adb devices</code></pre>
                     </li>
-                    <li>Try a different USB port</li>
+                    <li>다른 USB 포트 시도</li>
                 </ol>
 
-                <h3>Device Shows "Unauthorized"</h3>
+                <h3>디바이스가 "Unauthorized" 표시</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Device appears in the list but shows "unauthorized" status.</p>
+                    <h5>문제</h5>
+                    <p>디바이스가 목록에 나타나지만 "unauthorized" 상태로 표시됩니다.</p>
                 </div>
-                <p><strong>Solutions:</strong></p>
+                <p><strong>해결 방법:</strong></p>
                 <ol>
-                    <li>Disconnect and reconnect the USB cable</li>
-                    <li>Look for the authorization prompt on the device screen</li>
-                    <li>Check "Always allow from this computer"</li>
-                    <li>If the prompt doesn't appear:
+                    <li>USB 케이블 분리 후 재연결</li>
+                    <li>디바이스 화면에서 인증 프롬프트 확인</li>
+                    <li>"이 컴퓨터에서 항상 허용" 체크</li>
+                    <li>프롬프트가 나타나지 않으면:
                         <pre><code>adb kill-server
 rm ~/.android/adbkey*    # macOS/Linux
 adb start-server</code></pre>
                     </li>
-                    <li>Reconnect and accept the prompt</li>
+                    <li>재연결하고 프롬프트 수락</li>
                 </ol>
 
-                <h3>Screen Capture Returns Black Image</h3>
+                <h3>화면 캡처가 검은색 이미지 반환</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Screen preview shows black or blank image.</p>
+                    <h5>문제</h5>
+                    <p>화면 미리보기가 검은색 또는 빈 이미지를 표시합니다.</p>
                 </div>
-                <p><strong>Solutions:</strong></p>
+                <p><strong>해결 방법:</strong></p>
                 <ol>
-                    <li>Ensure the device screen is unlocked</li>
-                    <li>Check if the current app has a secure flag (banking apps often do)</li>
-                    <li>Disable any screen overlay apps</li>
-                    <li>Try capturing from a different app (e.g., home screen)</li>
-                    <li>Restart the Vision Auto application</li>
+                    <li>디바이스 화면이 잠금 해제되어 있는지 확인</li>
+                    <li>현재 앱에 보안 플래그가 있는지 확인 (뱅킹 앱에서 자주 발생)</li>
+                    <li>화면 오버레이 앱 비활성화</li>
+                    <li>다른 앱(예: 홈 화면)에서 캡처 시도</li>
+                    <li>Vision Auto 애플리케이션 재시작</li>
                 </ol>
 
-                <h3>Image Matching Always Fails</h3>
+                <h3>이미지 매칭이 항상 실패</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Match never succeeds even when the target is visible.</p>
+                    <h5>문제</h5>
+                    <p>대상이 보이는데도 매칭이 성공하지 않습니다.</p>
                 </div>
-                <p><strong>Solutions:</strong></p>
+                <p><strong>해결 방법:</strong></p>
                 <ol>
-                    <li>Lower the threshold (try 75-80%)</li>
-                    <li>Recapture the template from the current screen</li>
-                    <li>Ensure device resolution hasn't changed</li>
-                    <li>Avoid capturing animated elements</li>
-                    <li>Select a larger, more distinctive region</li>
+                    <li>임계값 낮추기 (75-80% 시도)</li>
+                    <li>현재 화면에서 템플릿 다시 캡처</li>
+                    <li>디바이스 해상도가 변경되지 않았는지 확인</li>
+                    <li>애니메이션 요소 캡처 피하기</li>
+                    <li>더 크고 뚜렷한 영역 선택</li>
                 </ol>
 
-                <h3>Slow Screen Streaming</h3>
+                <h3>느린 화면 스트리밍</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Screen preview updates slowly or lags.</p>
+                    <h5>문제</h5>
+                    <p>화면 미리보기가 느리게 업데이트되거나 지연됩니다.</p>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Cause</th>
-                            <th>Solution</th>
+                            <th>원인</th>
+                            <th>해결 방법</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>USB 2.0</td>
-                            <td>Use a USB 3.0 port</td>
+                            <td>USB 3.0 포트 사용</td>
                         </tr>
                         <tr>
-                            <td>High resolution</td>
-                            <td>Lower device resolution in display settings</td>
+                            <td>높은 해상도</td>
+                            <td>디스플레이 설정에서 디바이스 해상도 낮추기</td>
                         </tr>
                         <tr>
-                            <td>CPU load</td>
-                            <td>Close other applications</td>
+                            <td>CPU 부하</td>
+                            <td>다른 애플리케이션 종료</td>
                         </tr>
                         <tr>
-                            <td>Wireless connection</td>
-                            <td>Use USB for better performance</td>
+                            <td>무선 연결</td>
+                            <td>더 나은 성능을 위해 USB 사용</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <h3>Application Crashes</h3>
+                <h3>애플리케이션 충돌</h3>
                 <div class="info-box danger">
-                    <h5>Problem</h5>
-                    <p>Application crashes on startup or during use.</p>
+                    <h5>문제</h5>
+                    <p>애플리케이션이 시작 시 또는 사용 중 충돌합니다.</p>
                 </div>
-                <p><strong>Solutions:</strong></p>
+                <p><strong>해결 방법:</strong></p>
                 <ol>
-                    <li>Delete <code>node_modules</code> and reinstall:
+                    <li><code>node_modules</code> 삭제 후 재설치:
                         <pre><code>rm -rf node_modules
 npm install</code></pre>
                     </li>
-                    <li>Check Node.js version (18+ required)</li>
-                    <li>Run in debug mode: <code>npm run dev</code></li>
-                    <li>Check the console for error messages</li>
+                    <li>Node.js 버전 확인 (18+ 필요)</li>
+                    <li>디버그 모드로 실행: <code>npm run dev</code></li>
+                    <li>콘솔에서 오류 메시지 확인</li>
                 </ol>
             </section>
         </div>
@@ -1036,8 +1059,8 @@ npm install</code></pre>
 
     <footer>
         <div class="container">
-            <p>Vision Auto User Manual</p>
-            <p>For more information, see the README.md or project documentation.</p>
+            <p>Vision Auto 사용자 매뉴얼</p>
+            <p>자세한 내용은 README.md 또는 프로젝트 문서를 참조하세요.</p>
         </div>
     </footer>
 </body>

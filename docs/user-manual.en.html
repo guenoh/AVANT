@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Auto - User Manual</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #16a34a;
+            --warning-color: #ca8a04;
+            --error-color: #dc2626;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--card-background);
+            border-bottom: 1px solid var(--border-color);
+            padding: 24px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        header p {
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Navigation */
+        nav {
+            background-color: var(--card-background);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 0;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Main Content */
+        main {
+            padding: 48px 0;
+        }
+
+        section {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 24px 0 16px 0;
+            color: var(--text-primary);
+        }
+
+        h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 20px 0 12px 0;
+            color: var(--text-secondary);
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--background-color);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        tr:hover {
+            background-color: var(--background-color);
+        }
+
+        /* Code */
+        code {
+            background-color: var(--background-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        pre {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* Info Boxes */
+        .info-box {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+
+        .info-box.tip {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .info-box.warning {
+            background-color: #fefce8;
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .info-box.danger {
+            background-color: #fef2f2;
+            border-left: 4px solid var(--error-color);
+        }
+
+        .info-box h5 {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            margin: 0;
+        }
+
+        /* Steps */
+        .steps {
+            counter-reset: step;
+        }
+
+        .step {
+            position: relative;
+            padding-left: 48px;
+            margin-bottom: 24px;
+        }
+
+        .step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 32px;
+            height: 32px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .step h4 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+
+        /* Cards Grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background-color: var(--background-color);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .card h4 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 32px 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav ul {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            section {
+                padding: 24px;
+            }
+
+            .step {
+                padding-left: 40px;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            header, nav {
+                position: static;
+            }
+
+            section {
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Vision Auto</h1>
+            <p>Android Device Automation User Manual</p>
+        </div>
+    </header>
+
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="#introduction">Introduction</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#device-setup">Device Setup</a></li>
+                <li><a href="#interface">Interface Guide</a></li>
+                <li><a href="#actions">Action Types</a></li>
+                <li><a href="#scenarios">Creating Scenarios</a></li>
+                <li><a href="#execution">Execution</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <!-- Introduction -->
+            <section id="introduction">
+                <h2>1. Introduction</h2>
+
+                <h3>What is Vision Auto?</h3>
+                <p>Vision Auto is a desktop application for automating Android devices using image recognition technology. It enables users to create automation scenarios without requiring programming knowledge or access to the internal structure of apps.</p>
+
+                <h3>Key Features</h3>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Image-Based Automation</h4>
+                        <p>Find and interact with UI elements by visual appearance, not internal identifiers.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Real-time Screen Mirroring</h4>
+                        <p>See exactly what's happening on your device in real-time.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Conditional Logic</h4>
+                        <p>Create complex scenarios with IF/ELSE branching based on screen content.</p>
+                    </div>
+                    <div class="card">
+                        <h4>No Root Required</h4>
+                        <p>Works with standard Android devices using only USB debugging.</p>
+                    </div>
+                </div>
+
+                <h3>Use Cases</h3>
+                <ul>
+                    <li><strong>Quality Assurance Testing</strong>: Automate repetitive test scenarios</li>
+                    <li><strong>Device Configuration</strong>: Set up multiple devices with consistent settings</li>
+                    <li><strong>App Demonstrations</strong>: Create reproducible demo sequences</li>
+                    <li><strong>Data Collection</strong>: Automate data extraction from visual interfaces</li>
+                </ul>
+            </section>
+
+            <!-- Installation -->
+            <section id="installation">
+                <h2>2. Installation</h2>
+
+                <h3>Prerequisites</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Requirement</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Operating System</td>
+                            <td>macOS 12+, Windows 10+, or Linux (Ubuntu 20.04+)</td>
+                        </tr>
+                        <tr>
+                            <td>Node.js</td>
+                            <td>Version 18.0 or later</td>
+                        </tr>
+                        <tr>
+                            <td>ADB</td>
+                            <td>Android Debug Bridge (any recent version)</td>
+                        </tr>
+                        <tr>
+                            <td>RAM</td>
+                            <td>4 GB minimum, 8 GB recommended</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Installing ADB</h3>
+
+                <h4>macOS (using Homebrew)</h4>
+                <pre><code>brew install android-platform-tools</code></pre>
+
+                <h4>Windows</h4>
+                <ol>
+                    <li>Download Android SDK Platform Tools from the official Android website</li>
+                    <li>Extract the ZIP file to a folder (e.g., <code>C:\platform-tools</code>)</li>
+                    <li>Add the folder path to your system's PATH environment variable</li>
+                </ol>
+
+                <h4>Linux (Debian/Ubuntu)</h4>
+                <pre><code>sudo apt-get update
+sudo apt-get install android-tools-adb</code></pre>
+
+                <h4>Verify Installation</h4>
+                <pre><code>adb version</code></pre>
+
+                <h3>Installing Vision Auto</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Clone the Repository</h4>
+                        <pre><code>git clone https://github.com/your-username/vision-auto.git
+cd vision-auto</code></pre>
+                    </div>
+                    <div class="step">
+                        <h4>Install Dependencies</h4>
+                        <pre><code>npm install</code></pre>
+                    </div>
+                    <div class="step">
+                        <h4>Start the Application</h4>
+                        <pre><code>npm start</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Device Setup -->
+            <section id="device-setup">
+                <h2>3. Device Setup</h2>
+
+                <h3>Enabling Developer Options</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Open Settings</h4>
+                        <p>Navigate to Settings on your Android device.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Find Build Number</h4>
+                        <p>Go to "About Phone" and locate "Build Number".</p>
+                    </div>
+                    <div class="step">
+                        <h4>Tap Seven Times</h4>
+                        <p>Tap on "Build Number" seven times. You will see a message confirming Developer Options are enabled.</p>
+                    </div>
+                </div>
+
+                <h3>Enabling USB Debugging</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Open Developer Options</h4>
+                        <p>Go to Settings > Developer Options (or Settings > System > Developer Options).</p>
+                    </div>
+                    <div class="step">
+                        <h4>Enable USB Debugging</h4>
+                        <p>Find "USB debugging" and toggle it ON.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Connect Device</h4>
+                        <p>Connect your device to the computer via USB cable.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Accept Authorization</h4>
+                        <p>On your device, accept the "Allow USB debugging?" prompt. Check "Always allow" for convenience.</p>
+                    </div>
+                </div>
+
+                <div class="info-box tip">
+                    <h5>Tip: Stay Awake Setting</h5>
+                    <p>Enable "Stay awake" in Developer Options to prevent the screen from turning off while the device is connected. This is useful during long automation sessions.</p>
+                </div>
+
+                <h3>Verifying Connection</h3>
+                <pre><code>adb devices</code></pre>
+                <p>Expected output:</p>
+                <pre><code>List of devices attached
+XXXXXXXXXX    device</code></pre>
+
+                <div class="info-box warning">
+                    <h5>If the device shows "unauthorized"</h5>
+                    <p>Disconnect and reconnect the USB cable, then accept the authorization prompt on your device. If no prompt appears, try running <code>adb kill-server</code> and reconnecting.</p>
+                </div>
+            </section>
+
+            <!-- Interface Guide -->
+            <section id="interface">
+                <h2>4. Interface Guide</h2>
+
+                <h3>Main Window Layout</h3>
+                <pre><code>+------------------------------------------------------------------+
+|  Toolbar                                                          |
++------------------------------------------------------------------+
+|          |                              |                         |
+|  Device  |        Screen Preview        |     Scenario Panel      |
+|  Panel   |                              |                         |
+|          |                              |     - Action List       |
+|          |                              |     - Settings          |
+|          |                              |     - Controls          |
++----------+------------------------------+-------------------------+
+|                        Log Panel                                  |
++------------------------------------------------------------------+</code></pre>
+
+                <h3>Panel Descriptions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Panel</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Device Panel</td>
+                            <td>Select and manage connected devices. Shows connection status and device information.</td>
+                        </tr>
+                        <tr>
+                            <td>Screen Preview</td>
+                            <td>Real-time display of the device screen. Supports crop mode for selecting image regions.</td>
+                        </tr>
+                        <tr>
+                            <td>Scenario Panel</td>
+                            <td>Build and manage automation scenarios. Contains the action palette and action list.</td>
+                        </tr>
+                        <tr>
+                            <td>Log Panel</td>
+                            <td>Displays execution logs, match results, and error messages.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Toolbar Functions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Button</th>
+                            <th>Function</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Refresh</td>
+                            <td>Capture a new screenshot from the device</td>
+                        </tr>
+                        <tr>
+                            <td>Crop Mode</td>
+                            <td>Enable region selection for image matching</td>
+                        </tr>
+                        <tr>
+                            <td>Play</td>
+                            <td>Execute the current scenario</td>
+                        </tr>
+                        <tr>
+                            <td>Stop</td>
+                            <td>Stop the running scenario</td>
+                        </tr>
+                        <tr>
+                            <td>Save</td>
+                            <td>Save the current scenario to a file</td>
+                        </tr>
+                        <tr>
+                            <td>Load</td>
+                            <td>Load a scenario from a file</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Action Types -->
+            <section id="actions">
+                <h2>5. Action Types</h2>
+
+                <h3>Basic Actions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>Parameters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Tap</td>
+                            <td>Single touch at specified coordinates</td>
+                            <td>X position, Y position</td>
+                        </tr>
+                        <tr>
+                            <td>Long Press</td>
+                            <td>Extended touch at specified coordinates</td>
+                            <td>X position, Y position, Duration (ms)</td>
+                        </tr>
+                        <tr>
+                            <td>Swipe</td>
+                            <td>Slide from one point to another</td>
+                            <td>Start X/Y, End X/Y, Duration (ms)</td>
+                        </tr>
+                        <tr>
+                            <td>Drag</td>
+                            <td>Touch and hold while moving</td>
+                            <td>Start X/Y, End X/Y, Duration (ms)</td>
+                        </tr>
+                        <tr>
+                            <td>Text Input</td>
+                            <td>Enter text on the focused field</td>
+                            <td>Text string</td>
+                        </tr>
+                        <tr>
+                            <td>Wait</td>
+                            <td>Pause execution for specified duration</td>
+                            <td>Duration (ms)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Hardware Key Actions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Home</td>
+                            <td>Navigate to the home screen</td>
+                        </tr>
+                        <tr>
+                            <td>Back</td>
+                            <td>Go back or close the current dialog</td>
+                        </tr>
+                        <tr>
+                            <td>Recent Apps</td>
+                            <td>Open the recent apps view</td>
+                        </tr>
+                        <tr>
+                            <td>Volume Up/Down</td>
+                            <td>Adjust device volume</td>
+                        </tr>
+                        <tr>
+                            <td>Power</td>
+                            <td>Toggle screen on/off</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Smart Actions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>Parameters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Image Match</td>
+                            <td>Search for an image on the screen</td>
+                            <td>Template image, Threshold (%), Timeout (ms)</td>
+                        </tr>
+                        <tr>
+                            <td>Tap Matched</td>
+                            <td>Tap the location of the last successful match</td>
+                            <td>None</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Control Flow Actions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>IF</td>
+                            <td>Execute contained actions if the condition (image match) is true</td>
+                        </tr>
+                        <tr>
+                            <td>ELSE IF</td>
+                            <td>Alternative condition check if previous IF was false</td>
+                        </tr>
+                        <tr>
+                            <td>ELSE</td>
+                            <td>Execute if all previous conditions were false</td>
+                        </tr>
+                        <tr>
+                            <td>WHILE</td>
+                            <td>Repeat contained actions while the condition is true</td>
+                        </tr>
+                        <tr>
+                            <td>LOOP</td>
+                            <td>Repeat contained actions a fixed number of times</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Result Actions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Success</td>
+                            <td>Mark the scenario as passed and stop execution</td>
+                        </tr>
+                        <tr>
+                            <td>Fail</td>
+                            <td>Mark the scenario as failed and stop execution</td>
+                        </tr>
+                        <tr>
+                            <td>Skip</td>
+                            <td>Skip remaining actions (neutral result)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Creating Scenarios -->
+            <section id="scenarios">
+                <h2>6. Creating Scenarios</h2>
+
+                <h3>Capturing Image Regions</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Enable Crop Mode</h4>
+                        <p>Click the "Crop Mode" button in the toolbar. The button will change color to indicate it's active.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Select Region</h4>
+                        <p>Click and drag on the screen preview to select the target region. A selection box will appear as you drag.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Configure Action</h4>
+                        <p>A dialog will appear with the captured image. Set the match threshold and the action to perform when matched.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Add to Scenario</h4>
+                        <p>Click "Add Action" to add the image match action to your scenario.</p>
+                    </div>
+                </div>
+
+                <h3>Best Practices for Image Selection</h3>
+
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Good Selections</h4>
+                        <ul>
+                            <li>Unique visual elements</li>
+                            <li>Include surrounding context</li>
+                            <li>Distinct colors or patterns</li>
+                            <li>Static elements</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>Avoid</h4>
+                        <ul>
+                            <li>Regions smaller than 20x20 pixels</li>
+                            <li>Animated or changing content</li>
+                            <li>Elements that appear multiple times</li>
+                            <li>Pure white or solid color areas</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Setting Match Thresholds</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Threshold Range</th>
+                            <th>Recommended Use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>95-100%</td>
+                            <td>Pixel-perfect matches, static content that never changes</td>
+                        </tr>
+                        <tr>
+                            <td>85-95%</td>
+                            <td>Standard UI elements with minor variations (recommended starting point)</td>
+                        </tr>
+                        <tr>
+                            <td>75-85%</td>
+                            <td>Dynamic content with consistent layout</td>
+                        </tr>
+                        <tr>
+                            <td>60-75%</td>
+                            <td>Significant variation expected (use with caution, may cause false positives)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Building Conditional Logic</h3>
+                <h4>Example: Login Flow with Error Handling</h4>
+                <pre><code>IF [Login Button visible]
+    Tap matched location
+    Wait 3000ms
+    IF [Home Screen visible]
+        Success
+    ELSE IF [Error Message visible]
+        Tap [Retry Button]
+    ELSE
+        Fail
+    ENDIF
+ENDIF</code></pre>
+
+                <h4>Example: Scroll Until Found</h4>
+                <pre><code>WHILE [Target Item NOT visible]
+    Swipe up
+    Wait 500ms
+ENDWHILE
+Tap matched location</code></pre>
+
+                <h3>Saving and Loading Scenarios</h3>
+                <p>Scenarios are saved as JSON files that can be shared and reused across different computers.</p>
+                <ul>
+                    <li><strong>Save</strong>: Click "Save Scenario" and enter a descriptive name</li>
+                    <li><strong>Load</strong>: Click "Load Scenario" and select the file</li>
+                    <li><strong>Export</strong>: Use export function for sharing with others</li>
+                </ul>
+            </section>
+
+            <!-- Execution -->
+            <section id="execution">
+                <h2>7. Scenario Execution</h2>
+
+                <h3>Running a Scenario</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Verify Connection</h4>
+                        <p>Ensure your device is connected and visible in the device panel.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Check Actions</h4>
+                        <p>Review the action list to confirm all actions are correctly configured.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Start Execution</h4>
+                        <p>Click the "Play" button to begin execution.</p>
+                    </div>
+                    <div class="step">
+                        <h4>Monitor Progress</h4>
+                        <p>Watch the screen preview and log panel for execution progress and results.</p>
+                    </div>
+                </div>
+
+                <h3>Execution States</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>State</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Idle</td>
+                            <td>Ready to execute</td>
+                        </tr>
+                        <tr>
+                            <td>Running</td>
+                            <td>Scenario is executing</td>
+                        </tr>
+                        <tr>
+                            <td>Paused</td>
+                            <td>Execution is paused (if applicable)</td>
+                        </tr>
+                        <tr>
+                            <td>Completed</td>
+                            <td>Scenario finished successfully</td>
+                        </tr>
+                        <tr>
+                            <td>Failed</td>
+                            <td>Scenario encountered an error</td>
+                        </tr>
+                        <tr>
+                            <td>Stopped</td>
+                            <td>User stopped the execution</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Understanding Results</h3>
+                <p>After execution, the log panel displays detailed results including:</p>
+                <ul>
+                    <li>Each action executed and its duration</li>
+                    <li>Image match scores and results</li>
+                    <li>Any errors or warnings encountered</li>
+                    <li>Overall scenario result (Pass/Fail)</li>
+                </ul>
+
+                <div class="info-box tip">
+                    <h5>Tip: AI Analysis</h5>
+                    <p>If a scenario fails, you can use the AI Analysis feature to get recommendations for fixing the issue. The analysis considers match scores, device logs, and action history to provide actionable suggestions.</p>
+                </div>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section id="troubleshooting">
+                <h2>8. Troubleshooting</h2>
+
+                <h3>Device Not Detected</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Device does not appear in the device dropdown.</p>
+                </div>
+                <p><strong>Solutions:</strong></p>
+                <ol>
+                    <li>Verify the USB cable is data-capable (not charge-only)</li>
+                    <li>Check USB debugging is enabled on the device</li>
+                    <li>Accept the "Allow USB debugging" prompt on the device</li>
+                    <li>Restart the ADB server:
+                        <pre><code>adb kill-server
+adb start-server
+adb devices</code></pre>
+                    </li>
+                    <li>Try a different USB port</li>
+                </ol>
+
+                <h3>Device Shows "Unauthorized"</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Device appears in the list but shows "unauthorized" status.</p>
+                </div>
+                <p><strong>Solutions:</strong></p>
+                <ol>
+                    <li>Disconnect and reconnect the USB cable</li>
+                    <li>Look for the authorization prompt on the device screen</li>
+                    <li>Check "Always allow from this computer"</li>
+                    <li>If the prompt doesn't appear:
+                        <pre><code>adb kill-server
+rm ~/.android/adbkey*    # macOS/Linux
+adb start-server</code></pre>
+                    </li>
+                    <li>Reconnect and accept the prompt</li>
+                </ol>
+
+                <h3>Screen Capture Returns Black Image</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Screen preview shows black or blank image.</p>
+                </div>
+                <p><strong>Solutions:</strong></p>
+                <ol>
+                    <li>Ensure the device screen is unlocked</li>
+                    <li>Check if the current app has a secure flag (banking apps often do)</li>
+                    <li>Disable any screen overlay apps</li>
+                    <li>Try capturing from a different app (e.g., home screen)</li>
+                    <li>Restart the Vision Auto application</li>
+                </ol>
+
+                <h3>Image Matching Always Fails</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Match never succeeds even when the target is visible.</p>
+                </div>
+                <p><strong>Solutions:</strong></p>
+                <ol>
+                    <li>Lower the threshold (try 75-80%)</li>
+                    <li>Recapture the template from the current screen</li>
+                    <li>Ensure device resolution hasn't changed</li>
+                    <li>Avoid capturing animated elements</li>
+                    <li>Select a larger, more distinctive region</li>
+                </ol>
+
+                <h3>Slow Screen Streaming</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Screen preview updates slowly or lags.</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cause</th>
+                            <th>Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>USB 2.0</td>
+                            <td>Use a USB 3.0 port</td>
+                        </tr>
+                        <tr>
+                            <td>High resolution</td>
+                            <td>Lower device resolution in display settings</td>
+                        </tr>
+                        <tr>
+                            <td>CPU load</td>
+                            <td>Close other applications</td>
+                        </tr>
+                        <tr>
+                            <td>Wireless connection</td>
+                            <td>Use USB for better performance</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Application Crashes</h3>
+                <div class="info-box danger">
+                    <h5>Problem</h5>
+                    <p>Application crashes on startup or during use.</p>
+                </div>
+                <p><strong>Solutions:</strong></p>
+                <ol>
+                    <li>Delete <code>node_modules</code> and reinstall:
+                        <pre><code>rm -rf node_modules
+npm install</code></pre>
+                    </li>
+                    <li>Check Node.js version (18+ required)</li>
+                    <li>Run in debug mode: <code>npm run dev</code></li>
+                    <li>Check the console for error messages</li>
+                </ol>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Vision Auto User Manual</p>
+            <p>For more information, see the README.md or project documentation.</p>
+        </div>
+    </footer>
+</body>
+</html>
