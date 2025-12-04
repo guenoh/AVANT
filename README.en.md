@@ -1,6 +1,13 @@
-# Vision Auto
+# AVANT
+
+**A**utomated **V**ision **AN**droid **T**esting
 
 Android Device Automation with Image Matching
+
+[Korean](README.md)
+
+> "Avant" is a French word meaning "forward" or "avant-garde".
+> Leading the future of testing with cutting-edge automation technology.
 
 ---
 

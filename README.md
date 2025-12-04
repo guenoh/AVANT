@@ -1,8 +1,13 @@
-# Vision Auto
+# AVANT
+
+**A**utomated **V**ision **AN**droid **T**esting
 
 이미지 매칭 기반 Android 디바이스 자동화 도구
 
 [English](README.en.md)
+
+> "Avant"는 프랑스어로 "앞서가는", "전위적인"이라는 뜻을 가지고 있습니다.
+> 앞서가는 자동화 기술로 테스트의 미래를 열어갑니다.
 
 ---
 
