@@ -1,8 +1,8 @@
 # AVANT
 
-**A**utomated **V**ision **AN**droid **T**esting
+**A**utomated **V**ision-based **A**ction a**N**d **T**esting
 
-이미지 매칭 기반 Android 디바이스 자동화 도구
+이미지 매칭 기반 디바이스 자동화 도구
 
 [English](README.en.md)
 

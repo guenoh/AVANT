@@ -1,8 +1,8 @@
 # AVANT
 
-**A**utomated **V**ision **AN**droid **T**esting
+**A**utomated **V**ision-based **A**ction a**N**d **T**esting
 
-Android Device Automation with Image Matching
+Device Automation with Image Matching
 
 [Korean](README.md)
 
