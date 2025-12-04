@@ -557,15 +557,22 @@ class MacroBuilderController {
      * Update device status
      */
     updateDeviceStatus(connected, deviceType, deviceName, deviceId) {
+        // Check if status actually changed to avoid duplicate logs
+        const wasConnected = this.state.isDeviceConnected;
+        const statusChanged = wasConnected !== connected;
+
         this.state.isDeviceConnected = connected;
         this.state.deviceType = deviceType;
         this.state.deviceName = deviceName;
         this.state.deviceId = deviceId;
 
-        if (connected) {
-            this.services.logger.success(`Device connected: ${deviceName}`);
-        } else {
-            this.services.logger.info('Device disconnected');
+        // Only log when status actually changes
+        if (statusChanged) {
+            if (connected) {
+                this.services.logger.success(`Device connected: ${deviceName}`);
+            } else {
+                this.services.logger.info('Device disconnected');
+            }
         }
 
         // Emit for UI update
@@ -592,10 +599,7 @@ class MacroBuilderController {
             this.elements.screenImage?.naturalHeight || height
         );
 
-        this.services.logger.debug('Screen dimensions updated', {
-            width,
-            height
-        });
+        // Debug log removed to avoid unnecessary UI log entries
     }
 
     /**

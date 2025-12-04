@@ -168,7 +168,7 @@ class DeviceService extends EventEmitter {
             model,
             device,
             transportId: transport,
-            status: 'connected'
+            status: 'device'  // Keep actual ADB status for heartbeat check
           });
         } else if (status === 'unauthorized') {
           devices.push({
@@ -176,6 +176,22 @@ class DeviceService extends EventEmitter {
             model: 'Unauthorized',
             device: 'Unknown',
             status: 'unauthorized'
+          });
+        } else if (status === 'offline') {
+          // Device is offline (e.g., powered off, rebooting)
+          devices.push({
+            id,
+            model: 'Offline',
+            device: 'Unknown',
+            status: 'offline'
+          });
+        } else if (status === 'no' || status === 'permissions') {
+          // Handle 'no permissions' case
+          devices.push({
+            id,
+            model: 'No permissions',
+            device: 'Unknown',
+            status: 'no_permissions'
           });
         }
       }

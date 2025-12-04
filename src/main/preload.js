@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
     capture: () => ipcRenderer.invoke('screen:capture'),
     startStream: (options) => ipcRenderer.invoke('screen:start-stream', options),
     stopStream: () => ipcRenderer.invoke('screen:stop-stream'),
+    reconnect: (options) => ipcRenderer.invoke('screen:reconnect', options),
     startRecord: (options) => ipcRenderer.invoke('screen:start-record', options),
     stopRecord: () => ipcRenderer.invoke('screen:stop-record'),
     onStreamData: (callback) => {
@@ -92,10 +93,59 @@ contextBridge.exposeInMainWorld('api', {
     readFile: (filePath) => ipcRenderer.invoke('file:read-file', filePath)
   },
 
+  // Dialog APIs
+  dialog: {
+    openDirectory: async () => {
+      const result = await ipcRenderer.invoke('file:show-open-dialog', {
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return { success: false };
+      }
+      return { success: true, path: result.filePaths[0] };
+    }
+  },
+
   // ADB APIs
   adb: {
     screenshot: () => ipcRenderer.invoke('adb:screenshot'),
     logcat: () => ipcRenderer.invoke('adb:logcat')
+  },
+
+  // Logcat Streaming APIs (for AI analysis)
+  logcat: {
+    start: (sessionId, deviceId, options) => ipcRenderer.invoke('logcat:start', sessionId, deviceId, options),
+    stop: () => ipcRenderer.invoke('logcat:stop'),
+    get: () => ipcRenderer.invoke('logcat:get'),
+    status: () => ipcRenderer.invoke('logcat:status')
+  },
+
+  // Scenario APIs
+  scenario: {
+    list: () => ipcRenderer.invoke('scenario:list'),
+    save: (scenario) => ipcRenderer.invoke('scenario:save', scenario),
+    load: (filename) => ipcRenderer.invoke('scenario:load', filename),
+    delete: (filename) => ipcRenderer.invoke('scenario:delete', filename),
+    rename: (oldFilename, newFilename) => ipcRenderer.invoke('scenario:rename', oldFilename, newFilename)
+  },
+
+  // Result Report APIs
+  report: {
+    startSession: (options) => ipcRenderer.invoke('report:session:start', options),
+    recordAction: (sessionId, actionResult) => ipcRenderer.invoke('report:session:record', sessionId, actionResult),
+    finalizeSession: (sessionId, options) => ipcRenderer.invoke('report:session:finalize', sessionId, options),
+    cancelSession: (sessionId) => ipcRenderer.invoke('report:session:cancel', sessionId),
+    getSessionStatus: (sessionId) => ipcRenderer.invoke('report:session:status', sessionId),
+    saveScreenshot: (data) => ipcRenderer.invoke('report:save:screenshot', data),
+    getSessionData: (sessionId) => ipcRenderer.invoke('report:session:data', sessionId),
+    storeAIAnalysis: (sessionId, analysisResult) => ipcRenderer.invoke('report:session:ai-analysis', sessionId, analysisResult)
+  },
+
+  // AI Analysis APIs
+  ai: {
+    analyze: (sessionData, scenario) => ipcRenderer.invoke('ai:analyze', sessionData, scenario),
+    configure: (config) => ipcRenderer.invoke('ai:configure', config),
+    getStatus: () => ipcRenderer.invoke('ai:status')
   },
 
   // Protocol APIs

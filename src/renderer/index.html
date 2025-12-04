@@ -140,14 +140,19 @@
                             새 시나리오
                         </button>
 
-                        <!-- List View: Select all button -->
-                        <button class="btn-outline btn-sm" id="btn-select-all">
-                            전체 선택
-                        </button>
                     </div>
 
                     <!-- Right side: Secondary actions -->
                     <div class="flex items-center gap-2">
+                        <!-- Global Settings Button -->
+                        <button class="btn-outline btn-sm" id="btn-global-settings" title="결과 저장 설정">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            설정
+                        </button>
+
                         <!-- Edit View: Save buttons -->
                         <button class="btn-outline btn-sm" id="btn-save-macro" style="display: none;">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,12 +182,28 @@
                             </svg>
                             실행
                         </button>
+                        <!-- List View: Run selected scenarios -->
                         <button class="btn-primary btn-sm" id="btn-run-selected">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             선택 실행
+                        </button>
+                        <!-- Edit View: Run selected actions -->
+                        <button class="btn-primary btn-sm" id="btn-run-selected-actions" style="display: none;">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            선택 실행
+                        </button>
+                        <!-- Edit View: Infinite loop -->
+                        <button class="btn-outline btn-sm" id="btn-infinite-loop" style="display: none;" title="무한 반복 실행">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            무한 반복
                         </button>
                         <button class="btn-danger btn-sm" id="btn-delete-selected">
                             선택 삭제
@@ -317,7 +338,20 @@
                     <div class="flex items-center gap-3">
                         <!-- Device Info -->
                         <div class="device-status-container" id="device-status">
-                            <!-- Device status will be rendered here when connected -->
+                            <div class="device-status-indicator">
+                                <div class="status-light disconnected" id="status-light"></div>
+                                <span class="device-status-value" id="device-name-value">--</span>
+                            </div>
+                            <div class="device-status-divider"></div>
+                            <div class="device-status-indicator">
+                                <span class="device-status-label">RES</span>
+                                <span class="device-status-value" id="device-res-value">--</span>
+                            </div>
+                            <div class="device-status-divider"></div>
+                            <div class="device-status-indicator">
+                                <span class="device-status-label">FPS</span>
+                                <span class="device-status-value" id="device-fps-value">--</span>
+                            </div>
                         </div>
                     </div>
 
@@ -328,12 +362,26 @@
                             <span>좌표 마커</span>
                         </label>
 
+                        <!-- Auto Reconnect Toggle -->
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" id="option-auto-reconnect" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>자동 재연결</span>
+                        </label>
+
                         <!-- Screen Pause Toggle -->
                         <button class="btn-outline btn-sm" id="btn-pause-screen">
                             <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             일시정지
+                        </button>
+
+                        <!-- Screen Reconnect Button -->
+                        <button class="btn-outline btn-sm" id="btn-reconnect-screen" title="화면 크기가 잘못되었을 때 재연결">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            재연결
                         </button>
                     </div>
                 </div>
@@ -453,6 +501,104 @@
     <!-- Sound Check Modal -->
     <script src="components/sound-check-modal.js"></script>
 
+    <!-- Screen Alert Overlay -->
+    <script src="components/ScreenAlertOverlay.js"></script>
+
+    <!-- Global Settings Modal -->
+    <div id="global-settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">결과 저장 설정</h3>
+                <button id="btn-close-settings-modal" class="modal-close">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <!-- On Failure Settings -->
+                <div style="margin-bottom: 20px;">
+                    <p style="font-size: 14px; font-weight: 600; color: var(--red-600); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        실패 시 저장
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; padding-left: 12px;">
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-fail-screenshot" class="w-4 h-4 rounded border-slate-300 text-blue-600" checked>
+                            <span>스크린샷</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-fail-log" class="w-4 h-4 rounded border-slate-300 text-blue-600" checked>
+                            <span>실행 로그</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-fail-variables" class="w-4 h-4 rounded border-slate-300 text-blue-600" checked>
+                            <span>변수값</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-fail-match-image" class="w-4 h-4 rounded border-slate-300 text-blue-600" checked>
+                            <span>매칭 이미지 (이미지 매칭 실패 시)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- On Success Settings -->
+                <div style="margin-bottom: 20px;">
+                    <p style="font-size: 14px; font-weight: 600; color: var(--green-600); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        성공 시 저장
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; padding-left: 12px;">
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-success-screenshot" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>스크린샷</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-600" style="cursor: pointer;">
+                            <input type="checkbox" id="save-on-success-log" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+                            <span>실행 로그</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Save Path Setting -->
+                <div style="padding-top: 16px; border-top: 1px solid var(--color-border);">
+                    <p style="font-size: 14px; font-weight: 600; color: var(--slate-700); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                        </svg>
+                        저장 경로
+                    </p>
+                    <div style="display: flex; gap: 8px;">
+                        <input
+                            type="text"
+                            id="save-path-input"
+                            class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="./results"
+                            value="./results"
+                            style="font-family: 'Courier New', monospace; font-size: 12px;"
+                        />
+                        <button id="btn-browse-save-path" class="btn-outline btn-sm" style="white-space: nowrap;">
+                            <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
+                            </svg>
+                            찾아보기
+                        </button>
+                    </div>
+                    <p style="font-size: 11px; color: var(--slate-500); margin-top: 6px;">
+                        결과는 {저장경로}/{시나리오명}/{타임스탬프}/ 폴더에 저장됩니다
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-save-settings" class="btn-sm btn-primary">저장</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scenario List Modal -->
     <div id="scenario-list-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
@@ -478,6 +624,52 @@
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-secondary" id="btn-close-scenario-modal">닫기</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Modal -->
+    <div id="ai-analysis-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+            <div class="modal-header">
+                <h3 class="modal-title">AI 실패 분석</h3>
+                <button id="btn-close-ai-analysis" class="modal-close">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: calc(80vh - 120px);">
+                <div id="ai-analysis-loading" style="display: none; text-align: center; padding: 2rem;">
+                    <div class="spinner" style="width: 40px; height: 40px; margin: 0 auto 1rem;"></div>
+                    <p style="color: var(--slate-600);">AI 분석 중...</p>
+                </div>
+                <div id="ai-analysis-error" style="display: none; padding: 1rem; background: var(--red-50); border-radius: 8px; color: var(--red-700);">
+                </div>
+                <div id="ai-analysis-result" style="display: none;">
+                    <div id="ai-analysis-summary" style="padding: 1rem; background: var(--slate-100); border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--slate-500);">Summary</h4>
+                        <p id="ai-summary-text" style="margin: 0; font-weight: 500;"></p>
+                    </div>
+                    <div id="ai-analysis-root-cause" style="padding: 1rem; background: var(--amber-50); border-radius: 8px; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h4 style="margin: 0; font-size: 0.875rem; color: var(--amber-700);">Root Cause</h4>
+                            <span id="ai-confidence" class="badge" style="font-size: 0.75rem;"></span>
+                        </div>
+                        <p id="ai-root-cause-text" style="margin: 0;"></p>
+                    </div>
+                    <div id="ai-analysis-recommendations" style="margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem; font-size: 0.875rem; color: var(--slate-500);">Recommendations</h4>
+                        <div id="ai-recommendations-list"></div>
+                    </div>
+                    <div id="ai-analysis-insights" style="padding: 1rem; background: var(--blue-50); border-radius: 8px;">
+                        <h4 style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--blue-700);">Additional Insights</h4>
+                        <ul id="ai-insights-list" style="margin: 0; padding-left: 1.25rem;"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-ai-modal" class="btn-sm btn-secondary">Close</button>
             </div>
         </div>
     </div>

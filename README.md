@@ -1,160 +1,375 @@
-<div align="center">
+# Vision Auto
 
-# Vision Auto v2
-
-**Android Device Automation with Image Matching**
-
-A powerful desktop application for automating Android devices through image recognition and ADB integration.
-
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Architecture](#architecture) • [Troubleshooting](#troubleshooting)
+Android Device Automation with Image Matching
 
 ---
 
-</div>
+## Table of Contents
 
-## Overview
+1. [Introduction](#introduction)
+2. [Features](#features)
+3. [System Requirements](#system-requirements)
+4. [Installation](#installation)
+5. [Getting Started](#getting-started)
+6. [User Guide](#user-guide)
+7. [Architecture](#architecture)
+8. [API Reference](#api-reference)
+9. [Troubleshooting](#troubleshooting)
+10. [Development](#development)
+11. [License](#license)
 
-Vision Auto v2는 Electron과 ADB를 활용한 Android 디바이스 자동화 도구입니다. 실시간 화면 미러링, 이미지 매칭, 조건부 로직을 통해 복잡한 자동화 시나리오를 구현할 수 있습니다.
+---
 
-### Key Highlights
+## Introduction
 
-- **Real-time Screen Mirroring**: USB/Wireless ADB 연결로 디바이스 화면 실시간 표시
-- **Image-based Automation**: 드래그로 영역 선택하여 이미지 매칭 기반 자동화
-- **Conditional Logic**: IF/ELSEIF/ELSE 조건문으로 복잡한 시나리오 구현
-- **ADB Integration**: 디바이스 스크린샷 캡처 및 Logcat 수집
-- **Macro Management**: JSON 기반 매크로 저장/로드/내보내기
-- **Visual Feedback**: 실행 중 액션 추적 및 로그 표시
+Vision Auto is a desktop application for automating Android devices. Built on Electron and ADB (Android Debug Bridge), it provides a visual interface for creating, managing, and executing automation scenarios.
+
+The application uses image matching technology to identify UI elements on the device screen, enabling automation that adapts to dynamic content without requiring access to the app's internal structure.
+
+### Use Cases
+
+- **Quality Assurance Testing**: Automate repetitive test scenarios across multiple devices
+- **Device Configuration**: Set up multiple devices with consistent configurations
+- **App Demonstration**: Create reproducible demo sequences for presentations
+- **Data Collection**: Automate data extraction from apps with visual interfaces
+- **Accessibility Testing**: Verify app behavior under various input conditions
+
+### Design Philosophy
+
+Vision Auto follows several core principles:
+
+1. **Visual-First Approach**: Automation is based on what users see, not internal app structures
+2. **No Root Required**: Works with standard USB debugging, no device modifications needed
+3. **Offline Operation**: All processing happens locally, no cloud dependencies
+4. **Extensible Architecture**: Clean separation of concerns enables customization
 
 ---
 
 ## Features
 
-### Core Functionality
+### Device Connectivity
 
-#### 1. Device Control
-- USB 및 무선 ADB 연결 지원
-- 디바이스 자동 감지 및 연결
-- 실시간 화면 스트리밍
-- 탭, 스와이프, 텍스트 입력, 하드웨어 키 지원
+| Feature | Description |
+|---------|-------------|
+| USB Connection | Direct connection via USB cable with automatic detection |
+| Wireless ADB | Connect over WiFi after initial USB pairing |
+| Multi-Device Support | Switch between multiple connected devices |
+| Connection Status | Real-time connection monitoring with automatic reconnection |
 
-#### 2. Image Matching
-- 드래그로 화면 영역 선택 및 템플릿 저장
-- Pure JavaScript 이미지 매칭 알고리즘
-- 조정 가능한 매칭 임계값 (0.0 ~ 1.0)
-- 매칭 결과 시각적 표시
+### Screen Interaction
 
-#### 3. Macro System
-- **상호작용 액션**: 탭, 스와이프, 텍스트 입력
-- **제어 액션**: 딜레이, 하드웨어 키
-- **스마트 액션**: 이미지 매칭, 조건문 (IF/ELSEIF/ELSE/ENDIF)
-- **ADB 액션**: 디바이스 스크린샷, Logcat 저장
-- 액션 추가/삭제/수정/재정렬
-- 실행 중 액션 추적 표시
+| Feature | Description |
+|---------|-------------|
+| Real-time Streaming | Live device screen display in the application |
+| Screen Capture | Save current screen as image file |
+| Touch Actions | Tap, long-press, swipe, and drag operations |
+| Text Input | Enter text directly without on-screen keyboard |
+| Hardware Keys | Simulate Home, Back, Recent Apps, Volume, Power buttons |
 
-#### 4. Advanced Features
-- **Conditional Execution**: IF/ELSEIF/ELSE로 분기 처리
-- **Last Match Tap**: 마지막 매칭 위치에 자동 탭
-- **Tracking Overlay**: 실행 중 현재 액션 시각적 표시
-- **Macro Export/Import**: JSON 파일로 매크로 공유
+### Image Matching
+
+| Feature | Description |
+|---------|-------------|
+| Region Selection | Visual drag-to-select for defining match templates |
+| Template Storage | Automatic saving of captured regions |
+| Similarity Threshold | Configurable matching sensitivity (0-100%) |
+| Match Visualization | Display of match results with confidence scores |
+| Multi-Region Matching | Support for multiple match conditions |
+
+### Scenario Management
+
+| Feature | Description |
+|---------|-------------|
+| Action Palette | Drag-and-drop action building interface |
+| Conditional Logic | IF/ELSE IF/ELSE branching based on match results |
+| Loop Constructs | WHILE loops with image-based conditions |
+| Scenario Files | JSON-based scenario storage and sharing |
+| Execution History | Logging of all executed actions with timestamps |
+
+### AI-Powered Analysis
+
+| Feature | Description |
+|---------|-------------|
+| Failure Analysis | LLM-based root cause analysis for failed scenarios |
+| Recommendations | Actionable suggestions for fixing issues |
+| Logcat Integration | Device log collection during execution |
+| Result Reports | Comprehensive execution reports with screenshots |
+
+---
+
+## System Requirements
+
+### Operating System
+
+| OS | Version | Status |
+|----|---------|--------|
+| macOS | 12.0 (Monterey) or later | Fully Supported |
+| Windows | 10 or later | Supported |
+| Linux | Ubuntu 20.04 or later | Community Tested |
+
+### Software Dependencies
+
+| Software | Version | Required |
+|----------|---------|----------|
+| Node.js | 18.0 or later | Yes |
+| ADB | Any recent version | Yes |
+| npm | 9.0 or later | Yes |
+
+### Hardware Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| RAM | 4 GB | 8 GB or more |
+| Storage | 500 MB | 1 GB or more |
+| USB | USB 2.0 | USB 3.0 |
+
+### Android Device Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| Android Version | 7.0 (API 24) or later |
+| USB Debugging | Enabled in Developer Options |
+| USB Connection | MTP or PTP mode |
+| Screen Lock | Disabled or unlocked during automation |
 
 ---
 
 ## Installation
 
-### Prerequisites
+### Step 1: Install ADB
 
-#### 1. ADB (Android Debug Bridge)
-
-**macOS**
+**macOS (using Homebrew)**
 ```bash
 brew install android-platform-tools
 ```
 
 **Windows**
-1. [Android SDK Platform Tools](https://developer.android.com/studio/releases/platform-tools) 다운로드
-2. 압축 해제 후 환경변수 PATH에 추가
+1. Download [Android SDK Platform Tools](https://developer.android.com/studio/releases/platform-tools)
+2. Extract to a folder (e.g., `C:\platform-tools`)
+3. Add the folder to your system PATH
 
-**Linux**
+**Linux (Debian/Ubuntu)**
 ```bash
+sudo apt-get update
 sudo apt-get install android-tools-adb
 ```
 
-#### 2. Node.js
-- Node.js 16 이상 필요
-- [공식 다운로드](https://nodejs.org/)
+Verify installation:
+```bash
+adb version
+```
 
-#### 3. Android Device Setup
-1. **개발자 옵션** 활성화
-   - 설정 → 휴대전화 정보 → 빌드 번호 7번 탭
-2. **USB 디버깅** 활성화
-   - 설정 → 개발자 옵션 → USB 디버깅 ON
-3. USB로 PC와 연결
-
-### Install & Run
+### Step 2: Clone and Install
 
 ```bash
-# Clone repository
-git clone <repository-url>
+git clone https://github.com/your-username/vision-auto.git
 cd vision-auto
-
-# Install dependencies
 npm install
+```
 
-# Run application
-npm start
+### Step 3: Configure Android Device
 
+1. **Enable Developer Options**
+   - Go to Settings > About Phone
+   - Tap "Build Number" 7 times
+   - Developer Options will appear in Settings
+
+2. **Enable USB Debugging**
+   - Go to Settings > Developer Options
+   - Enable "USB debugging"
+   - (Optional) Enable "Stay awake" to prevent screen timeout
+
+3. **Connect Device**
+   - Connect device via USB cable
+   - Accept the "Allow USB debugging" prompt on the device
+   - Check "Always allow from this computer" for convenience
+
+Verify connection:
+```bash
+adb devices
+```
+
+Expected output:
+```
+List of devices attached
+XXXXXXXXXX    device
+```
+
+### Step 4: Run Application
+
+```bash
 # Development mode (with DevTools)
 npm run dev
+
+# Production mode
+npm start
 ```
 
 ---
 
-## Usage
+## Getting Started
 
-### Quick Start
+### First Connection
 
-#### 1. Connect Device
-1. USB로 Android 디바이스 연결
-2. 앱 좌측 상단에서 디바이스 자동 감지
-3. 드롭다운에서 디바이스 선택
+1. Launch Vision Auto
+2. Connect your Android device via USB
+3. Click the "Refresh" button in the device panel
+4. Select your device from the dropdown
+5. The device screen will appear in the main panel
 
-#### 2. Create Macro
+### Creating Your First Scenario
 
-**A. 상호작용 액션**
-- 탭, 스와이프, 입력 버튼 클릭
-- 좌표 및 파라미터 설정
-- 액션 목록에 추가
+**Step 1: Capture a Target Image**
+1. Enable "Crop Mode" by clicking the crop icon
+2. Drag to select a region on the screen (e.g., a button)
+3. The captured region will be saved automatically
 
-**B. 이미지 매칭 액션**
-1. "스마트" 탭 → "이미지 매칭" 클릭
-2. 화면에서 영역 드래그
-3. 매칭 임계값 설정 (권장: 0.8 ~ 0.95)
-4. 액션 추가
+**Step 2: Add an Action**
+1. Open the Action Palette
+2. Drag "Image Match" to the scenario
+3. Configure the match threshold (default: 85%)
+4. Set the action to perform on match (tap, long-press, etc.)
 
-**C. 조건문 사용**
+**Step 3: Add Supporting Actions**
+1. Add a "Wait" action before the match for stability
+2. Add additional actions as needed
+
+**Step 4: Execute and Verify**
+1. Click the "Play" button to run the scenario
+2. Observe the execution in the live preview
+3. Check the log panel for results
+
+**Step 5: Save Your Scenario**
+1. Click "Save Scenario"
+2. Enter a descriptive name
+3. The scenario is saved as a JSON file
+
+---
+
+## User Guide
+
+### Understanding the Interface
+
 ```
-IF (이미지 매칭)
-  → 찾으면 이 액션들 실행
-ELSEIF (다른 이미지 매칭)
-  → 첫 번째 못 찾고 두 번째 찾으면 실행
-ELSE
-  → 둘 다 못 찾으면 실행
++------------------------------------------------------------------+
+|  Toolbar                                                          |
++------------------------------------------------------------------+
+|          |                              |                         |
+|  Device  |        Screen Preview        |     Scenario Panel      |
+|  Panel   |                              |                         |
+|          |                              |     - Action List       |
+|          |                              |     - Settings          |
+|          |                              |     - Controls          |
++----------+------------------------------+-------------------------+
+|                        Log Panel                                  |
++------------------------------------------------------------------+
+```
+
+### Action Types
+
+#### Basic Actions
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| Tap | Single touch at coordinates | X, Y position |
+| Long Press | Extended touch | X, Y position, Duration |
+| Swipe | Slide from one point to another | Start X/Y, End X/Y, Duration |
+| Drag | Touch-hold and move | Start X/Y, End X/Y, Duration |
+| Text Input | Type text | Text string, IME option |
+| Wait | Pause execution | Duration in milliseconds |
+
+#### Hardware Keys
+
+| Action | Description |
+|--------|-------------|
+| Home | Navigate to home screen |
+| Back | Go back / close dialog |
+| Recent Apps | Open recent apps view |
+| Volume Up/Down | Adjust device volume |
+| Power | Toggle screen on/off |
+
+#### Smart Actions
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| Image Match | Find image on screen | Template, Threshold, Timeout |
+| Tap Matched | Tap the last matched location | None |
+
+#### Control Flow
+
+| Action | Description |
+|--------|-------------|
+| IF | Execute block if condition is true |
+| ELSE IF | Alternative condition check |
+| ELSE | Execute when all conditions are false |
+| WHILE | Repeat while condition is true |
+| LOOP | Repeat a fixed number of times |
+
+#### Result Actions
+
+| Action | Description |
+|--------|-------------|
+| Success | Mark scenario as passed |
+| Fail | Mark scenario as failed |
+| Skip | Skip remaining actions |
+
+### Image Matching Best Practices
+
+**Selecting Good Match Regions**
+
+DO:
+- Select unique visual elements
+- Include some surrounding context
+- Use regions with distinct colors or patterns
+- Choose static elements that don't animate
+
+DO NOT:
+- Select regions smaller than 20x20 pixels
+- Include animated or changing content
+- Use regions that appear multiple times on screen
+- Select pure white or solid color regions
+
+**Threshold Guidelines**
+
+| Threshold | Use Case |
+|-----------|----------|
+| 95-100% | Pixel-perfect matches, static content |
+| 85-95% | Standard UI elements with minor variations |
+| 75-85% | Dynamic content with consistent layout |
+| 60-75% | Significant variation expected (use with caution) |
+
+### Conditional Logic Examples
+
+**Example 1: Login Flow with Error Handling**
+```
+IF [Login Button visible]
+    Tap matched location
+    Wait 3000ms
+    IF [Home Screen visible]
+        Success
+    ELSE IF [Error Message visible]
+        Tap [Retry Button]
+    ELSE
+        Fail
 ENDIF
 ```
 
-**D. ADB 액션**
-- "ADB" 탭에서 "스크린샷 저장" 또는 "Logcat 저장"
-- 실행 시 자동으로 디바이스에서 캡처하여 Documents 폴더에 저장
+**Example 2: Scroll Until Found**
+```
+WHILE [Target Item NOT visible]
+    Swipe up
+    Wait 500ms
+ENDWHILE
+Tap matched location
+```
 
-#### 3. Run Macro
-1. 액션 목록 확인
-2. **[실행]** 버튼 클릭
-3. 실시간 로그 및 추적 표시 확인
+### Working with Multiple Devices
 
-#### 4. Save/Load Macro
-- **저장**: [저장] → JSON 파일로 저장
-- **불러오기**: [불러오기] → 저장된 매크로 선택
-- **내보내기**: [내보내기] → 외부 공유용 JSON 생성
+1. Connect all devices via USB
+2. Use `adb devices` to verify all are connected
+3. In Vision Auto, select the target device from the dropdown
+4. Execute scenarios on the selected device
+5. Switch devices using the dropdown without reconnecting
 
 ---
 
@@ -164,267 +379,357 @@ ENDIF
 
 ```
 vision-auto/
-├── src/
-│   ├── main/
-│   │   ├── main.js                    # Electron entry point
-│   │   ├── preload.js                 # IPC bridge
-│   │   └── services/                  # Business logic
-│   │       ├── device.service.js      # Device management
-│   │       ├── screen.service.js      # Screen capture/streaming
-│   │       ├── action.service.js      # Action execution
-│   │       ├── macro.service.js       # Macro save/load
-│   │       ├── settings.service.js    # Settings management
-│   │       └── logger.service.js      # Logging system
-│   ├── renderer/
-│   │   ├── index.html                 # Main UI
-│   │   ├── unified-app.js             # Application logic
-│   │   ├── preload.js                 # Preload script
-│   │   ├── js/
-│   │   │   ├── image-matcher.js       # Image matching engine
-│   │   │   └── tracking-overlay.js    # Visual tracking overlay
-│   │   └── styles/
-│   │       ├── base.css               # Design tokens, reset
-│   │       ├── components.css         # UI components
-│   │       └── unified-layout.css     # Layout system
-│   └── shared/
-│       └── constants.js               # IPC channels, constants
-├── package.json
-└── README.md
++-- src/
+|   +-- main/                      # Electron Main Process
+|   |   +-- main.js                # Application entry point
+|   |   +-- preload.js             # IPC bridge to renderer
+|   |   +-- services/              # Business logic services
+|   |       +-- device.service.js      # Device management
+|   |       +-- screen.service.js      # Screen capture and streaming
+|   |       +-- action.service.js      # Action execution
+|   |       +-- macro.service.js       # Scenario management
+|   |       +-- result-report.service.js   # Execution reports
+|   |       +-- ai-analysis.service.js     # LLM integration
+|   |       +-- adb-logcat.service.js      # Device log collection
+|   |       +-- protocols/             # Protocol implementations
+|   |           +-- AdbProtocol.js     # ADB commands
+|   |           +-- BaseProtocol.js    # Protocol interface
+|   +-- renderer/                  # Electron Renderer Process
+|   |   +-- index.html             # Main UI
+|   |   +-- macro-builder-app.js   # Application controller
+|   |   +-- components/            # UI components
+|   |   +-- services/              # Frontend services
+|   |   +-- styles/                # CSS stylesheets
+|   +-- shared/                    # Shared code
+|       +-- constants.js           # IPC channels, enums
++-- docs/                          # Documentation
++-- tests/                         # Test files
++-- package.json                   # Project configuration
 ```
 
 ### Technology Stack
 
-| Component | Technology |
-|-----------|------------|
-| Desktop Framework | Electron 28+ |
-| Runtime | Node.js 16+ |
-| Device Control | ADB (Android Debug Bridge) |
-| Image Processing | Jimp, Canvas API |
-| IPC | Electron IPC (Main ↔ Renderer) |
-| UI | Vanilla JavaScript, CSS3 |
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Desktop Framework | Electron 28 | Cross-platform desktop app |
+| Runtime | Node.js 18+ | JavaScript runtime |
+| Device Control | ADB | Android device communication |
+| Image Processing | Jimp | Pure JavaScript image manipulation |
+| UI Rendering | Vanilla JS, CSS3 | No framework dependencies |
+| Testing | Jest, Playwright | Unit and E2E testing |
 
-### Design Principles
+### IPC Communication
 
-1. **Clean Architecture**: Services와 UI 계층 분리
-2. **IPC Communication**: Main process에서 ADB 명령 실행, Renderer는 UI만 담당
-3. **Event-Driven**: 실행 중 상태 변화를 이벤트로 전달
-4. **Pure JavaScript**: 외부 의존성 최소화 (OpenCV 불필요)
+The application uses Electron's IPC (Inter-Process Communication) for communication between the main process and renderer process.
+
+**Channel Naming Convention**
+```
+{domain}:{action}:{sub-action}
+
+Examples:
+- device:list
+- screen:capture
+- action:execute
+- scenario:save
+```
+
+**Request/Response Pattern**
+```javascript
+// Renderer Process
+const result = await window.api.device.list();
+
+// Main Process
+ipcMain.handle('device:list', async () => {
+    return await deviceService.getDevices();
+});
+```
+
+### Service Layer
+
+All business logic is encapsulated in services:
+
+| Service | Responsibility |
+|---------|----------------|
+| DeviceService | Device detection, connection management |
+| ScreenService | Screen capture, streaming, image processing |
+| ActionService | Action execution, coordinate transformation |
+| MacroService | Scenario file operations |
+| ResultReportService | Execution logging, report generation |
+| AIAnalysisService | LLM API integration for failure analysis |
+| ADBLogcatService | Device log collection and filtering |
 
 ---
 
-## Image Matching Algorithm
+## API Reference
 
-Vision Auto는 순수 JavaScript로 구현된 템플릿 매칭 알고리즘을 사용합니다.
+### Device API
 
-### How It Works
+```javascript
+// List connected devices
+await window.api.device.list();
+// Returns: Array<{id: string, model: string, status: string}>
 
-1. **템플릿 생성**: 사용자가 드래그한 영역을 PNG로 저장
-2. **화면 캡처**: ADB로 현재 디바이스 화면 캡처
-3. **매칭 수행**:
-   - 화면 전체를 순회하며 템플릿과 비교
-   - 픽셀 단위 RGB 차이 계산
-   - 유사도 점수 산출 (0.0 ~ 1.0)
-4. **임계값 비교**: 설정한 임계값 이상이면 매칭 성공
-5. **좌표 반환**: 매칭된 위치 좌표 반환
+// Select a device
+await window.api.device.select(deviceId);
+// Returns: {success: boolean}
 
-### Performance Optimization
+// Get current device info
+await window.api.device.getInfo();
+// Returns: {id, model, manufacturer, androidVersion, resolution}
 
-- **Stride Sampling**: 전체 픽셀 검사 대신 일정 간격으로 샘플링
-- **Early Termination**: 임계값 미달 시 조기 종료
-- **Region of Interest**: 필요 시 검색 영역 제한 가능
-
-### Tips for Better Matching
-
-- **임계값 조정**: 단순한 이미지는 높게 (0.95), 복잡한 이미지는 낮게 (0.8)
-- **충분한 컨텍스트**: 너무 작은 영역보다는 주변 정보 포함
-- **고유한 패턴**: 화면에서 유일하게 식별 가능한 영역 선택
-
----
-
-## File Locations
-
-### Macros
-```
-~/Documents/VisionAuto/macros/
-└── {macroName}_{timestamp}.json
+// Connect via wireless ADB
+await window.api.device.connectWireless(ipAddress);
+// Returns: {success: boolean}
 ```
 
-### Templates (Image Captures)
-```
-~/Documents/VisionAuto/templates/
-└── template_{timestamp}.png
+### Screen API
+
+```javascript
+// Capture current screen
+await window.api.screen.capture();
+// Returns: {success: boolean, imagePath: string, dataUrl: string}
+
+// Start screen streaming
+await window.api.screen.startStream({fps: 10, quality: 80});
+// Returns: {success: boolean}
+
+// Stop screen streaming
+await window.api.screen.stopStream();
+// Returns: {success: boolean}
 ```
 
-### ADB Captures
-```
-~/Documents/VisionAuto/adb-screenshots/
-└── screenshot_{timestamp}.png
+### Action API
 
-~/Documents/VisionAuto/adb-logcat/
-└── logcat_{timestamp}.txt
+```javascript
+// Execute single action
+await window.api.action.execute({
+    type: 'tap',
+    x: 500,
+    y: 1000
+});
+// Returns: {success: boolean, duration: number}
+
+// Execute batch of actions
+await window.api.action.executeBatch([
+    {type: 'tap', x: 500, y: 1000},
+    {type: 'wait', duration: 1000},
+    {type: 'swipe', x1: 500, y1: 1500, x2: 500, y2: 500, duration: 300}
+]);
+// Returns: {success: boolean, results: Array}
 ```
 
-### Logs
-```
-~/Documents/VisionAuto/logs/
-└── vision-auto_{date}.log
+### Scenario API
+
+```javascript
+// List all scenarios
+await window.api.scenario.list();
+// Returns: Array<{filename: string, name: string, modified: Date}>
+
+// Save scenario
+await window.api.scenario.save({
+    name: 'Login Test',
+    actions: [...],
+    metadata: {...}
+});
+// Returns: {success: boolean, filename: string}
+
+// Load scenario
+await window.api.scenario.load(filename);
+// Returns: {success: boolean, scenario: Object}
+
+// Delete scenario
+await window.api.scenario.delete(filename);
+// Returns: {success: boolean}
 ```
 
 ---
 
 ## Troubleshooting
 
-### ADB Issues
+### Device Not Detected
 
-#### Device Not Detected
-```bash
-# Check ADB installation
-adb version
+**Symptoms**: Device does not appear in the device dropdown
 
-# List connected devices
-adb devices
+**Solutions**:
+1. Verify USB cable is data-capable (not charge-only)
+2. Check USB debugging is enabled on device
+3. Accept the "Allow USB debugging" prompt on device
+4. Restart ADB server:
+   ```bash
+   adb kill-server
+   adb start-server
+   adb devices
+   ```
+5. Try a different USB port
 
-# Restart ADB server
-adb kill-server
-adb start-server
-```
+### Device Shows "Unauthorized"
 
-#### Device Shows "Unauthorized"
-1. Android 디바이스에서 "USB 디버깅 허용" 팝업 확인
-2. "항상 허용" 체크 후 확인
-3. 안 되면 다음 명령어 실행:
-```bash
-adb kill-server
-rm ~/.android/adbkey*
-adb start-server
-```
+**Symptoms**: Device appears but cannot be controlled
 
-### Screen Capture Issues
+**Solutions**:
+1. Disconnect and reconnect USB cable
+2. Look for authorization prompt on device screen
+3. Check "Always allow from this computer"
+4. If prompt doesn't appear:
+   ```bash
+   adb kill-server
+   rm ~/.android/adbkey*    # macOS/Linux
+   adb start-server
+   ```
+5. Reconnect device and accept prompt
 
-#### Black Screen or No Image
-1. USB 케이블 재연결
-2. 디바이스에서 USB 디버깅 OFF → ON
-3. ADB 재시작
-4. 디바이스 재부팅
+### Screen Capture Returns Black Image
 
-#### Slow Streaming
-- USB 2.0 대신 USB 3.0 포트 사용
-- 무선 ADB 연결 시 WiFi 대역폭 확인
-- 화면 해상도가 높으면 캡처 속도 저하 (정상)
+**Symptoms**: Preview shows black or blank screen
 
-### Image Matching Issues
+**Solutions**:
+1. Ensure device screen is unlocked
+2. Check if app has secure flag (banking apps often do)
+3. Disable any screen overlay apps
+4. Try capturing from a different app (e.g., home screen)
+5. Restart the Vision Auto application
 
-#### Matching Fails Constantly
-- **임계값 낮추기**: 0.95 → 0.85 → 0.8
-- **크롭 영역 재조정**: 더 큰 영역 또는 더 유니크한 패턴 선택
-- **화면 해상도 확인**: 템플릿 생성 시와 실행 시 동일한 해상도인지
-- **화면 변화 확인**: 애니메이션/동적 요소가 있는지
+### Image Matching Always Fails
 
-#### Too Many False Positives
-- **임계값 높이기**: 0.8 → 0.9 → 0.95
-- **더 유니크한 패턴**: 반복되는 요소 대신 고유한 이미지 선택
+**Symptoms**: Match never succeeds even with visible target
 
-### Application Issues
+**Solutions**:
+1. Lower the threshold (try 75-80%)
+2. Recapture the template from current screen
+3. Ensure device resolution hasn't changed
+4. Avoid capturing animated elements
+5. Select a larger, more distinctive region
 
-#### IPC Handler Errors
-- 앱 재시작: `Ctrl+R` 또는 `Cmd+R`
-- 완전 재시작: 앱 종료 후 `npm start`
+### Slow Screen Streaming
 
-#### Performance Issues
-- DevTools 열기 (F12) → Console 탭에서 에러 확인
-- 매크로에 불필요한 딜레이 제거
-- 이미지 매칭 액션 수 줄이기
+**Symptoms**: Preview updates slowly or lags
+
+**Causes and Solutions**:
+| Cause | Solution |
+|-------|----------|
+| USB 2.0 | Use USB 3.0 port |
+| High resolution | Lower device resolution in settings |
+| CPU load | Close other applications |
+| Wireless connection | Use USB for better performance |
+
+### Application Crashes on Startup
+
+**Solutions**:
+1. Delete `node_modules` and reinstall:
+   ```bash
+   rm -rf node_modules
+   npm install
+   ```
+2. Check Node.js version (18+ required)
+3. Run in debug mode:
+   ```bash
+   npm run dev
+   ```
+4. Check console for error messages
 
 ---
 
 ## Development
 
-### Code Style
-- **No Emoji**: 코드, 주석, 커밋 메시지에 이모지 사용 금지
-- **Clean Code**: 명확한 변수명, 작은 함수, 단일 책임
-- **Comments**: 영어로 작성, Why 설명 (What 아닌)
+### Development Setup
 
-### Adding New Actions
+```bash
+# Install dependencies
+npm install
 
-1. **index.html**에 버튼 추가
-2. **unified-app.js**의 `addAction()` 메서드에 케이스 추가
-3. **unified-app.js**의 `displayActions()`에 표시 로직 추가
-4. **unified-app.js**의 `executeAction()`에 실행 로직 추가
-5. 필요시 **main.js**에 IPC 핸들러 추가
+# Run in development mode
+npm run dev
 
-### Adding New IPC Handlers
+# Run tests
+npm test
 
-**main.js**의 `setupIpcHandlers()` 함수에 추가:
-```javascript
-ipcMain.handle('your-channel', async (event, params) => {
-  try {
-    const result = await yourService.doSomething(params);
-    return { success: true, data: result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
+# Run tests with coverage
+npm run test:coverage
 ```
 
-**preload.js**에 API 노출:
-```javascript
-contextBridge.exposeInMainWorld('api', {
-  yourNamespace: {
-    doSomething: (params) => ipcRenderer.invoke('your-channel', params)
-  }
-});
+### Code Style Guidelines
+
+- No emojis in code, comments, or commit messages
+- Use meaningful variable and function names
+- Keep functions small and focused
+- Write comments explaining "why", not "what"
+- Follow existing patterns in the codebase
+
+### Adding New Action Types
+
+1. **Define action in ActionConfigProvider.js**
+   - Add action metadata
+   - Configure color scheme
+   - Add to appropriate category
+
+2. **Create settings builder in ActionSettingsBuilder.js**
+   - Build the settings panel HTML
+   - Handle parameter validation
+
+3. **Implement execution in main.js**
+   - Add case in action:execute handler
+   - Implement the actual device action
+
+4. **Update preload.js if new IPC needed**
+   - Expose new API methods
+   - Handle response formatting
+
+### Running Tests
+
+```bash
+# Unit tests
+npm test
+
+# E2E tests
+npm run test:e2e
+
+# Coverage report
+npm run test:coverage
 ```
 
----
+### Building for Production
 
-## Roadmap
+```bash
+# Build for current platform
+npm run build
 
-### Planned Features
-- [ ] 다중 디바이스 동시 제어
-- [ ] 매크로 스케줄링 (특정 시간에 자동 실행)
-- [ ] OCR 텍스트 인식 통합
-- [ ] 매크로 녹화 기능 (실제 액션을 녹화)
-- [ ] 클라우드 동기화 (매크로 공유)
-- [ ] 플러그인 시스템
-
-### Performance Improvements
-- [ ] OpenCV.js 통합 (선택적)
-- [ ] WebAssembly 이미지 매칭
-- [ ] 병렬 처리 지원
-
----
-
-## Contributing
-
-이슈 및 풀 리퀘스트 환영합니다!
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+# Build for specific platform
+npm run build:mac
+npm run build:win
+npm run build:linux
+```
 
 ---
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
+
+Copyright (c) 2024
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ---
 
-## Resources
+## References
 
 - [Electron Documentation](https://www.electronjs.org/docs/latest)
 - [ADB Command Reference](https://developer.android.com/studio/command-line/adb)
-- [Jimp Documentation](https://github.com/jimp-dev/jimp)
-- [Project Documentation](./CLAUDE.md)
-
----
-
-<div align="center">
-
-**Built with Electron + ADB**
-
-[⬆ Back to Top](#vision-auto-v2)
-
-</div>
+- [Jimp Image Processing](https://github.com/jimp-dev/jimp)
+- [Android Developer Options](https://developer.android.com/studio/debug/dev-options)

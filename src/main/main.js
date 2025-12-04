@@ -13,10 +13,22 @@ const macroService = require('./services/macro.service');
 const settingsService = require('./services/settings.service');
 const loggerService = require('./services/logger.service');
 const { CCNCConnectionService } = require('./services/ccnc-connection.service');
+const { SCREEN } = require('../shared/constants');
 
 // Protocol System
 const ProtocolManager = require('./services/ProtocolManager');
 const AdbProtocol = require('./services/protocols/AdbProtocol');
+
+// Result Report Service
+const ResultReportService = require('./services/result-report.service');
+const resultReportService = new ResultReportService();
+
+// AI Analysis Service
+const AIAnalysisService = require('./services/ai-analysis.service');
+const aiAnalysisService = new AIAnalysisService();
+
+// ADB Logcat Service
+const adbLogcatService = require('./services/adb-logcat.service');
 
 // Protocol manager instance
 let protocolManager = null;
@@ -28,6 +40,274 @@ let ccncService = null;
 let ccncStreamActive = false;
 
 let mainWindow = null;
+
+// Device heartbeat for connection monitoring
+let deviceHeartbeatInterval = null;
+let lastKnownDeviceId = null;
+let wasDeviceConnected = false; // Track previous connection state to avoid duplicate notifications
+
+/**
+ * Create standardized error response and log error
+ * @param {string} message - Error message for logging
+ * @param {Error|string} error - Error object or message
+ * @returns {{ success: false, error: string }}
+ */
+function errorResponse(message, error) {
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  loggerService.error(message, error);
+  return { success: false, error: errorMsg };
+}
+
+/**
+ * Execute a single action via Protocol Manager
+ * @param {Object} action - Action to execute
+ * @returns {Promise<Object>} Result with success status
+ */
+async function executeAction(action) {
+  switch (action.type) {
+    case 'tap':
+    case 'click':
+      await protocolManager.tap(action.x, action.y);
+      return { success: true };
+
+    case 'long-press':
+      await protocolManager.longPress(action.x, action.y, action.duration || 1000);
+      return { success: true };
+
+    case 'swipe':
+    case 'drag':
+      await protocolManager.swipe(
+        action.x1 || action.startX || action.x,
+        action.y1 || action.startY || action.y,
+        action.x2 || action.endX,
+        action.y2 || action.endY,
+        action.duration || 300
+      );
+      return { success: true };
+
+    case 'scroll':
+      await protocolManager.scroll(action.direction, action.distance || 600);
+      return { success: true };
+
+    case 'input':
+      await protocolManager.inputText(action.text);
+      return { success: true };
+
+    case 'back':
+      await protocolManager.pressKey('KEYCODE_BACK');
+      return { success: true };
+
+    case 'home':
+      await protocolManager.pressKey('KEYCODE_HOME');
+      return { success: true };
+
+    case 'recent':
+      await protocolManager.pressKey('KEYCODE_APP_SWITCH');
+      return { success: true };
+
+    case 'wait':
+      await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
+      return { success: true };
+
+    case 'get-volume':
+      return await actionService.getVolume(action);
+
+    case 'log':
+      loggerService.info(`[LOG] ${action.message || ''}`);
+      return { success: true, message: action.message };
+
+    case 'success':
+      loggerService.info(`[SUCCESS] ${action.message || 'Macro completed successfully'}`);
+      return { success: true, message: action.message, exitType: 'success' };
+
+    case 'skip':
+      loggerService.info('[SKIP] Action skipped');
+      return { success: true, exitType: 'skip' };
+
+    case 'fail':
+      loggerService.info(`[FAIL] ${action.message || 'Macro failed'}`);
+      return { success: false, message: action.message, exitType: 'fail' };
+
+    case 'adb-reboot':
+      return await executeAdbReboot(action);
+
+    case 'endif':
+    case 'else':
+    case 'else-if':
+    case 'end-if':
+    case 'end-loop':
+    case 'end-while':
+      return { success: true };
+
+    default:
+      throw new Error(`Unsupported action type: ${action.type}`);
+  }
+}
+
+/**
+ * Execute ADB reboot action
+ * @param {Object} action - Reboot action configuration
+ * @returns {Promise<Object>} Result with success status
+ */
+async function executeAdbReboot(action) {
+  loggerService.info('[ADB] Initiating device reboot...');
+  const { execSync } = require('child_process');
+  const shouldWaitForDevice = action.waitForDevice === 'true' || action.waitForDevice === true;
+  const rebootTimeout = action.timeout || 120000;
+
+  try {
+    execSync('adb reboot', { timeout: 10000 });
+    loggerService.info('[ADB] Reboot command sent');
+
+    if (shouldWaitForDevice) {
+      loggerService.info('[ADB] Waiting for device to come back online...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      const rebootStartTime = Date.now();
+      let deviceOnline = false;
+
+      while (Date.now() - rebootStartTime < rebootTimeout) {
+        try {
+          const devices = execSync('adb devices', { timeout: 5000, encoding: 'utf8' });
+          if (!devices.includes('device')) {
+            loggerService.debug('[ADB] Device not yet visible, waiting...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+
+          const bootResult = execSync('adb shell getprop sys.boot_completed', {
+            timeout: 10000,
+            encoding: 'utf8'
+          }).trim();
+
+          if (bootResult === '1') {
+            deviceOnline = true;
+            loggerService.info('[ADB] Device is back online and boot completed');
+            break;
+          } else {
+            loggerService.debug('[ADB] Device visible but boot not completed yet...');
+          }
+        } catch (e) {
+          loggerService.debug('[ADB] Device not ready yet:', e.message);
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      if (!deviceOnline) {
+        throw new Error('Device did not come back online within timeout');
+      }
+
+      loggerService.info('[ADB] Waiting for UI to be ready...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      try {
+        loggerService.info('[ADB] Reconnecting protocol...');
+        await protocolManager.disconnect();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const deviceList = await deviceService.getDevices();
+        if (deviceList && deviceList.length > 0) {
+          await protocolManager.connect(deviceList[0].id, 'adb');
+          loggerService.info('[ADB] Protocol reconnected successfully');
+        }
+      } catch (reconnectError) {
+        loggerService.warn('[ADB] Protocol reconnect warning:', reconnectError.message);
+      }
+    }
+
+    return { success: true, message: 'Device rebooted successfully' };
+  } catch (rebootError) {
+    loggerService.error('[ADB] Reboot failed:', rebootError.message);
+    return { success: false, error: rebootError.message };
+  }
+}
+
+/**
+ * Start device connection heartbeat
+ */
+function startDeviceHeartbeat(deviceId) {
+  stopDeviceHeartbeat();
+  lastKnownDeviceId = deviceId;
+  wasDeviceConnected = true;
+
+  deviceHeartbeatInterval = setInterval(async () => {
+    if (!lastKnownDeviceId) {
+      return;
+    }
+
+    try {
+      const devices = await deviceService.listDevices();
+      // Check if device is connected AND has 'device' status (not 'offline', 'unauthorized', etc.)
+      const connectedDevice = devices.find(d => d.id === lastKnownDeviceId);
+      const isConnected = connectedDevice && connectedDevice.status === 'device';
+
+      if (!isConnected && wasDeviceConnected) {
+        // Device just disconnected
+        const reason = connectedDevice ? `status: ${connectedDevice.status}` : 'not found';
+        loggerService.info(`[Heartbeat] Device disconnected: ${lastKnownDeviceId} (${reason})`);
+        wasDeviceConnected = false;
+
+        // Stop streaming
+        if (ccncStreamActive) {
+          ccncStreamActive = false;
+        }
+        try {
+          await screenService.stopStream();
+        } catch (e) {
+          // Ignore
+        }
+
+        // Notify renderer
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('device:status', {
+            connected: false,
+            device: null,
+            reason: reason
+          });
+        }
+        // Don't stop heartbeat - keep monitoring for reconnection
+      } else if (isConnected && !wasDeviceConnected) {
+        // Device just reconnected
+        loggerService.info(`[Heartbeat] Device reconnected: ${lastKnownDeviceId}`);
+        wasDeviceConnected = true;
+
+        // Get device info for notification
+        let deviceInfo = connectedDevice;
+        try {
+          deviceInfo = await deviceService.getDeviceInfo(lastKnownDeviceId);
+        } catch (e) {
+          loggerService.warn('[Heartbeat] Could not get device info: ' + e.message);
+        }
+
+        // Notify renderer about reconnection
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('device:status', {
+            connected: true,
+            device: {
+              id: lastKnownDeviceId,
+              ...deviceInfo
+            },
+            reconnected: true
+          });
+        }
+      }
+    } catch (error) {
+      loggerService.error('[Heartbeat] Error checking device', error);
+    }
+  }, 3000); // Check every 3 seconds
+}
+
+/**
+ * Stop device heartbeat
+ */
+function stopDeviceHeartbeat() {
+  if (deviceHeartbeatInterval) {
+    clearInterval(deviceHeartbeatInterval);
+    deviceHeartbeatInterval = null;
+  }
+  lastKnownDeviceId = null;
+  wasDeviceConnected = false;
+}
 
 /**
  * Create the main application window
@@ -107,6 +387,23 @@ async function initializeServices() {
     await actionService.initialize(deviceService, ccncService);
     await macroService.initialize();
 
+    // Listen for device disconnection from screen service (ADB stream errors)
+    screenService.on('device-disconnected', (data) => {
+      loggerService.info(`[ScreenService] Device disconnected event: ${data.reason || 'unknown'}`);
+
+      // Stop heartbeat
+      stopDeviceHeartbeat();
+
+      // Notify renderer
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('device:status', {
+          connected: false,
+          device: null,
+          reason: data.reason || 'stream_error'
+        });
+      }
+    });
+
     loggerService.info('All services initialized successfully');
   } catch (error) {
     loggerService.error('Failed to initialize services', error);
@@ -121,51 +418,34 @@ function setupIpcHandlers() {
   // Device handlers
   ipcMain.handle('device:list', async () => {
     try {
-      console.log('[IPC] device:list called');
       const devices = await deviceService.listDevices();
-      console.log('[IPC] device:list result:', devices);
       return { success: true, devices };
     } catch (error) {
-      console.error('[IPC] device:list error:', error);
-      loggerService.error('Failed to list devices', error);
-      return {
-        success: false,
-        error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      };
+      return errorResponse('Failed to list devices', error);
     }
   });
 
   ipcMain.handle('device:select', async (event, deviceId) => {
     try {
-      console.log('[IPC] device:select called with:', deviceId);
+      loggerService.debug(`[IPC] device:select called with: ${deviceId}`);
       const result = await deviceService.selectDevice(deviceId);
-      console.log('[IPC] device:select result:', result);
 
-      // 렌더러에 디바이스 상태 업데이트 전송
+      // Start heartbeat monitoring for this device
+      startDeviceHeartbeat(deviceId);
+
+      // Send device status update to renderer
       if (mainWindow && mainWindow.webContents) {
-        console.log('[IPC] Sending device:status event to renderer:', {
-          connected: true,
-          device: result
-        });
         mainWindow.webContents.send('device:status', {
           connected: true,
           device: result
         });
-        console.log('[IPC] device:status event sent');
       } else {
-        console.error('[IPC] Cannot send device:status - mainWindow or webContents is null');
+        loggerService.warn('[IPC] Cannot send device:status - mainWindow or webContents is null');
       }
 
       return { success: true, info: result };
     } catch (error) {
-      console.error('[IPC] device:select error:', error);
-      loggerService.error('Failed to select device', error);
-      return {
-        success: false,
-        error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      };
+      return errorResponse('Failed to select device', error);
     }
   });
 
@@ -174,14 +454,13 @@ function setupIpcHandlers() {
       const info = await deviceService.getDeviceInfo();
       return { success: true, info };
     } catch (error) {
-      loggerService.error('Failed to get device info', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to get device info', error);
     }
   });
 
   ipcMain.handle('device:connect-ccnc', async (event, { host, port, fps }) => {
     try {
-      console.log('[IPC] device:connect-ccnc called with:', host, port, fps);
+      loggerService.debug(`[IPC] device:connect-ccnc called with: ${host}:${port}, fps=${fps}`);
 
       // Create new ccNC service if not exists
       if (!ccncService) {
@@ -189,7 +468,7 @@ function setupIpcHandlers() {
 
         // Handle ccNC errors to prevent uncaughtException
         ccncService.on('error', (error) => {
-          console.error('[ccNC] Service error:', error.message);
+          loggerService.error('[ccNC] Service error', error);
         });
       }
 
@@ -214,7 +493,7 @@ function setupIpcHandlers() {
       try {
         version = await ccncService.getVersion();
       } catch (versionError) {
-        console.log('[ccNC] Version query failed, continuing:', versionError.message);
+        loggerService.debug('[ccNC] Version query failed, continuing: ' + versionError.message);
       }
 
       loggerService.info(`ccNC connected: ${host}:${port} (version: ${version})`);
@@ -226,19 +505,12 @@ function setupIpcHandlers() {
         port
       };
     } catch (error) {
-      console.error('[IPC] device:connect-ccnc error:', error);
-      loggerService.error('Failed to connect ccNC', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return errorResponse('Failed to connect ccNC', error);
     }
   });
 
   ipcMain.handle('device:disconnect-ccnc', async () => {
     try {
-      console.log('[IPC] device:disconnect-ccnc called');
-
       if (ccncService) {
         ccncService.disconnect();
         ccncService = null;
@@ -247,12 +519,7 @@ function setupIpcHandlers() {
       loggerService.info('ccNC disconnected');
       return { success: true };
     } catch (error) {
-      console.error('[IPC] device:disconnect-ccnc error:', error);
-      loggerService.error('Failed to disconnect ccNC', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return errorResponse('Failed to disconnect ccNC', error);
     }
   });
 
@@ -261,8 +528,8 @@ function setupIpcHandlers() {
     try {
       // Use ccNC if connected, otherwise use ADB
       if (ccncService && ccncService.isConnected()) {
-        // Capture full screen: 1920x720
-        const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
+        // Capture full screen using ccNC resolution constants
+        const imageData = await ccncService.capture(0, 0, SCREEN.CCNC_WIDTH, SCREEN.CCNC_HEIGHT, { format: 'jpeg' });
         const base64 = imageData.toString('base64');
         return { success: true, screenshot: `data:image/jpeg;base64,${base64}` };
       } else {
@@ -270,71 +537,147 @@ function setupIpcHandlers() {
         return { success: true, screenshot };
       }
     } catch (error) {
-      loggerService.error('Failed to capture screen', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to capture screen', error);
     }
   });
 
   // ccNC streaming loop function
-  async function ccncStreamLoop(targetInterval) {
-    if (!ccncStreamActive || !ccncService || !ccncService.isConnected()) {
+  let ccncDisconnectNotified = false; // Track if disconnect has been notified
+  let ccncStreamSessionId = 0; // Session ID to prevent duplicate loops
+
+  async function ccncStreamLoop(targetInterval, sessionId) {
+    // Check if this loop should continue (session ID must match current session)
+    if (sessionId !== ccncStreamSessionId) {
+      loggerService.debug(`[ccNC Stream] Loop terminated - old session ${sessionId}, current ${ccncStreamSessionId}`);
       return;
     }
 
-    const startTime = Date.now();
+    if (!ccncStreamActive || !ccncService || !ccncService.isConnected()) {
+      // Notify renderer about disconnect (only once)
+      if (ccncStreamActive && !ccncDisconnectNotified) {
+        ccncDisconnectNotified = true;
+        ccncStreamActive = false;
+        loggerService.warn('ccNC connection lost - notifying renderer');
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('device:status', {
+            connected: false,
+            deviceType: 'ccnc',
+            deviceName: null,
+            deviceId: null,
+            reason: 'connection_lost'
+          });
+        }
+      }
+      return;
+    }
+
+    // Reset disconnect notification flag when connected
+    ccncDisconnectNotified = false;
 
     try {
-      // Capture full screen: 1920x720
-      const imageData = await ccncService.capture(0, 0, 1920, 720, { format: 'jpeg' });
+      // Capture full screen using ccNC resolution constants
+      // Wait for complete frame before requesting next one (prevents partial frames on slow devices)
+      const imageData = await ccncService.capture(0, 0, SCREEN.CCNC_WIDTH, SCREEN.CCNC_HEIGHT, { format: 'jpeg' });
       const base64 = imageData.toString('base64');
 
-      if (mainWindow && mainWindow.webContents && ccncStreamActive) {
+      if (mainWindow && mainWindow.webContents && ccncStreamActive && sessionId === ccncStreamSessionId) {
         mainWindow.webContents.send('screen:stream:data', {
           dataUrl: `data:image/jpeg;base64,${base64}`,
-          width: 1920,
-          height: 720,
+          width: SCREEN.CCNC_WIDTH,
+          height: SCREEN.CCNC_HEIGHT,
           timestamp: Date.now()
         });
       }
     } catch (error) {
-      console.error('[ccNC Stream] Capture error:', error.message);
+      loggerService.error('[ccNC Stream] Capture error', error);
     }
 
-    // Calculate how long to wait before next capture
-    const elapsed = Date.now() - startTime;
-    const waitTime = Math.max(0, targetInterval - elapsed);
-
-    // Schedule next capture after waiting
-    if (ccncStreamActive) {
-      setTimeout(() => ccncStreamLoop(targetInterval), waitTime);
+    // Request next frame immediately after current frame is complete
+    // This ensures we always get complete frames even if device is slow due to heat
+    if (ccncStreamActive && sessionId === ccncStreamSessionId) {
+      // Use setImmediate to avoid blocking and allow event loop to process
+      setImmediate(() => ccncStreamLoop(targetInterval, sessionId));
     }
+  }
+
+  // Helper to start a new stream session
+  function startCcncStreamSession(interval) {
+    ccncStreamSessionId++; // Increment session ID to invalidate old loops
+    ccncStreamActive = true;
+    ccncDisconnectNotified = false;
+    const currentSession = ccncStreamSessionId;
+    loggerService.debug(`[ccNC Stream] Starting new session ${currentSession}`);
+    ccncStreamLoop(interval, currentSession);
+    return currentSession;
   }
 
   ipcMain.handle('screen:start-stream', async (event, options) => {
     try {
-      // Use ccNC if connected
-      if (ccncService && ccncService.isConnected()) {
-        if (ccncStreamActive) {
-          throw new Error('ccNC stream already active');
+      // Check if ccNC service exists (was previously connected)
+      if (ccncService) {
+        // If ccNC is connected, use it
+        if (ccncService.isConnected()) {
+          const fps = ccncService.targetFPS || 30;
+          const interval = 1000 / fps;
+
+          // Start new stream session (invalidates any old loops)
+          startCcncStreamSession(interval);
+
+          loggerService.info(`ccNC stream started at ${fps} FPS (JPEG, ${SCREEN.CCNC_WIDTH}x${SCREEN.CCNC_HEIGHT})`);
+          return { success: true };
         }
 
-        // ccNC: Use target FPS from connection
+        // ccNC service exists but not connected - try to reconnect
+        // This happens after device reboot when TCP connection was lost
+        const host = ccncService.host || 'localhost';
+        const port = ccncService.port || 20000;
         const fps = ccncService.targetFPS || 30;
-        const interval = 1000 / fps;
 
-        ccncStreamActive = true;
-        ccncStreamLoop(interval);
+        loggerService.info(`ccNC disconnected, attempting reconnect to ${host}:${port}...`);
 
-        loggerService.info(`ccNC stream started at ${fps} FPS (JPEG, 1920x720)`);
-        return { success: true };
-      } else {
-        // ADB: Use requested FPS (default 30)
-        await screenService.startStream(options);
-        return { success: true };
+        try {
+          await ccncService.connect(host, port);
+          loggerService.info(`ccNC reconnected successfully`);
+
+          const interval = 1000 / fps;
+          // Start new stream session (invalidates any old loops)
+          startCcncStreamSession(interval);
+
+          loggerService.info(`ccNC stream started at ${fps} FPS (JPEG, ${SCREEN.CCNC_WIDTH}x${SCREEN.CCNC_HEIGHT})`);
+          return { success: true };
+        } catch (reconnectError) {
+          loggerService.warn(`ccNC reconnect failed: ${reconnectError.message}, falling back to ADB`);
+          // Fall through to ADB
+        }
       }
+
+      // ADB: Use requested FPS (default 30)
+      // If no device is currently selected, try to find and select one
+      if (!deviceService.currentDevice) {
+        loggerService.info('No device selected, attempting auto-select...');
+        const devices = await deviceService.listDevices();
+        if (devices && devices.length > 0) {
+          const connectedDevice = devices.find(d => d.status === 'device') || devices[0];
+          await deviceService.selectDevice(connectedDevice.id);
+          loggerService.info(`Auto-selected device: ${connectedDevice.id}`);
+          // Give ADB a moment to stabilize after device selection
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          loggerService.error('No devices available for auto-select');
+          return { success: false, error: 'No devices available' };
+        }
+      }
+
+      const streamResult = await screenService.startStream(options);
+      return {
+        success: true,
+        width: streamResult.width,
+        height: streamResult.height,
+        isValidResolution: streamResult.isValidResolution,
+        retryCount: streamResult.retryCount
+      };
     } catch (error) {
-      loggerService.error('Failed to start stream', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to start stream', error);
     }
   });
 
@@ -350,8 +693,62 @@ function setupIpcHandlers() {
         return { success: true };
       }
     } catch (error) {
-      loggerService.error('Failed to stop stream', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to stop stream', error);
+    }
+  });
+
+  // Reconnect stream (stop and restart with fresh dimensions)
+  ipcMain.handle('screen:reconnect', async (event, options) => {
+    try {
+      loggerService.debug('[screen:reconnect] Reconnecting stream...');
+
+      // Stop existing stream (session ID will be invalidated when starting new session)
+      if (ccncStreamActive) {
+        ccncStreamActive = false;
+      } else {
+        await screenService.stopStream();
+      }
+
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Get fresh screen resolution before restarting stream
+      let resolution = null;
+      try {
+        resolution = await protocolManager.getScreenResolution();
+        loggerService.debug(`[screen:reconnect] Fresh resolution: ${resolution?.width}x${resolution?.height}`);
+      } catch (resErr) {
+        loggerService.warn('[screen:reconnect] Could not get resolution: ' + resErr.message);
+      }
+
+      // Start new stream (ccNC or ADB)
+      if (ccncService && ccncService.isConnected()) {
+        const fps = ccncService.targetFPS || 30;
+        const interval = 1000 / fps;
+        // Start new stream session (invalidates any old loops)
+        startCcncStreamSession(interval);
+        loggerService.info('ccNC stream reconnected');
+      } else {
+        // If no device is currently selected, try to find and select one
+        if (!deviceService.currentDevice) {
+          loggerService.info('[screen:reconnect] No device selected, attempting auto-select...');
+          const devices = await deviceService.listDevices();
+          if (devices && devices.length > 0) {
+            const connectedDevice = devices.find(d => d.status === 'device') || devices[0];
+            await deviceService.selectDevice(connectedDevice.id);
+            loggerService.info(`[screen:reconnect] Auto-selected device: ${connectedDevice.id}`);
+          } else {
+            loggerService.error('[screen:reconnect] No devices available for auto-select');
+            return { success: false, error: 'No devices available' };
+          }
+        }
+        await screenService.startStream(options);
+        loggerService.info('ADB stream reconnected');
+      }
+
+      return { success: true, resolution };
+    } catch (error) {
+      return errorResponse('Failed to reconnect stream', error);
     }
   });
 
@@ -360,8 +757,7 @@ function setupIpcHandlers() {
       const recordingPath = await screenService.startRecording(options);
       return { success: true, path: recordingPath };
     } catch (error) {
-      loggerService.error('Failed to start recording', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to start recording', error);
     }
   });
 
@@ -370,204 +766,27 @@ function setupIpcHandlers() {
       const recordingPath = await screenService.stopRecording();
       return { success: true, path: recordingPath };
     } catch (error) {
-      loggerService.error('Failed to stop recording', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to stop recording', error);
     }
   });
 
-  // Action handlers (legacy - prefer using protocol API directly)
+  // Action handlers
   ipcMain.handle('action:execute', async (event, action) => {
     try {
-      // Use Protocol Manager for execution
-      switch (action.type) {
-        case 'tap':
-        case 'click':
-          await protocolManager.tap(action.x, action.y);
-          return { success: true };
-
-        case 'long-press':
-          await protocolManager.longPress(action.x, action.y, action.duration || 1000);
-          return { success: true };
-
-        case 'swipe':
-        case 'drag':
-          await protocolManager.swipe(
-            action.x1 || action.startX || action.x,
-            action.y1 || action.startY || action.y,
-            action.x2 || action.endX,
-            action.y2 || action.endY,
-            action.duration || 300
-          );
-          return { success: true };
-
-        case 'scroll':
-          await protocolManager.scroll(action.direction, action.distance || 600);
-          return { success: true };
-
-        case 'input':
-          await protocolManager.inputText(action.text);
-          return { success: true };
-
-        case 'back':
-          await protocolManager.pressKey('KEYCODE_BACK');
-          return { success: true };
-
-        case 'home':
-          await protocolManager.pressKey('KEYCODE_HOME');
-          return { success: true };
-
-        case 'recent':
-          await protocolManager.pressKey('KEYCODE_APP_SWITCH');
-          return { success: true };
-
-        case 'wait':
-          await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
-          return { success: true };
-
-        case 'get-volume':
-          // Get device volume using ADB
-          const volumeResult = await actionService.getVolume(action);
-          return volumeResult;
-
-        // Log action - output message to console
-        case 'log':
-          console.log(`[LOG] ${action.message || ''}`);
-          return { success: true, message: action.message };
-
-        // Exit actions
-        case 'success':
-          console.log(`[SUCCESS] ${action.message || 'Macro completed successfully'}`);
-          return { success: true, message: action.message, exitType: 'success' };
-
-        case 'skip':
-          console.log(`[SKIP] Action skipped`);
-          return { success: true, exitType: 'skip' };
-
-        case 'fail':
-          console.log(`[FAIL] ${action.message || 'Macro failed'}`);
-          return { success: false, message: action.message, exitType: 'fail' };
-
-        // Control flow markers - no execution needed, just pass through
-        case 'endif':
-        case 'else':
-        case 'else-if':
-        case 'end-if':
-        case 'end-loop':
-        case 'end-while':
-          return { success: true };
-
-        default:
-          throw new Error(`Unsupported action type: ${action.type}`);
-      }
+      return await executeAction(action);
     } catch (error) {
-      loggerService.error('Failed to execute action', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to execute action', error);
     }
   });
 
   ipcMain.handle('action:execute-batch', async (event, actions) => {
     try {
-      // Use Protocol Manager for batch execution
       const results = [];
-
       for (const action of actions) {
         try {
-          switch (action.type) {
-            case 'tap':
-            case 'click':
-              await protocolManager.tap(action.x, action.y);
-              results.push({ success: true });
-              break;
+          const result = await executeAction(action);
+          results.push(result);
 
-            case 'long-press':
-              await protocolManager.longPress(action.x, action.y, action.duration || 1000);
-              results.push({ success: true });
-              break;
-
-            case 'swipe':
-            case 'drag':
-              await protocolManager.swipe(
-                action.x1 || action.startX || action.x,
-                action.y1 || action.startY || action.y,
-                action.x2 || action.endX,
-                action.y2 || action.endY,
-                action.duration || 300
-              );
-              results.push({ success: true });
-              break;
-
-            case 'scroll':
-              await protocolManager.scroll(action.direction, action.distance || 600);
-              results.push({ success: true });
-              break;
-
-            case 'input':
-              await protocolManager.inputText(action.text);
-              results.push({ success: true });
-              break;
-
-            case 'back':
-              await protocolManager.pressKey('KEYCODE_BACK');
-              results.push({ success: true });
-              break;
-
-            case 'home':
-              await protocolManager.pressKey('KEYCODE_HOME');
-              results.push({ success: true });
-              break;
-
-            case 'recent':
-              await protocolManager.pressKey('KEYCODE_APP_SWITCH');
-              results.push({ success: true });
-              break;
-
-            case 'wait':
-              await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
-              results.push({ success: true });
-              break;
-
-            case 'get-volume':
-              const volumeResult = await actionService.getVolume(action);
-              results.push(volumeResult);
-              break;
-
-            // Log action
-            case 'log':
-              console.log(`[LOG] ${action.message || ''}`);
-              results.push({ success: true, message: action.message });
-              break;
-
-            // Exit actions
-            case 'success':
-              console.log(`[SUCCESS] ${action.message || 'Macro completed successfully'}`);
-              results.push({ success: true, message: action.message, exitType: 'success' });
-              break;
-
-            case 'skip':
-              console.log(`[SKIP] Action skipped`);
-              results.push({ success: true, exitType: 'skip' });
-              break;
-
-            case 'fail':
-              console.log(`[FAIL] ${action.message || 'Macro failed'}`);
-              results.push({ success: false, message: action.message, exitType: 'fail' });
-              break;
-
-            // Control flow markers - no execution needed, just pass through
-            case 'endif':
-            case 'else':
-            case 'else-if':
-            case 'end-if':
-            case 'end-loop':
-            case 'end-while':
-              results.push({ success: true });
-              break;
-
-            default:
-              results.push({ success: false, error: `Unsupported action type: ${action.type}` });
-          }
-
-          // Add delay between actions
           if (action.delay) {
             await new Promise(resolve => setTimeout(resolve, action.delay));
           }
@@ -575,11 +794,9 @@ function setupIpcHandlers() {
           results.push({ success: false, error: error.message });
         }
       }
-
       return { success: true, results };
     } catch (error) {
-      loggerService.error('Failed to execute batch actions', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to execute batch actions', error);
     }
   });
 
@@ -589,8 +806,7 @@ function setupIpcHandlers() {
       const macros = await macroService.listMacros();
       return { success: true, macros };
     } catch (error) {
-      loggerService.error('Failed to list macros', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to list macros', error);
     }
   });
 
@@ -599,8 +815,7 @@ function setupIpcHandlers() {
       const macro = await macroService.loadMacro(id);
       return { success: true, macro };
     } catch (error) {
-      loggerService.error('Failed to get macro', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to get macro', error);
     }
   });
 
@@ -609,8 +824,7 @@ function setupIpcHandlers() {
       const savedMacro = await macroService.saveMacro(macro);
       return { success: true, macro: savedMacro };
     } catch (error) {
-      loggerService.error('Failed to save macro', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to save macro', error);
     }
   });
 
@@ -619,8 +833,7 @@ function setupIpcHandlers() {
       await macroService.deleteMacro(id);
       return { success: true };
     } catch (error) {
-      loggerService.error('Failed to delete macro', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to delete macro', error);
     }
   });
 
@@ -629,8 +842,7 @@ function setupIpcHandlers() {
       await macroService.runMacro(id, options);
       return { success: true };
     } catch (error) {
-      loggerService.error('Failed to run macro', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to run macro', error);
     }
   });
 
@@ -639,8 +851,7 @@ function setupIpcHandlers() {
       await macroService.stopMacro(id);
       return { success: true };
     } catch (error) {
-      loggerService.error('Failed to stop macro', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to stop macro', error);
     }
   });
 
@@ -649,8 +860,7 @@ function setupIpcHandlers() {
       await macroService.startRecording();
       return { success: true };
     } catch (error) {
-      loggerService.error('Failed to start recording', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to start recording', error);
     }
   });
 
@@ -659,8 +869,7 @@ function setupIpcHandlers() {
       const macro = await macroService.stopRecording();
       return { success: true, macro };
     } catch (error) {
-      loggerService.error('Failed to stop recording', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to stop recording', error);
     }
   });
 
@@ -670,8 +879,7 @@ function setupIpcHandlers() {
       const settings = await settingsService.getAll();
       return { success: true, settings };
     } catch (error) {
-      loggerService.error('Failed to get settings', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to get settings', error);
     }
   });
 
@@ -680,8 +888,7 @@ function setupIpcHandlers() {
       const settings = await settingsService.getCategory(category);
       return { success: true, settings };
     } catch (error) {
-      loggerService.error('Failed to get settings category', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to get settings category', error);
     }
   });
 
@@ -690,8 +897,7 @@ function setupIpcHandlers() {
       const settings = await settingsService.update(updates);
       return { success: true, settings };
     } catch (error) {
-      loggerService.error('Failed to update settings', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to update settings', error);
     }
   });
 
@@ -700,8 +906,7 @@ function setupIpcHandlers() {
       const settings = await settingsService.reset(category);
       return { success: true, settings };
     } catch (error) {
-      loggerService.error('Failed to reset settings', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to reset settings', error);
     }
   });
 
@@ -710,8 +915,7 @@ function setupIpcHandlers() {
       const exportPath = await settingsService.exportSettings(path);
       return { success: true, path: exportPath };
     } catch (error) {
-      loggerService.error('Failed to export settings', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to export settings', error);
     }
   });
 
@@ -720,8 +924,7 @@ function setupIpcHandlers() {
       const settings = await settingsService.importSettings(path);
       return { success: true, settings };
     } catch (error) {
-      loggerService.error('Failed to import settings', error);
-      return { success: false, error: error.message };
+      return errorResponse('Failed to import settings', error);
     }
   });
 
@@ -780,18 +983,20 @@ function setupIpcHandlers() {
       // Clean up device file
       await execPromise(`adb shell rm ${devicePath}`);
 
-      console.log('[ADB] Screenshot captured:', localPath);
+      loggerService.info('[ADB] Screenshot captured: ' + localPath);
+
+      // Read file and convert to base64 data URL for renderer use
+      const imageBuffer = await fs.readFile(localPath);
+      const base64Data = imageBuffer.toString('base64');
+      const dataUrl = `data:image/png;base64,${base64Data}`;
 
       return {
         success: true,
-        path: localPath
+        path: localPath,
+        data: dataUrl
       };
     } catch (error) {
-      console.error('[ADB] Screenshot error:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
+      return errorResponse('ADB screenshot failed', error);
     }
   });
 
@@ -818,18 +1023,159 @@ function setupIpcHandlers() {
       // Write to file
       await fs.writeFile(filePath, stdout, 'utf8');
 
-      console.log('[ADB] Logcat captured:', filePath);
+      loggerService.info('[ADB] Logcat captured: ' + filePath);
 
       return {
         success: true,
         path: filePath
       };
     } catch (error) {
-      console.error('[ADB] Logcat error:', error.message);
-      return {
-        success: false,
-        error: error.message
+      return errorResponse('ADB logcat failed', error);
+    }
+  });
+
+  // Logcat streaming handlers for AI analysis
+  ipcMain.handle('logcat:start', async (event, sessionId, deviceId, options = {}) => {
+    try {
+      const result = await adbLogcatService.startCollection(sessionId, deviceId, options);
+      return { success: result };
+    } catch (error) {
+      return errorResponse('Failed to start logcat collection', error);
+    }
+  });
+
+  ipcMain.handle('logcat:stop', async () => {
+    try {
+      const result = await adbLogcatService.stopCollection();
+      return { success: true, data: result };
+    } catch (error) {
+      return errorResponse('Failed to stop logcat collection', error);
+    }
+  });
+
+  ipcMain.handle('logcat:get', async () => {
+    try {
+      const result = adbLogcatService.getCurrentLogs();
+      return { success: true, data: result };
+    } catch (error) {
+      return errorResponse('Failed to get logcat data', error);
+    }
+  });
+
+  ipcMain.handle('logcat:status', async () => {
+    return {
+      success: true,
+      isCollecting: adbLogcatService.isCollecting()
+    };
+  });
+
+  // ===== Scenario File Handlers =====
+
+  const scenariosDir = path.join(__dirname, '../../scenarios');
+
+  ipcMain.handle('scenario:list', async () => {
+    try {
+      const fs = require('fs').promises;
+
+      // Create directory if it doesn't exist
+      await fs.mkdir(scenariosDir, { recursive: true });
+
+      const files = await fs.readdir(scenariosDir);
+      const scenarios = [];
+
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          try {
+            const filePath = path.join(scenariosDir, file);
+            const content = await fs.readFile(filePath, 'utf8');
+            const data = JSON.parse(content);
+            scenarios.push({
+              id: data.id || file.replace('.json', ''),
+              name: data.name || file.replace('.json', ''),
+              filename: file,
+              path: filePath,
+              ...data
+            });
+          } catch (parseError) {
+            loggerService.warn(`[Scenario] Failed to parse ${file}: ${parseError.message}`);
+          }
+        }
+      }
+
+      loggerService.debug(`[Scenario] Listed scenarios: ${scenarios.length}`);
+      return { success: true, scenarios };
+    } catch (error) {
+      return errorResponse('Scenario list failed', error);
+    }
+  });
+
+  ipcMain.handle('scenario:save', async (event, scenario) => {
+    try {
+      const fs = require('fs').promises;
+
+      // Create directory if it doesn't exist
+      await fs.mkdir(scenariosDir, { recursive: true });
+
+      // Generate filename from scenario name or id
+      const filename = `${scenario.name || scenario.id || 'untitled'}.json`;
+      const filePath = path.join(scenariosDir, filename);
+
+      // Add metadata
+      const dataToSave = {
+        ...scenario,
+        savedAt: new Date().toISOString()
       };
+
+      await fs.writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
+
+      loggerService.debug('[Scenario] Saved: ' + filePath);
+      return { success: true, path: filePath, filename };
+    } catch (error) {
+      return errorResponse('Scenario save failed', error);
+    }
+  });
+
+  ipcMain.handle('scenario:load', async (event, filename) => {
+    try {
+      const fs = require('fs').promises;
+      const filePath = path.join(scenariosDir, filename);
+
+      const content = await fs.readFile(filePath, 'utf8');
+      const scenario = JSON.parse(content);
+
+      loggerService.debug('[Scenario] Loaded: ' + filePath);
+      return { success: true, scenario };
+    } catch (error) {
+      return errorResponse('Scenario load failed', error);
+    }
+  });
+
+  ipcMain.handle('scenario:delete', async (event, filename) => {
+    try {
+      const fs = require('fs').promises;
+      const filePath = path.join(scenariosDir, filename);
+
+      await fs.unlink(filePath);
+
+      loggerService.debug('[Scenario] Deleted: ' + filePath);
+      return { success: true };
+    } catch (error) {
+      return errorResponse('Scenario delete failed', error);
+    }
+  });
+
+  ipcMain.handle('scenario:rename', async (event, oldFilename, newFilename) => {
+    try {
+      const fs = require('fs').promises;
+      const oldPath = path.join(scenariosDir, oldFilename);
+      const newPath = path.join(scenariosDir, newFilename);
+
+      await fs.rename(oldPath, newPath);
+
+      loggerService.debug(`[Scenario] Renamed: ${oldFilename} -> ${newFilename}`);
+      return { success: true };
+    } catch (error) {
+      return errorResponse('Scenario rename failed', error);
     }
   });
 
@@ -841,7 +1187,7 @@ function setupIpcHandlers() {
       const result = await dialog.showSaveDialog(mainWindow, options);
       return result;
     } catch (error) {
-      console.error('[File] showSaveDialog error:', error.message);
+      loggerService.error('[File] showSaveDialog error', error);
       return { canceled: true, error: error.message };
     }
   });
@@ -852,7 +1198,7 @@ function setupIpcHandlers() {
       const result = await dialog.showOpenDialog(mainWindow, options);
       return result;
     } catch (error) {
-      console.error('[File] showOpenDialog error:', error.message);
+      loggerService.error('[File] showOpenDialog error', error);
       return { canceled: true, error: error.message };
     }
   });
@@ -863,8 +1209,7 @@ function setupIpcHandlers() {
       await fs.writeFile(filePath, data, 'utf8');
       return { success: true, path: filePath };
     } catch (error) {
-      console.error('[File] writeFile error:', error.message);
-      return { success: false, error: error.message };
+      return errorResponse('File write failed', error);
     }
   });
 
@@ -874,8 +1219,164 @@ function setupIpcHandlers() {
       const data = await fs.readFile(filePath, 'utf8');
       return { success: true, data };
     } catch (error) {
-      console.error('[File] readFile error:', error.message);
+      return errorResponse('File read failed', error);
+    }
+  });
+
+  // ===== Result Report Handlers =====
+
+  /**
+   * Start a new report session
+   */
+  ipcMain.handle('report:session:start', async (event, options) => {
+    try {
+      const result = resultReportService.startSession(options);
+      return { success: true, ...result };
+    } catch (error) {
+      return errorResponse('Report session start failed', error);
+    }
+  });
+
+  /**
+   * Record an action result to the session
+   */
+  ipcMain.handle('report:session:record', async (event, sessionId, actionResult) => {
+    try {
+      const result = resultReportService.recordAction(sessionId, actionResult);
+      return result;
+    } catch (error) {
+      return errorResponse('Report record action failed', error);
+    }
+  });
+
+  /**
+   * Finalize session and generate report
+   */
+  ipcMain.handle('report:session:finalize', async (event, sessionId, options) => {
+    try {
+      const result = await resultReportService.finalizeSession(sessionId, options);
+      return result;
+    } catch (error) {
+      return errorResponse('Report finalize failed', error);
+    }
+  });
+
+  /**
+   * Cancel a session without generating report
+   */
+  ipcMain.handle('report:session:cancel', async (event, sessionId) => {
+    try {
+      const result = resultReportService.cancelSession(sessionId);
+      return result;
+    } catch (error) {
+      return errorResponse('Report cancel failed', error);
+    }
+  });
+
+  /**
+   * Get session status
+   */
+  ipcMain.handle('report:session:status', async (event, sessionId) => {
+    try {
+      return resultReportService.getSessionStatus(sessionId);
+    } catch (error) {
+      loggerService.error('[Report] Status error', error);
+      return { exists: false, error: error.message };
+    }
+  });
+
+  /**
+   * Save screenshot to temp file (for report)
+   */
+  ipcMain.handle('report:save:screenshot', async (event, data) => {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const os = require('os');
+
+      const { content, filename } = data;
+      const tempDir = path.join(os.tmpdir(), 'vision-auto-screenshots');
+      await fs.mkdir(tempDir, { recursive: true });
+
+      const filePath = path.join(tempDir, filename || `screenshot_${Date.now()}.png`);
+      const base64Data = content.replace(/^data:image\/\w+;base64,/, '');
+      await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
+
+      return { success: true, path: filePath };
+    } catch (error) {
+      return errorResponse('Report save screenshot failed', error);
+    }
+  });
+
+  /**
+   * Get session data for AI analysis
+   */
+  ipcMain.handle('report:session:data', async (event, sessionId) => {
+    try {
+      const data = resultReportService.getSessionData(sessionId);
+      return { success: true, data };
+    } catch (error) {
+      return errorResponse('Get session data failed', error);
+    }
+  });
+
+  /**
+   * Store AI analysis result in session
+   */
+  ipcMain.handle('report:session:ai-analysis', async (event, sessionId, analysisResult) => {
+    try {
+      const result = resultReportService.storeAIAnalysis(sessionId, analysisResult);
+      return result;
+    } catch (error) {
+      return errorResponse('Store AI analysis failed', error);
+    }
+  });
+
+  // ===== AI Analysis Handlers =====
+
+  /**
+   * Analyze failure with AI
+   */
+  ipcMain.handle('ai:analyze', async (event, sessionData, scenario) => {
+    try {
+      if (!aiAnalysisService.isEnabled()) {
+        return {
+          success: false,
+          error: 'AI Analysis is not enabled. Please configure API key in settings.'
+        };
+      }
+      const result = await aiAnalysisService.analyzeFailure(sessionData, scenario);
+      return result;
+    } catch (error) {
+      loggerService.error('[AIAnalysis] Analysis error', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Configure AI analysis service
+   */
+  ipcMain.handle('ai:configure', async (event, config) => {
+    try {
+      aiAnalysisService.configure(config);
+      return { success: true, enabled: aiAnalysisService.isEnabled() };
+    } catch (error) {
+      return errorResponse('AI configuration failed', error);
+    }
+  });
+
+  /**
+   * Check AI analysis status
+   */
+  ipcMain.handle('ai:status', async () => {
+    try {
+      return {
+        success: true,
+        enabled: aiAnalysisService.isEnabled(),
+        model: aiAnalysisService.model
+      };
+    } catch (error) {
+      return errorResponse('AI status check failed', error);
     }
   });
 
@@ -884,12 +1385,11 @@ function setupIpcHandlers() {
   // Connect to device via protocol
   ipcMain.handle('protocol:connect', async (event, deviceId, protocolName) => {
     try {
-      console.log('[IPC] protocol:connect called:', deviceId, protocolName);
+      loggerService.debug(`[Protocol] Connect called: ${deviceId}, ${protocolName}`);
       const result = await protocolManager.connect(deviceId, protocolName);
       loggerService.info(`Connected to ${deviceId} via ${result.protocol}`);
       return { success: true, ...result };
     } catch (error) {
-      console.error('[IPC] protocol:connect error:', error);
       loggerService.error('Protocol connection failed', error);
       return { success: false, error: error.message };
     }
@@ -901,8 +1401,7 @@ function setupIpcHandlers() {
       await protocolManager.disconnect();
       return { success: true };
     } catch (error) {
-      console.error('[IPC] protocol:disconnect error:', error);
-      return { success: false, error: error.message };
+      return errorResponse('Protocol disconnect failed', error);
     }
   });
 
@@ -912,7 +1411,7 @@ function setupIpcHandlers() {
       const result = await protocolManager[method](...params);
       return { success: true, result };
     } catch (error) {
-      console.error(`[IPC] protocol:execute ${method} error:`, error);
+      loggerService.error(`[Protocol] Execute ${method} error`, error);
       return { success: false, error: error.message };
     }
   });
@@ -953,8 +1452,7 @@ function setupIpcHandlers() {
       await protocolManager.tap(x, y);
       return { success: true };
     } catch (error) {
-      console.error('[IPC] protocol:tap error:', error);
-      return { success: false, error: error.message };
+      return errorResponse('[Protocol] Tap failed', error);
     }
   });
 
@@ -1035,7 +1533,7 @@ app.whenReady().then(async () => {
 
     loggerService.info('Application started successfully');
   } catch (error) {
-    console.error('Failed to start application:', error);
+    loggerService.fatal('Failed to start application', error);
     app.quit();
   }
 });
@@ -1060,7 +1558,7 @@ app.on('window-all-closed', async () => {
     await macroService.cleanup();
     await actionService.cleanup();
   } catch (error) {
-    console.error('Error during cleanup:', error);
+    loggerService.error('Error during cleanup', error);
   }
 
   // Always quit on all platforms (including macOS)
@@ -1088,10 +1586,8 @@ app.on('before-quit', async () => {
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   loggerService.fatal('Uncaught exception', error);
-  console.error('Uncaught exception:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   loggerService.fatal('Unhandled rejection', { reason, promise });
-  console.error('Unhandled rejection:', reason);
 });

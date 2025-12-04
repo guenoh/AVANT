@@ -27,6 +27,7 @@ const {
   buildFastTouchData,
   buildCaptureData,
 } = require('./ccnc-protocol');
+const { SCREEN } = require('../../shared/constants');
 
 /**
  * Connection states
@@ -335,9 +336,9 @@ class CCNCConnectionService extends EventEmitter {
   async scroll(direction, options = {}) {
     const { distance = 400, duration = 300, monitor = MONITOR.FRONT, waitResponse = false } = options;
 
-    // Screen center (assuming 1920x720 screen)
-    const centerX = 960;
-    const centerY = 360;
+    // Screen center using ccNC resolution constants
+    const centerX = SCREEN.CCNC_WIDTH / 2;
+    const centerY = SCREEN.CCNC_HEIGHT / 2;
 
     let startX, startY, endX, endY;
 
@@ -402,7 +403,7 @@ class CCNCConnectionService extends EventEmitter {
     const data = buildCaptureData(left, top, right, bottom, monitor);
     const packet = buildPacket(CMD.GETIMG, formatCode, RESP.REQUEST, data);
 
-    const response = await this._sendAndWait(packet, 10000); // 10s timeout for image
+    const response = await this._sendAndWait(packet, 15000); // 15s timeout for image (increased for slow/heated devices)
 
     if (response.resp !== RESP.SUCCESS) {
       throw new Error('Capture command failed');

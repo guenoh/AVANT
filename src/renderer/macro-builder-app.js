@@ -20,6 +20,8 @@ class MacroBuilderApp {
         this.selectedCondition = null; // { actionId, conditionId }
         this.scenarioResult = null; // { status: 'pass'|'skip'|'fail', message: string }
         this.executionVariables = new Map(); // Variable storage for runtime values
+        this.currentReportSessionId = null; // Report session ID for HTML report generation
+        this.lastFailedSessionId = null; // Store last failed session ID for AI analysis
 
         // Scenario blocks for multi-scenario workflow
         this.scenarioBlocks = []; // Array of scenario blocks
@@ -44,17 +46,27 @@ class MacroBuilderApp {
         // ADB device list
         this.adbDevices = null;
 
+        // Screen alert overlay component
+        this.screenAlertOverlay = null;
+
         // Track changes for save button state
         this.savedState = null; // JSON snapshot of actions when saved/loaded
         this.hasUnsavedChanges = false;
 
         // Track running scenarios for progress display
         this.runningScenarios = new Map(); // key -> { status: 'running', progress: { current: 0, total: 0 }, cancelFn: null }
+        this.pendingScenarios = new Set(); // Set of scenario filenames waiting to run
+        this.waitingToStartScenarios = new Set(); // Set of scenario filenames in 3-second countdown
         this.scenarioCancelFlag = false; // Flag to cancel current scenario execution
+        this.infiniteLoopRunning = false; // Flag for infinite loop execution
 
         // Multi-scenario file support
         this.currentFilePath = null; // Current file being edited (filesystem-safe filename)
         this.currentScenarioId = null; // Current scenario ID within the file
+
+        // Scenario list sorting options
+        // sortBy: 'oldest' | 'newest' | 'name' | 'status'
+        this.scenarioSortBy = localStorage.getItem('scenarioSortBy') || 'oldest';
 
         this.init();
     }
@@ -101,6 +113,9 @@ class MacroBuilderApp {
         this.renderScreenPreview();
         this.renderDeviceStatus();
 
+        // Initialize screen alert overlay after rendering screen preview
+        this._initScreenAlertOverlay();
+
         // Check initial device connection state
         this.checkInitialDeviceState();
 
@@ -146,13 +161,26 @@ class MacroBuilderApp {
             window.api.device.onStatus((status) => {
                 console.log('[DEBUG] device:status IPC event received:', status);
 
+                // Handle both formats:
+                // Format 1: { connected, device: { type, model, id } } - from device selection
+                // Format 2: { connected, deviceType, deviceName, deviceId, reason } - from connection loss
+                const connected = status.connected;
+                const deviceType = status.deviceType || status.device?.type || null;
+                const deviceName = status.deviceName || status.device?.model || status.device?.device || null;
+                const deviceId = status.deviceId || status.device?.id || null;
+
                 // Update controller state
-                this.controller.updateDeviceStatus(
-                    status.connected,
-                    status.device?.type || null,
-                    status.device?.model || status.device?.device || null,
-                    status.device?.id || null
-                );
+                this.controller.updateDeviceStatus(connected, deviceType, deviceName, deviceId);
+
+                // Emit to eventBus for other listeners (disconnect overlay, etc.)
+                this.eventBus.emit('device:status-changed', {
+                    connected,
+                    deviceType,
+                    deviceName,
+                    deviceId,
+                    reason: status.reason,
+                    reconnected: status.reconnected || false
+                });
             });
         }
 
@@ -176,14 +204,69 @@ class MacroBuilderApp {
         this.eventBus.on('device:status-changed', (data) => {
             console.log('[DEBUG] device:status-changed event received:', data);
 
+            // Store previous connection state for logging decision
+            const wasConnected = this.isDeviceConnected;
+
+            // Check if disconnect overlay is currently visible (actual disconnect state)
+            const wasDisconnectOverlayVisible = this.screenAlertOverlay && this.screenAlertOverlay.isShowing();
+
             // Update device connection state
             this.isDeviceConnected = data.connected;
             this.deviceType = data.deviceType;
+            // Update deviceName if provided in the event data
+            if (data.deviceName) {
+                this.deviceName = data.deviceName;
+            }
 
-            console.log('[DEBUG] isDeviceConnected updated to:', this.isDeviceConnected);
+            console.log('[DEBUG] isDeviceConnected updated to:', this.isDeviceConnected, 'deviceName:', this.deviceName);
 
             // Re-render action list to update disabled state
             this.renderActionList();
+
+            // Update device status UI
+            this.renderDeviceStatus();
+
+            // If disconnected, show disconnect overlay (only log once)
+            if (!data.connected) {
+                // Only log if we were previously connected (avoid duplicate logs)
+                if (wasConnected) {
+                    this.addLog('warning', '장치 연결이 끊어졌습니다');
+                }
+
+                // Show disconnect overlay
+                this.showDisconnectOverlay();
+
+                // Check if auto-reconnect is enabled
+                const autoReconnectCheckbox = document.getElementById('option-auto-reconnect');
+                if (autoReconnectCheckbox && autoReconnectCheckbox.checked) {
+                    this.updateDisconnectStatus('자동 재연결 시도 중...');
+                    // Try to reconnect after a short delay
+                    setTimeout(() => {
+                        this.tryAutoReconnect();
+                    }, 2000);
+                } else {
+                    this.updateDisconnectStatus('재연결을 시도하거나 장치를 확인하세요');
+                }
+            } else {
+                // Hide disconnect overlay when connected
+                this.hideDisconnectOverlay();
+
+                // Only restart streaming if overlay was visible (actual disconnect recovery)
+                // This prevents unnecessary stream restarts when streaming is already working fine
+                if (data.reconnected && wasDisconnectOverlayVisible) {
+                    console.log('[DEBUG] Device reconnected from actual disconnect, restarting screen stream...');
+                    this.addLog('info', '장치가 다시 연결되었습니다. 스트리밍을 재시작합니다...');
+                    // Restart streaming after a short delay to allow device to stabilize
+                    setTimeout(() => {
+                        this.restartStreaming(true).then(() => {
+                            this.addLog('success', '스트리밍 재시작 완료');
+                        }).catch((err) => {
+                            console.error('[DEBUG] Failed to restart streaming:', err);
+                            this.addLog('error', '스트리밍 재시작 실패: ' + err.message);
+                        });
+                    }, 1000);
+                }
+            }
         });
     }
 
@@ -225,8 +308,10 @@ class MacroBuilderApp {
     set fps(value) { this.controller.state.fps = value; }
 
     // Helper methods for backward compatibility
+    // Filter out debug level logs for UI display
     get logs() {
-        return this.logger ? this.logger.logs : [];
+        if (!this.logger) return [];
+        return this.logger.logs.filter(log => log.level !== 'debug');
     }
 
     setupEventListeners() {
@@ -287,6 +372,48 @@ class MacroBuilderApp {
             });
         }
 
+        // Global settings modal
+        const globalSettingsBtn = document.getElementById('btn-global-settings');
+        if (globalSettingsBtn) {
+            globalSettingsBtn.addEventListener('click', () => {
+                this.openGlobalSettingsModal();
+            });
+        }
+
+        // Close global settings modal
+        const closeSettingsModalBtn = document.getElementById('btn-close-settings-modal');
+        if (closeSettingsModalBtn) {
+            closeSettingsModalBtn.addEventListener('click', () => {
+                this.closeGlobalSettingsModal();
+            });
+        }
+
+        // Save settings button in modal
+        const saveSettingsBtn = document.getElementById('btn-save-settings');
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', () => {
+                this.saveGlobalSettings();
+            });
+        }
+
+        // Browse save path button
+        const browseSavePathBtn = document.getElementById('btn-browse-save-path');
+        if (browseSavePathBtn) {
+            browseSavePathBtn.addEventListener('click', async () => {
+                await this.browseSavePath();
+            });
+        }
+
+        // Close modal when clicking outside
+        const settingsModal = document.getElementById('global-settings-modal');
+        if (settingsModal) {
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    this.closeGlobalSettingsModal();
+                }
+            });
+        }
+
         // Buttons
         document.getElementById('btn-run-macro')?.addEventListener('click', () => {
             if (this.isRunning) {
@@ -316,17 +443,28 @@ class MacroBuilderApp {
             });
         }
 
+        // Screen reconnect button (for fixing wrong screen dimensions after boot)
+        const reconnectScreenBtn = document.getElementById('btn-reconnect-screen');
+        if (reconnectScreenBtn) {
+            reconnectScreenBtn.addEventListener('click', () => {
+                this.reconnectScreen();
+            });
+        }
+
         // Handle multiple "new scenario" buttons (there are 2 in the UI)
         document.querySelectorAll('#btn-new-scenario').forEach(btn => {
             btn.addEventListener('click', () => this.createNewScenario());
         });
 
-        document.getElementById('btn-select-all')?.addEventListener('click', () => this.toggleSelectAll());
         document.getElementById('btn-run-selected')?.addEventListener('click', () => this.runSelectedScenarios());
         document.getElementById('btn-delete-selected')?.addEventListener('click', () => this.deleteSelectedScenarios());
         document.getElementById('btn-add-selected-scenarios')?.addEventListener('click', () => this.addSelectedScenariosAsBlocks());
         document.getElementById('btn-run-all-blocks')?.addEventListener('click', () => this.runAllScenarioBlocks());
         document.getElementById('btn-close-scenario-modal')?.addEventListener('click', () => this.closeScenarioModal());
+
+        // Edit View: Run selected actions and infinite loop
+        document.getElementById('btn-run-selected-actions')?.addEventListener('click', () => this.runSelectedActions());
+        document.getElementById('btn-infinite-loop')?.addEventListener('click', () => this.toggleInfiniteLoop());
 
         // Device connection buttons
         document.getElementById('btn-connect-adb')?.addEventListener('click', () => this.connectDevice('adb'));
@@ -470,6 +608,8 @@ class MacroBuilderApp {
                 <div class="screen-preview-display">
                     <div class="screen-preview ${orientation}" id="screen-preview-canvas">
                         <img id="screen-stream-image" draggable="false" style="width: 100%; height: 100%; object-fit: contain; background: #1e293b; user-select: none; -webkit-user-drag: none;" />
+                        <!-- Screen Alert Overlay Container - will be populated by ScreenAlertOverlay component -->
+                        <div id="screen-alert-container"></div>
                     </div>
                 </div>
 
@@ -525,6 +665,9 @@ class MacroBuilderApp {
 
         // Initialize with welcome log
         this.addLog('info', '매크로 빌더 준비 완료');
+
+        // Initialize AI analysis modal handlers
+        this.initAIAnalysisHandlers();
     }
 
     handleScreenClick(e) {
@@ -1487,7 +1630,6 @@ class MacroBuilderApp {
         // Show/hide UI elements for action editing view (MUST be at the top, before any return)
         const btnBackToList = document.getElementById('btn-back-to-list');
         const btnNewScenario = document.getElementById('btn-new-scenario');
-        const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
         const scenarioListHeader = document.getElementById('scenario-list-header');
@@ -1515,12 +1657,6 @@ class MacroBuilderApp {
             btnNewScenario.style.setProperty('display', 'none', 'important');
             btnNewScenario.style.visibility = 'hidden';
         }
-
-        // Hide scenario list buttons (select-all, run-selected, delete-selected) in action editing view
-        if (btnSelectAll) {
-            btnSelectAll.style.display = 'none';
-            btnSelectAll.style.visibility = 'hidden';
-        }
         if (btnRunSelected) {
             btnRunSelected.style.display = 'none';
             btnRunSelected.style.visibility = 'hidden';
@@ -1529,6 +1665,17 @@ class MacroBuilderApp {
         if (btnDeleteSelected) {
             btnDeleteSelected.style.display = 'none';
             btnDeleteSelected.style.visibility = 'hidden';
+        }
+        // Show edit view buttons
+        const btnRunSelectedActions = document.getElementById('btn-run-selected-actions');
+        if (btnRunSelectedActions) {
+            btnRunSelectedActions.style.display = '';
+            btnRunSelectedActions.style.visibility = 'visible';
+        }
+        const btnInfiniteLoop = document.getElementById('btn-infinite-loop');
+        if (btnInfiniteLoop) {
+            btnInfiniteLoop.style.display = '';
+            btnInfiniteLoop.style.visibility = 'visible';
         }
 
         // Show delay selector in edit view
@@ -3484,6 +3631,7 @@ class MacroBuilderApp {
         this.isRunning = true;
         this.shouldStop = false;
         this.scenarioResult = null; // Reset result at start
+        this.currentReportSessionId = null; // Reset report session
         const runBtn = document.getElementById('btn-run-macro');
         if (runBtn) {
             runBtn.innerHTML = `
@@ -3507,6 +3655,40 @@ class MacroBuilderApp {
             // Refresh scenario list to show progress
             if (this.isScenarioListVisible()) {
                 this.renderScenarioListInPanel();
+            }
+        }
+
+        // Start report session if save settings are enabled
+        const saveSettings = this.getSaveSettings();
+        const shouldReport = saveSettings.onFail?.screenshot || saveSettings.onFail?.log ||
+                            saveSettings.onSuccess?.screenshot || saveSettings.onSuccess?.log;
+
+        if (shouldReport && window.api.report) {
+            try {
+                const initialVariables = {};
+                this.executionVariables.forEach((value, key) => {
+                    initialVariables[key] = value;
+                });
+
+                const sessionResult = await window.api.report.startSession({
+                    scenarioName: this.macroName || 'Untitled',
+                    scenarioFile: scenarioKey || '',
+                    device: {
+                        serial: this.currentDevice?.id || '',
+                        model: this.currentDevice?.model || '',
+                        width: this.deviceResolution?.width || 0,
+                        height: this.deviceResolution?.height || 0
+                    },
+                    initialVariables,
+                    saveSettings
+                });
+
+                if (sessionResult.success) {
+                    this.currentReportSessionId = sessionResult.sessionId;
+                    console.log('[Report] Session started:', this.currentReportSessionId);
+                }
+            } catch (err) {
+                console.error('[Report] Failed to start session:', err);
             }
         }
 
@@ -3543,6 +3725,12 @@ class MacroBuilderApp {
                 this.addLog('info', `시나리오 스킵 (SKIP): ${message}`);
             } else if (status === 'fail') {
                 this.addLog('error', `시나리오 실패 (FAIL): ${message}`);
+                // Store session ID for AI analysis before it's cleared
+                if (this.currentReportSessionId) {
+                    this.lastFailedSessionId = this.currentReportSessionId;
+                    // Show AI analysis button after a short delay
+                    setTimeout(() => this.showAIAnalysisButton(), 100);
+                }
             }
         } else if (wasStopped) {
             finalStatus = 'stopped';
@@ -3554,6 +3742,35 @@ class MacroBuilderApp {
 
         // Save execution result to scenario file metadata
         await this.saveExecutionResult(finalStatus, finalMessage, scenarioKey);
+
+        // Finalize report session and generate HTML report
+        if (this.currentReportSessionId && window.api.report) {
+            try {
+                const finalVariables = {};
+                this.executionVariables.forEach((value, key) => {
+                    finalVariables[key] = value;
+                });
+
+                const reportResult = await window.api.report.finalizeSession(
+                    this.currentReportSessionId,
+                    {
+                        finalVariables,
+                        cancelled: wasStopped
+                    }
+                );
+
+                if (reportResult.success) {
+                    this.addLog('info', `HTML 리포트 생성 완료: ${reportResult.reportPath}`);
+                    console.log('[Report] Report generated:', reportResult);
+                } else {
+                    console.error('[Report] Failed to generate report:', reportResult.error);
+                }
+
+                this.currentReportSessionId = null;
+            } catch (err) {
+                console.error('[Report] Failed to finalize session:', err);
+            }
+        }
 
         // Clean up scenario running state
         if (scenarioKey) {
@@ -3732,18 +3949,58 @@ class MacroBuilderApp {
                     const message = action.message || '성공 종료';
                     this.addLog('success', `Success: ${message}`);
                     this.scenarioResult = { status: 'pass', message: message };
+
+                    // Record success action to report
+                    if (this.currentReportSessionId && window.api.report) {
+                        await window.api.report.recordAction(this.currentReportSessionId, {
+                            name: action.name || 'Success',
+                            type: 'success',
+                            success: true,
+                            startTime: new Date().toISOString(),
+                            endTime: new Date().toISOString(),
+                            duration: 0,
+                            details: { message }
+                        });
+                    }
                     break; // Exit execution
                 } else if (action.type === 'skip') {
                     // Scenario skipped - terminate with skip
                     const message = action.message || '시나리오 스킵';
                     this.addLog('info', `Skip: ${message}`);
                     this.scenarioResult = { status: 'skip', message: message };
+
+                    // Record skip action to report (success=true because skip is intentional)
+                    if (this.currentReportSessionId && window.api.report) {
+                        await window.api.report.recordAction(this.currentReportSessionId, {
+                            name: action.name || 'Skip',
+                            type: 'skip',
+                            success: true,
+                            startTime: new Date().toISOString(),
+                            endTime: new Date().toISOString(),
+                            duration: 0,
+                            details: { message }
+                        });
+                    }
                     break; // Exit execution
                 } else if (action.type === 'fail') {
                     // Scenario failed - terminate with failure
                     const message = action.message || '실패 종료';
                     this.addLog('error', `Fail: ${message}`);
                     this.scenarioResult = { status: 'fail', message: message };
+
+                    // Record fail action to report (success=false to mark session as FAIL)
+                    if (this.currentReportSessionId && window.api.report) {
+                        await window.api.report.recordAction(this.currentReportSessionId, {
+                            name: action.name || 'Fail',
+                            type: 'fail',
+                            success: false,
+                            startTime: new Date().toISOString(),
+                            endTime: new Date().toISOString(),
+                            duration: 0,
+                            error: message,
+                            details: { message }
+                        });
+                    }
                     break; // Exit execution
                 } else if (action.type === 'get-volume' || action.type === 'image-match' || action.type === 'sound-check') {
                     // New flat condition starters - execute condition and evaluate
@@ -3850,7 +4107,55 @@ class MacroBuilderApp {
                     i++;
                 } else {
                     // Regular action - execute it
+                    const actionStartTime = new Date();
                     const result = await this.executeAction(action);
+                    const actionEndTime = new Date();
+                    const actionDuration = actionEndTime.getTime() - actionStartTime.getTime();
+
+                    // Get current screenshot for report
+                    const currentScreenshot = this.getCurrentScreenshot();
+                    let screenshotPath = null;
+
+                    // Save screenshot to temp file for report
+                    if (this.currentReportSessionId && currentScreenshot && window.api.report) {
+                        try {
+                            const safeName = (action.name || action.type).replace(/[^a-z0-9가-힣_-]/gi, '_');
+                            const filename = `${Date.now()}_${safeName}.png`;
+                            const saveResult = await window.api.report.saveScreenshot({
+                                content: currentScreenshot,
+                                filename
+                            });
+                            if (saveResult.success) {
+                                screenshotPath = saveResult.path;
+                            }
+                        } catch (err) {
+                            console.error('[Report] Failed to save screenshot:', err);
+                        }
+                    }
+
+                    // Record action result to report session
+                    if (this.currentReportSessionId && window.api.report) {
+                        try {
+                            await window.api.report.recordAction(this.currentReportSessionId, {
+                                name: action.name || this.getActionTypeName(action.type),
+                                type: action.type,
+                                success: result.success,
+                                startTime: actionStartTime.toISOString(),
+                                endTime: actionEndTime.toISOString(),
+                                duration: actionDuration,
+                                screenshot: screenshotPath,
+                                error: result.error || null,
+                                details: {
+                                    x: action.x,
+                                    y: action.y,
+                                    endX: action.endX,
+                                    endY: action.endY
+                                }
+                            });
+                        } catch (err) {
+                            console.error('[Report] Failed to record action:', err);
+                        }
+                    }
 
                     if (result.success) {
                         this.addLog('success', `${this.getActionTypeName(action.type)} 실행 완료`);
@@ -4202,25 +4507,46 @@ class MacroBuilderApp {
                 return { success: false, error: msg };
             }
 
-            // Get current screen image and convert to canvas
-            const screenImg = document.getElementById('screen-stream-image');
-            if (!screenImg) {
-                const msg = 'Screen image element not found';
-                console.error('[executeImageMatchAction]', msg);
-                this.addLog('error', `이미지 매칭 실패: ${msg}`);
-                return { success: false, error: msg };
+            // Capture fresh screenshot from device to ensure we're not using cached image
+            console.log('[executeImageMatchAction] Capturing fresh screenshot from device...');
+            let freshScreenshot = null;
+            try {
+                freshScreenshot = await window.api.adb.screenshot();
+                if (!freshScreenshot || !freshScreenshot.success) {
+                    const msg = 'Device not connected or screenshot failed';
+                    console.error('[executeImageMatchAction]', msg, freshScreenshot);
+                    this.addLog('warn', `이미지 매칭: 장치 연결 안됨 (0% 매칭)`);
+                    return {
+                        success: true,
+                        found: false,
+                        matchPercentage: 0,
+                        error: msg
+                    };
+                }
+                console.log('[executeImageMatchAction] Fresh screenshot captured successfully');
+            } catch (screenshotError) {
+                const msg = 'Failed to capture screenshot - device may be disconnected';
+                console.error('[executeImageMatchAction]', msg, screenshotError);
+                this.addLog('warn', `이미지 매칭: 스크린샷 캡처 실패 (0% 매칭)`);
+                return {
+                    success: true,
+                    found: false,
+                    matchPercentage: 0,
+                    error: msg
+                };
             }
 
-            if (!screenImg.complete) {
-                const msg = 'Screen image not loaded yet';
-                console.error('[executeImageMatchAction]', msg);
-                this.addLog('error', `이미지 매칭 실패: ${msg}`);
-                return { success: false, error: msg };
-            }
+            // Load fresh screenshot into an image element
+            const screenImg = new Image();
+            await new Promise((resolve, reject) => {
+                screenImg.onload = resolve;
+                screenImg.onerror = () => reject(new Error('Failed to load fresh screenshot'));
+                screenImg.src = freshScreenshot.data;
+            });
 
-            console.log('[executeImageMatchAction] Screen image:', screenImg.width, 'x', screenImg.height);
+            console.log('[executeImageMatchAction] Fresh screen image:', screenImg.width, 'x', screenImg.height);
 
-            // Create temporary canvas from screen image
+            // Create temporary canvas from fresh screen image
             const screenCanvas = document.createElement('canvas');
             screenCanvas.width = screenImg.naturalWidth || screenImg.width;
             screenCanvas.height = screenImg.naturalHeight || screenImg.height;
@@ -4594,9 +4920,9 @@ class MacroBuilderApp {
         const writeResult = await api.file.writeFile(result.filePath, data);
 
         if (writeResult.success) {
-            // Save to scenario registry AND store scenario data in localStorage
+            // Save to scenario registry AND store scenario data in scenarios folder
             const filename = result.filePath.split(/[\\/]/).pop();
-            this.addScenarioToRegistry(sanitizedName, filename, macroData);
+            await this.addScenarioToRegistry(sanitizedName, filename, macroData);
             console.log(`Exported macro as: ${result.filePath}`);
             this.addLog('success', `시나리오 저장 완료: ${filename}`);
         } else {
@@ -4708,22 +5034,31 @@ class MacroBuilderApp {
         }, 2000);
     }
 
-    addScenarioToRegistry(key, filename, macroData) {
-        // Add scenario to registry for tracking
-        const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
-        registry[key] = {
+    async addScenarioToRegistry(key, filename, macroData) {
+        // Save to file system
+        const scenarioData = {
+            id: key,
             name: this.macroName,
             description: this.macroDescription || '',
-            filename: filename,
-            savedAt: new Date().toISOString(),
-            actionsCount: this.actions.length
+            actions: this.actions,
+            createdAt: macroData.createdAt || new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            version: '1.0'
         };
-        localStorage.setItem('scenario_registry', JSON.stringify(registry));
 
-        // Also save the actual scenario data to localStorage for easy loading
-        const scenariosData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
-        scenariosData[key] = macroData;
-        localStorage.setItem('scenario_data', JSON.stringify(scenariosData));
+        try {
+            const result = await api.scenario.save(scenarioData);
+            if (result.success) {
+                console.log('[addScenarioToRegistry] Saved to file:', result.path);
+                this.currentFilePath = result.filename;
+                this.currentScenarioKey = key;
+                this.scenarioCreatedAt = scenarioData.createdAt;
+            } else {
+                console.error('[addScenarioToRegistry] Failed to save:', result.error);
+            }
+        } catch (error) {
+            console.error('[addScenarioToRegistry] Error saving scenario:', error);
+        }
 
         // Mark as saved
         this.markAsSaved();
@@ -4758,55 +5093,48 @@ class MacroBuilderApp {
     }
 
     /**
-     * Load scenario by scenarioId
-     * Uses scenario_index to find the file, then loads the scenario from that file
-     * @param {string} scenarioId - The unique scenario ID
-     * @returns {object|null} - Scenario data or null if not found
+     * Load scenario by scenarioId or filename
+     * Loads from file system
+     * @param {string} scenarioIdOrFilename - The scenario ID or filename
+     * @returns {Promise<object|null>} - Scenario data or null if not found
      */
-    loadScenarioFromRegistry(scenarioId) {
-        console.log('[loadScenarioFromRegistry] Loading scenario:', scenarioId);
+    async loadScenarioFromRegistry(scenarioIdOrFilename) {
+        console.log('[loadScenarioFromRegistry] Loading scenario:', scenarioIdOrFilename);
 
-        // Load index to find which file contains this scenario
-        const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
-        const indexEntry = index[scenarioId];
+        try {
+            // Determine filename
+            let filename = scenarioIdOrFilename;
+            if (!filename.endsWith('.json')) {
+                filename = `${scenarioIdOrFilename}.json`;
+            }
 
-        if (!indexEntry) {
-            console.error('[loadScenarioFromRegistry] Scenario not found in index:', scenarioId);
+            // Load from file system
+            const result = await api.scenario.load(filename);
+
+            if (!result.success) {
+                console.error('[loadScenarioFromRegistry] Failed to load:', result.error);
+                return null;
+            }
+
+            const scenario = result.scenario;
+            console.log('[loadScenarioFromRegistry] Loaded scenario:', scenario.name);
+
+            return {
+                ...scenario,
+                filename: filename
+            };
+        } catch (error) {
+            console.error('[loadScenarioFromRegistry] Error loading scenario:', error);
             return null;
         }
-
-        const { filePath } = indexEntry;
-
-        // Load the file data
-        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
-        const fileData = scenarioData[filePath];
-
-        if (!fileData) {
-            console.error('[loadScenarioFromRegistry] File not found:', filePath);
-            return null;
-        }
-
-        // Find the specific scenario within the file
-        const scenario = fileData.scenarios.find(s => s.id === scenarioId);
-
-        if (!scenario) {
-            console.error('[loadScenarioFromRegistry] Scenario not found in file:', scenarioId);
-            return null;
-        }
-
-        console.log('[loadScenarioFromRegistry] Loaded scenario:', scenario.name);
-        return {
-            ...scenario,
-            filePath: filePath  // Include filePath for reference
-        };
     }
 
     /**
-     * Edit scenario by scenarioId or filePath
-     * @param {string} keyOrId - Either a scenarioId or filePath
+     * Edit scenario by scenarioId or filename
+     * @param {string} keyOrFilename - Either a scenarioId or filename
      */
-    editScenario(keyOrId) {
-        console.log('[editScenario] Loading scenario for editing:', keyOrId);
+    async editScenario(keyOrFilename) {
+        console.log('[editScenario] Loading scenario for editing:', keyOrFilename);
 
         // Check for unsaved changes before loading new scenario
         if (!this.checkUnsavedChanges()) {
@@ -4814,17 +5142,12 @@ class MacroBuilderApp {
             return;
         }
 
-        // Try to load as scenarioId first
-        let scenarioData = this.loadScenarioFromRegistry(keyOrId);
-
-        // If not found, try to load by filePath
-        if (!scenarioData) {
-            console.log('[editScenario] Not found as scenarioId, trying as filePath:', keyOrId);
-            scenarioData = this.loadScenarioByFilePath(keyOrId);
-        }
+        // Load scenario from file system
+        let scenarioData = await this.loadScenarioFromRegistry(keyOrFilename);
 
         if (!scenarioData) {
-            console.error('[editScenario] Scenario not found:', keyOrId);
+            console.error('[editScenario] Scenario not found:', keyOrFilename);
+            this.addLog('error', '시나리오를 찾을 수 없습니다.');
             return;
         }
 
@@ -4832,11 +5155,14 @@ class MacroBuilderApp {
         this.actions = scenarioData.actions || [];
         this.macroName = scenarioData.name || '';
         this.macroDescription = scenarioData.description || '';
+        this.scenarioCreatedAt = scenarioData.createdAt;
+
+        // Note: Save settings are now global (stored in localStorage), not per-scenario
 
         // Store current file path and scenario ID for saving
-        this.currentFilePath = scenarioData.filePath;
-        this.currentScenarioId = scenarioData.id; // Use the actual scenario ID from data
-        this.currentScenarioKey = scenarioData.id; // Backward compatibility
+        this.currentFilePath = scenarioData.filename;
+        this.currentScenarioId = scenarioData.id || scenarioData.name;
+        this.currentScenarioKey = scenarioData.id || scenarioData.name;
 
         // Update UI
         const macroNameInput = document.getElementById('macro-name-input');
@@ -4869,7 +5195,7 @@ class MacroBuilderApp {
         console.log('[editScenario] Loaded scenario with', this.actions.length, 'actions');
     }
 
-    deleteScenario(scenarioId, displayName) {
+    async deleteScenario(scenarioId, displayName) {
         console.log('[deleteScenario] Deleting scenario:', scenarioId, displayName);
 
         // Show confirmation dialog
@@ -4881,90 +5207,60 @@ class MacroBuilderApp {
         }
 
         try {
-            // Load storage objects
-            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
-            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
+            // Determine filename
+            let filename = displayName;
+            if (!filename.endsWith('.json')) {
+                filename = `${displayName}.json`;
+            }
+
+            // Delete from file system
+            const result = await api.scenario.delete(filename);
+
+            if (!result.success) {
+                console.error('[deleteScenario] Failed to delete file:', result.error);
+                alert('시나리오 파일 삭제에 실패했습니다.');
+                return;
+            }
+
+            // Remove from execution results in localStorage
             const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
-
-            // Get file path from index
-            const indexEntry = index[scenarioId];
-            if (!indexEntry) {
-                console.error('[deleteScenario] Scenario not found in index:', scenarioId);
-                alert('시나리오를 찾을 수 없습니다.');
-                return;
-            }
-
-            const { filePath } = indexEntry;
-            const fileData = scenarioData[filePath];
-
-            if (!fileData) {
-                console.error('[deleteScenario] File not found:', filePath);
-                alert('시나리오 파일을 찾을 수 없습니다.');
-                return;
-            }
-
-            // Remove scenario from file's scenarios array
-            fileData.scenarios = fileData.scenarios.filter(s => s.id !== scenarioId);
-
-            // If no scenarios left in file, remove the entire file
-            if (fileData.scenarios.length === 0) {
-                delete scenarioData[filePath];
-                console.log('[deleteScenario] Removed empty file:', filePath);
-            } else {
-                // Update file data
-                scenarioData[filePath] = fileData;
-                console.log('[deleteScenario] Updated file with remaining scenarios');
-            }
-
-            // Remove from index
-            delete index[scenarioId];
-
-            // Remove from execution results
             if (results[scenarioId]) {
                 delete results[scenarioId];
+                localStorage.setItem('scenario_execution_results', JSON.stringify(results));
             }
 
-            // Save all changes
-            localStorage.setItem('scenario_index', JSON.stringify(index));
-            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
-            localStorage.setItem('scenario_execution_results', JSON.stringify(results));
-
-            console.log('[deleteScenario] Successfully deleted scenario:', scenarioId);
+            console.log('[deleteScenario] Successfully deleted scenario:', filename);
+            this.addLog('success', `시나리오 삭제됨: ${displayName}`);
 
             // Refresh the scenario list
-            this.renderScenarioListInPanel(true);
+            await this.renderScenarioListInPanel(true);
         } catch (error) {
             console.error('[deleteScenario] Error deleting scenario:', error);
             alert('시나리오 삭제 중 오류가 발생했습니다.');
         }
     }
 
-    duplicateScenario(scenarioId, displayName) {
+    async duplicateScenario(scenarioId, displayName) {
         console.log('[duplicateScenario] Duplicating scenario:', scenarioId, displayName);
 
         try {
-            // Load the original scenario
-            const scenarioData = this.loadScenarioFromRegistry(scenarioId);
+            // Load the original scenario from file
+            const scenarioData = await this.loadScenarioFromRegistry(displayName);
 
             if (!scenarioData) {
-                console.error('[duplicateScenario] Scenario not found:', scenarioId);
+                console.error('[duplicateScenario] Scenario not found:', displayName);
                 alert('시나리오를 찾을 수 없습니다.');
                 return;
             }
 
-            // Load storage objects
-            const index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
-            const allScenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
-
-            // Get all existing scenario names to avoid duplicates
-            const existingNames = Object.values(index).map(entry => {
-                const fileData = allScenarioData[entry.filePath];
-                const scenario = fileData?.scenarios?.find(s => s.id === Object.keys(index).find(id => index[id].filePath === entry.filePath));
-                return scenario?.name || '';
-            }).filter(name => name);
+            // Get all existing scenario names from file system
+            const listResult = await api.scenario.list();
+            const existingNames = listResult.success
+                ? listResult.scenarios.map(s => s.name)
+                : [];
 
             // Generate unique name for the duplicate
-            const baseName = displayName.replace(/\s*\(복사\s*\d*\)\s*$/, '');
+            const baseName = scenarioData.name.replace(/\s*\(복사\s*\d*\)\s*$/, '');
             let newName = `${baseName} (복사)`;
             let counter = 2;
 
@@ -4973,41 +5269,34 @@ class MacroBuilderApp {
                 counter++;
             }
 
-            // Create new scenario ID and file path
+            // Create new scenario ID
             const newScenarioId = `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const newFilePath = `${newName}.json`;
 
-            // Create new scenario object
+            // Create new scenario data
             const newScenario = {
                 id: newScenarioId,
                 name: newName,
+                description: scenarioData.description || '',
                 actions: JSON.parse(JSON.stringify(scenarioData.actions)), // Deep copy
                 createdAt: new Date().toISOString(),
-                lastModified: new Date().toISOString()
+                lastModified: new Date().toISOString(),
+                version: '1.0'
             };
 
-            // Create new file data
-            const newFileData = {
-                name: newName,
-                scenarios: [newScenario],
-                createdAt: new Date().toISOString(),
-                lastModified: new Date().toISOString()
-            };
+            // Save to file system
+            const result = await api.scenario.save(newScenario);
 
-            // Save to storage
-            allScenarioData[newFilePath] = newFileData;
-            index[newScenarioId] = {
-                filePath: newFilePath,
-                scenarioId: newScenarioId
-            };
-
-            localStorage.setItem('scenario_data', JSON.stringify(allScenarioData));
-            localStorage.setItem('scenario_index', JSON.stringify(index));
+            if (!result.success) {
+                console.error('[duplicateScenario] Failed to save duplicate:', result.error);
+                alert('시나리오 복제에 실패했습니다.');
+                return;
+            }
 
             console.log('[duplicateScenario] Successfully duplicated scenario:', newName);
+            this.addLog('success', `시나리오 복제됨: ${newName}`);
 
             // Refresh the scenario list
-            this.renderScenarioListInPanel(true);
+            await this.renderScenarioListInPanel(true);
 
         } catch (error) {
             console.error('[duplicateScenario] Error duplicating scenario:', error);
@@ -5052,16 +5341,16 @@ class MacroBuilderApp {
         reader.readAsText(file);
     }
 
-    saveMacro() {
+    async saveMacro() {
         // Save to current scenario (overwrite if loaded from registry, otherwise prompt for new name)
         if (this.currentScenarioKey) {
             // Save to existing scenario in registry
             console.log('[saveMacro] Saving to existing scenario:', this.currentScenarioKey);
-            this.saveToRegistry(this.currentScenarioKey);
+            await this.saveToRegistry(this.currentScenarioKey);
         } else {
             // No scenario loaded - use save as (prompt for name)
             console.log('[saveMacro] No current scenario, using save as');
-            this.saveAsMacro();
+            await this.saveAsMacro();
         }
     }
 
@@ -6215,8 +6504,33 @@ class MacroBuilderApp {
             const result = await window.api.screen.startStream({ maxFps: 30 });
 
             if (result) {
-                this.addLog('success', '화면 스트리밍이 시작되었습니다');
+                // Log resolution info
+                const width = result.width || 0;
+                const height = result.height || 0;
+                const isValid = result.isValidResolution;
+                const retries = result.retryCount || 0;
+
+                // Don't show warning for initial 0x0 - we'll get actual resolution from first frame
+                // Only log success when we have valid resolution
+                if (isValid && width > 0 && height > 0) {
+                    this.addLog('success', `화면 스트리밍 시작 (${width} x ${height})`);
+                } else {
+                    // Silent start - resolution will be detected from first frame
+                    console.log(`[ScreenStream] Initial resolution: ${width}x${height}, valid: ${isValid}, retries: ${retries}`);
+                }
+
                 this.isScreenPaused = false;
+
+                // Frame validation state
+                let frameCount = 0;
+                let blackFrameCount = 0;
+                const framesToCheck = 10; // Check first 10 frames
+                const blackFrameThreshold = 8; // If 8+ frames are black, auto-reconnect
+                let validationComplete = false;
+                let autoReconnectTriggered = false;
+
+                // Note: Don't auto-reconnect for initial 0x0 - resolution will be detected from first frame
+                // Auto-reconnect is only triggered by black frame detection below
 
                 // Listen for stream data
                 window.api.screen.onStreamData((data) => {
@@ -6225,6 +6539,31 @@ class MacroBuilderApp {
                         const img = document.getElementById('screen-stream-image');
                         if (img && data.dataUrl) {
                             img.src = data.dataUrl;
+
+                            // Frame validation for first N frames
+                            if (!validationComplete && !autoReconnectTriggered && frameCount < framesToCheck) {
+                                frameCount++;
+                                this._checkFrameForBlack(data.dataUrl, (isBlack) => {
+                                    if (isBlack) {
+                                        blackFrameCount++;
+                                    }
+
+                                    // Check if validation is complete
+                                    if (frameCount >= framesToCheck && !validationComplete) {
+                                        validationComplete = true;
+                                        console.log(`[FrameValidation] Checked ${framesToCheck} frames, ${blackFrameCount} were black`);
+
+                                        if (blackFrameCount >= blackFrameThreshold && !autoReconnectTriggered) {
+                                            autoReconnectTriggered = true;
+                                            this.addLog('warning', `블랙 스크린 감지 (${blackFrameCount}/${framesToCheck} 프레임). 자동 재연결 중...`);
+                                            // Delay a bit before auto-reconnect
+                                            setTimeout(() => {
+                                                this.reconnectScreen();
+                                            }, 500);
+                                        }
+                                    }
+                                });
+                            }
                         }
                     }
                 });
@@ -6232,6 +6571,54 @@ class MacroBuilderApp {
         } catch (error) {
             this.addLog('error', `화면 스트리밍 실패: ${error.message}`);
         }
+    }
+
+    /**
+     * Check if a frame is mostly black (device not ready)
+     */
+    _checkFrameForBlack(dataUrl, callback) {
+        const img = new Image();
+        img.onload = () => {
+            // Create a small canvas to sample pixels
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Sample at reduced resolution for performance
+            const sampleWidth = 32;
+            const sampleHeight = 32;
+            canvas.width = sampleWidth;
+            canvas.height = sampleHeight;
+
+            ctx.drawImage(img, 0, 0, sampleWidth, sampleHeight);
+
+            try {
+                const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+                const pixels = imageData.data;
+
+                // Calculate average brightness
+                let totalBrightness = 0;
+                const pixelCount = pixels.length / 4;
+
+                for (let i = 0; i < pixels.length; i += 4) {
+                    // Calculate perceived brightness (human eye is more sensitive to green)
+                    const brightness = (pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+                    totalBrightness += brightness;
+                }
+
+                const avgBrightness = totalBrightness / pixelCount;
+
+                // If average brightness is very low (< 10), consider it black
+                const isBlack = avgBrightness < 10;
+                callback(isBlack);
+            } catch (e) {
+                // Canvas access error (CORS or other), assume not black
+                callback(false);
+            }
+        };
+        img.onerror = () => {
+            callback(false);
+        };
+        img.src = dataUrl;
     }
 
     toggleScreenPause() {
@@ -6264,36 +6651,605 @@ class MacroBuilderApp {
         }
     }
 
-    renderDeviceStatus() {
-        const container = document.getElementById('device-status');
-        if (!container) return;
+    async reconnectScreen(retryCount = 0) {
+        const maxRetries = 10;
+        const retryDelay = 2000; // 2 seconds between retries
+
+        // Cancel any pending auto-reconnect timer to prevent duplicate reconnects
+        if (this._autoReconnectTimerId) {
+            clearTimeout(this._autoReconnectTimerId);
+            this._autoReconnectTimerId = null;
+        }
 
         if (!this.isDeviceConnected) {
-            container.innerHTML = `
-                <div class="device-status-indicator">
-                    <div class="status-light disconnected"></div>
-                    <span class="device-status-value">장치 없음</span>
-                </div>
-                <div class="device-status-divider"></div>
-                <div class="device-status-indicator">
-                    <span class="device-status-label">FPS</span>
-                    <span class="device-status-value">-</span>
-                </div>
-            `;
+            this.addLog('warning', 'Device not connected');
             return;
         }
 
-        container.innerHTML = `
-            <div class="device-status-indicator">
-                <div class="status-light connected"></div>
-                <span class="device-status-value">${this.deviceName}</span>
-            </div>
-            <div class="device-status-divider"></div>
-            <div class="device-status-indicator">
-                <span class="device-status-label">FPS</span>
-                <span class="device-status-value">${this.fps}</span>
-            </div>
-        `;
+        const reconnectBtn = document.getElementById('btn-reconnect-screen');
+        const updateButtonState = (isLoading, attempt = 0) => {
+            if (!reconnectBtn) return;
+            if (isLoading) {
+                reconnectBtn.disabled = true;
+                const attemptText = attempt > 0 ? ` (${attempt}/${maxRetries})` : '';
+                reconnectBtn.innerHTML = `
+                    <svg class="icon-sm animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    재연결 중...${attemptText}
+                `;
+            } else {
+                reconnectBtn.disabled = false;
+                reconnectBtn.innerHTML = `
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    재연결
+                `;
+            }
+        };
+
+        updateButtonState(true, retryCount + 1);
+
+        try {
+            if (retryCount === 0) {
+                this.addLog('info', '화면 재연결 중...');
+            } else {
+                this.addLog('info', `재연결 재시도 (${retryCount + 1}/${maxRetries})...`);
+            }
+
+            const result = await window.api.screen.reconnect();
+
+            if (result.success) {
+                // Update screen dimensions if resolution was returned
+                if (result.resolution) {
+                    const { width, height } = result.resolution;
+
+                    // Check if resolution is valid
+                    if (width > 100 && height > 100) {
+                        this.addLog('success', `화면 재연결 성공 (${width} x ${height})`);
+                        this.screenWidth = width;
+                        this.screenHeight = height;
+                        this.coordinateSystem.init(width, height, 0);
+
+                        // Re-render screen preview to apply new dimensions
+                        this.renderScreenPreview();
+                        this.renderDeviceStatus();
+                        updateButtonState(false);
+                        return; // Success, exit
+                    } else {
+                        // Resolution still invalid, retry
+                        this.addLog('warning', `해상도가 여전히 유효하지 않음 (${width} x ${height})`);
+                    }
+                } else {
+                    this.addLog('warning', '해상도 정보를 받지 못함');
+                }
+
+                // If we got here, resolution is still invalid - retry if possible
+                if (retryCount < maxRetries - 1) {
+                    this.addLog('info', `${retryDelay / 1000}초 후 재시도...`);
+                    setTimeout(() => {
+                        this.reconnectScreen(retryCount + 1);
+                    }, retryDelay);
+                    return; // Don't reset button yet
+                } else {
+                    this.addLog('error', `${maxRetries}회 시도 후에도 유효한 해상도를 얻지 못했습니다.`);
+                }
+            } else {
+                // Reconnect failed with error
+                this.addLog('warning', `재연결 실패: ${result.error}`);
+
+                if (retryCount < maxRetries - 1) {
+                    this.addLog('info', `${retryDelay / 1000}초 후 재시도...`);
+                    setTimeout(() => {
+                        this.reconnectScreen(retryCount + 1);
+                    }, retryDelay);
+                    return; // Don't reset button yet
+                } else {
+                    this.addLog('error', `${maxRetries}회 시도 후에도 재연결에 실패했습니다.`);
+                }
+            }
+        } catch (error) {
+            this.addLog('warning', `재연결 오류: ${error.message}`);
+
+            if (retryCount < maxRetries - 1) {
+                this.addLog('info', `${retryDelay / 1000}초 후 재시도...`);
+                setTimeout(() => {
+                    this.reconnectScreen(retryCount + 1);
+                }, retryDelay);
+                return; // Don't reset button yet
+            } else {
+                this.addLog('error', `${maxRetries}회 시도 후에도 재연결에 실패했습니다.`);
+            }
+        }
+
+        // Reset button state (only reached on final success or failure)
+        updateButtonState(false);
+    }
+
+    /**
+     * Try to auto-reconnect to the last connected device
+     */
+    async tryAutoReconnect(retryCount = 0) {
+        const maxRetries = 30;
+        const retryDelay = 3000;
+
+        try {
+            // Get list of available devices
+            const result = await window.api.device.list();
+
+            if (result.success && result.devices && result.devices.length > 0) {
+                // Try to connect to the first available device
+                const device = result.devices[0];
+                this.addLog('info', `장치 발견: ${device.id}, 연결 시도...`);
+
+                const connectResult = await window.api.device.select(device.id);
+
+                if (connectResult.success) {
+                    this.isDeviceConnected = true;
+                    this.deviceName = device.model || device.device || device.id;
+
+                    // Get device info for screen resolution
+                    const deviceInfo = connectResult.info || connectResult;
+                    if (deviceInfo.screen) {
+                        this.screenWidth = deviceInfo.screen.width;
+                        this.screenHeight = deviceInfo.screen.height;
+                        this.coordinateSystem.init(this.screenWidth, this.screenHeight, 0);
+                    }
+
+                    // Hide device connection UI
+                    const deviceConnectionUI = document.getElementById('device-connection-ui');
+                    if (deviceConnectionUI) {
+                        deviceConnectionUI.style.display = 'none';
+                    }
+
+                    // Render screen preview and device status
+                    this.renderScreenPreview();
+                    this.renderDeviceStatus();
+
+                    // Start screen stream
+                    this.startScreenStream();
+
+                    this.addLog('success', '자동 재연결 성공');
+                    return;
+                }
+            }
+
+            // No device found or connection failed, retry
+            if (retryCount < maxRetries - 1) {
+                const autoReconnectCheckbox = document.getElementById('option-auto-reconnect');
+                if (autoReconnectCheckbox && autoReconnectCheckbox.checked) {
+                    this.addLog('info', `장치를 찾을 수 없음. ${retryDelay / 1000}초 후 재시도 (${retryCount + 1}/${maxRetries})...`);
+                    this.updateDisconnectStatus(`재연결 시도 중... (${retryCount + 1}/${maxRetries})`);
+                    setTimeout(() => {
+                        this.tryAutoReconnect(retryCount + 1);
+                    }, retryDelay);
+                } else {
+                    // Manual reconnect mode - still retry
+                    this.updateDisconnectStatus(`재연결 시도 중... (${retryCount + 1}/${maxRetries})`);
+                    setTimeout(() => {
+                        this.tryAutoReconnect(retryCount + 1);
+                    }, retryDelay);
+                }
+            } else {
+                this.addLog('error', '자동 재연결 실패: 장치를 찾을 수 없습니다');
+                this.updateDisconnectStatus('재연결 실패. 장치를 확인하고 다시 시도하세요.');
+
+                // Show device connection UI
+                const deviceConnectionUI = document.getElementById('device-connection-ui');
+                if (deviceConnectionUI) {
+                    deviceConnectionUI.style.display = 'flex';
+                }
+            }
+        } catch (error) {
+            this.addLog('error', `자동 재연결 오류: ${error.message}`);
+
+            if (retryCount < maxRetries - 1) {
+                this.updateDisconnectStatus(`재연결 시도 중... (${retryCount + 1}/${maxRetries})`);
+                setTimeout(() => {
+                    this.tryAutoReconnect(retryCount + 1);
+                }, retryDelay);
+            } else {
+                this.updateDisconnectStatus('재연결 실패. 장치를 확인하고 다시 시도하세요.');
+            }
+        }
+    }
+
+    /**
+     * Initialize the screen alert overlay component
+     */
+    _initScreenAlertOverlay() {
+        const container = document.getElementById('screen-alert-container');
+        if (container && !this.screenAlertOverlay) {
+            this.screenAlertOverlay = new ScreenAlertOverlay(container);
+            // Show initial not_connected state
+            this.screenAlertOverlay.show(ScreenAlertOverlay.TYPES.NOT_CONNECTED);
+        }
+    }
+
+    /**
+     * Show the disconnect overlay on the screen preview
+     * @param {string} type - Alert type (optional, defaults to 'disconnected')
+     * @param {Object} options - Optional overrides
+     */
+    showDisconnectOverlay(type = 'disconnected', options = {}) {
+        if (this.screenAlertOverlay) {
+            this.screenAlertOverlay.show(type, options);
+        }
+    }
+
+    /**
+     * Hide the disconnect overlay
+     */
+    hideDisconnectOverlay() {
+        if (this.screenAlertOverlay) {
+            this.screenAlertOverlay.hide();
+        }
+    }
+
+    /**
+     * Update the status text in the disconnect overlay
+     * @param {string} message - Status message to display
+     */
+    updateDisconnectStatus(message) {
+        if (this.screenAlertOverlay) {
+            this.screenAlertOverlay.updateStatus(message);
+        }
+    }
+
+    /**
+     * Show screen alert with specific type
+     * @param {string} type - Alert type from ScreenAlertOverlay.TYPES
+     * @param {Object} options - Optional overrides
+     */
+    showScreenAlert(type, options = {}) {
+        if (this.screenAlertOverlay) {
+            this.screenAlertOverlay.show(type, options);
+        }
+    }
+
+    /**
+     * Hide screen alert
+     */
+    hideScreenAlert() {
+        if (this.screenAlertOverlay) {
+            this.screenAlertOverlay.hide();
+        }
+    }
+
+    /**
+     * Open global settings modal
+     */
+    openGlobalSettingsModal() {
+        const modal = document.getElementById('global-settings-modal');
+        if (modal) {
+            // Load settings from localStorage before showing
+            this.loadGlobalSettings();
+            modal.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Close global settings modal
+     */
+    closeGlobalSettingsModal() {
+        const modal = document.getElementById('global-settings-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Save global settings to localStorage
+     */
+    saveGlobalSettings() {
+        const settings = this.getSaveSettingsFromUI();
+        localStorage.setItem('global_save_settings', JSON.stringify(settings));
+        this.closeGlobalSettingsModal();
+        this.logger.success('설정이 저장되었습니다');
+    }
+
+    /**
+     * Load global settings from localStorage
+     */
+    loadGlobalSettings() {
+        const stored = localStorage.getItem('global_save_settings');
+        if (stored) {
+            try {
+                const settings = JSON.parse(stored);
+                this.applySaveSettings(settings);
+            } catch (e) {
+                console.error('Failed to load global settings:', e);
+                this.applySaveSettings(this.getDefaultSaveSettings());
+            }
+        } else {
+            this.applySaveSettings(this.getDefaultSaveSettings());
+        }
+    }
+
+    /**
+     * Open folder browser dialog for save path
+     */
+    async browseSavePath() {
+        try {
+            const result = await window.api.dialog.openDirectory();
+            if (result.success && result.path) {
+                const savePathInput = document.getElementById('save-path-input');
+                if (savePathInput) {
+                    savePathInput.value = result.path;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to open directory dialog:', error);
+        }
+    }
+
+    /**
+     * Get current save settings from localStorage (global settings)
+     * @returns {Object} Save settings configuration
+     */
+    getSaveSettings() {
+        // Get settings from localStorage (global settings)
+        const stored = localStorage.getItem('global_save_settings');
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                console.error('Failed to parse global settings:', e);
+            }
+        }
+        // Return default settings if not found
+        return this.getDefaultSaveSettings();
+    }
+
+    /**
+     * Get current save settings from modal UI (for saving to localStorage)
+     * @returns {Object} Save settings configuration from UI
+     */
+    getSaveSettingsFromUI() {
+        return {
+            onFail: {
+                screenshot: document.getElementById('save-on-fail-screenshot')?.checked ?? true,
+                log: document.getElementById('save-on-fail-log')?.checked ?? true,
+                variables: document.getElementById('save-on-fail-variables')?.checked ?? true,
+                matchImage: document.getElementById('save-on-fail-match-image')?.checked ?? true
+            },
+            onSuccess: {
+                screenshot: document.getElementById('save-on-success-screenshot')?.checked ?? false,
+                log: document.getElementById('save-on-success-log')?.checked ?? false
+            },
+            savePath: document.getElementById('save-path-input')?.value || './results'
+        };
+    }
+
+    /**
+     * Apply save settings to UI
+     * @param {Object} settings - Save settings configuration
+     */
+    applySaveSettings(settings) {
+        if (!settings) return;
+
+        // Apply onFail settings
+        if (settings.onFail) {
+            const failScreenshot = document.getElementById('save-on-fail-screenshot');
+            const failLog = document.getElementById('save-on-fail-log');
+            const failVariables = document.getElementById('save-on-fail-variables');
+            const failMatchImage = document.getElementById('save-on-fail-match-image');
+
+            if (failScreenshot) failScreenshot.checked = settings.onFail.screenshot ?? true;
+            if (failLog) failLog.checked = settings.onFail.log ?? true;
+            if (failVariables) failVariables.checked = settings.onFail.variables ?? true;
+            if (failMatchImage) failMatchImage.checked = settings.onFail.matchImage ?? true;
+        }
+
+        // Apply onSuccess settings
+        if (settings.onSuccess) {
+            const successScreenshot = document.getElementById('save-on-success-screenshot');
+            const successLog = document.getElementById('save-on-success-log');
+
+            if (successScreenshot) successScreenshot.checked = settings.onSuccess.screenshot ?? false;
+            if (successLog) successLog.checked = settings.onSuccess.log ?? false;
+        }
+
+        // Apply save path
+        if (settings.savePath) {
+            const savePathInput = document.getElementById('save-path-input');
+            if (savePathInput) savePathInput.value = settings.savePath;
+        }
+    }
+
+    /**
+     * Get default save settings
+     * @returns {Object} Default save settings
+     */
+    getDefaultSaveSettings() {
+        return {
+            onFail: {
+                screenshot: true,
+                log: true,
+                variables: true,
+                matchImage: true
+            },
+            onSuccess: {
+                screenshot: false,
+                log: false
+            },
+            savePath: './results'
+        };
+    }
+
+    /**
+     * Save execution result based on settings
+     * @param {string} status - 'success' | 'fail'
+     * @param {Object} action - Current action being executed
+     * @param {Object} context - Execution context (screenshot, logs, variables)
+     */
+    async saveActionResult(status, action, context = {}) {
+        const saveSettings = this.getSaveSettings();
+        const settings = status === 'fail' ? saveSettings.onFail : saveSettings.onSuccess;
+
+        if (!settings) return;
+
+        const basePath = saveSettings.savePath || './results';
+        const scenarioName = this.macroName || 'Untitled';
+        const actionName = action?.name || action?.type || 'unknown';
+
+        const savePromises = [];
+
+        // Save screenshot if enabled
+        if (settings.screenshot && context.screenshot) {
+            savePromises.push(
+                window.api.result.save({
+                    type: 'screenshot',
+                    basePath,
+                    scenarioName,
+                    actionName,
+                    status,
+                    content: context.screenshot
+                }).catch(err => console.error('[SaveResult] Screenshot save failed:', err))
+            );
+        }
+
+        // Save log if enabled
+        if (settings.log && context.logs) {
+            const logText = context.logs.map(log =>
+                `[${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}`
+            ).join('\n');
+
+            savePromises.push(
+                window.api.result.save({
+                    type: 'log',
+                    basePath,
+                    scenarioName,
+                    status,
+                    content: logText
+                }).catch(err => console.error('[SaveResult] Log save failed:', err))
+            );
+        }
+
+        // Save variables if enabled (only on fail)
+        if (settings.variables && context.variables) {
+            savePromises.push(
+                window.api.result.save({
+                    type: 'variables',
+                    basePath,
+                    scenarioName,
+                    status,
+                    content: context.variables
+                }).catch(err => console.error('[SaveResult] Variables save failed:', err))
+            );
+        }
+
+        // Save match image if enabled (only for image matching actions on fail)
+        if (settings.matchImage && context.matchImage) {
+            savePromises.push(
+                window.api.result.save({
+                    type: 'matchImage',
+                    basePath,
+                    scenarioName,
+                    actionName,
+                    status,
+                    content: context.matchImage
+                }).catch(err => console.error('[SaveResult] Match image save failed:', err))
+            );
+        }
+
+        // Wait for all saves to complete
+        if (savePromises.length > 0) {
+            const results = await Promise.all(savePromises);
+            const successCount = results.filter(r => r?.success).length;
+            if (successCount > 0) {
+                this.addLog('info', `결과 저장 완료 (${successCount}개 파일)`);
+            }
+        }
+    }
+
+    /**
+     * Get current screenshot as base64
+     * @returns {string|null} Base64 encoded screenshot or null
+     */
+    getCurrentScreenshot() {
+        const screenImg = document.getElementById('screen-stream-image');
+        if (!screenImg || !screenImg.src) return null;
+
+        // If already base64, return as is
+        if (screenImg.src.startsWith('data:image')) {
+            return screenImg.src;
+        }
+
+        // Try to get from canvas
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = screenImg.naturalWidth || screenImg.width;
+            canvas.height = screenImg.naturalHeight || screenImg.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(screenImg, 0, 0);
+            return canvas.toDataURL('image/png');
+        } catch (error) {
+            console.error('[Screenshot] Failed to capture:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get current execution variables
+     * @returns {Object} Current execution variables
+     */
+    getExecutionVariables() {
+        const variables = {};
+        this.executionVariables.forEach((value, key) => {
+            variables[key] = value;
+        });
+        return variables;
+    }
+
+    /**
+     * Get current logs
+     * @returns {Array} Array of log entries
+     */
+    getCurrentLogs() {
+        const logContainer = document.getElementById('log-output-content');
+        if (!logContainer) return [];
+
+        const logs = [];
+        const logEntries = logContainer.querySelectorAll('.log-entry');
+        logEntries.forEach(entry => {
+            const timestamp = entry.querySelector('.log-timestamp')?.textContent || '';
+            const levelEl = entry.querySelector('.log-level');
+            const level = levelEl?.classList.contains('log-level-error') ? 'error' :
+                         levelEl?.classList.contains('log-level-warning') ? 'warning' :
+                         levelEl?.classList.contains('log-level-success') ? 'success' : 'info';
+            const message = entry.querySelector('.log-message')?.textContent || '';
+            logs.push({ timestamp, level, message });
+        });
+        return logs;
+    }
+
+    renderDeviceStatus() {
+        // Update individual elements instead of replacing innerHTML
+        const statusLight = document.getElementById('status-light');
+        const deviceNameValue = document.getElementById('device-name-value');
+        const deviceResValue = document.getElementById('device-res-value');
+        const deviceFpsValue = document.getElementById('device-fps-value');
+
+        if (!statusLight || !deviceNameValue || !deviceResValue || !deviceFpsValue) return;
+
+        if (!this.isDeviceConnected) {
+            statusLight.className = 'status-light disconnected';
+            deviceNameValue.textContent = '--';
+            deviceResValue.textContent = '--';
+            deviceFpsValue.textContent = '--';
+            return;
+        }
+
+        const resolutionText = (this.screenWidth && this.screenHeight)
+            ? `${this.screenWidth}x${this.screenHeight}`
+            : '--';
+
+        statusLight.className = 'status-light connected';
+        deviceNameValue.textContent = this.deviceName || '--';
+        deviceResValue.textContent = resolutionText;
+        deviceFpsValue.textContent = this.fps || '--';
     }
 
     renderLogs() {
@@ -6863,6 +7819,45 @@ class MacroBuilderApp {
         this.updateSelectedCount();
     }
 
+    /**
+     * Sort scenarios based on current sort option
+     * @param {Array} scenarios - Array of scenario objects to sort (mutates in place)
+     */
+    sortScenarios(scenarios) {
+        const statusPriority = {
+            'fail': 0,    // Failed first (needs attention)
+            'skip': 1,    // Skipped second
+            'pass': 2,    // Passed third
+            'never_run': 3 // Never run last
+        };
+
+        switch (this.scenarioSortBy) {
+            case 'oldest':
+                scenarios.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                break;
+            case 'newest':
+                scenarios.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+                break;
+            case 'name':
+                scenarios.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+                break;
+            case 'status':
+                scenarios.sort((a, b) => {
+                    const priorityA = statusPriority[a.status] ?? 4;
+                    const priorityB = statusPriority[b.status] ?? 4;
+                    if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                    }
+                    // Same status, sort by name
+                    return (a.name || '').localeCompare(b.name || '', 'ko');
+                });
+                break;
+            default:
+                // Default to oldest first
+                scenarios.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        }
+    }
+
     getStatusIcon(status) {
         switch (status) {
             case 'pass': return '✓';
@@ -6959,9 +7954,9 @@ class MacroBuilderApp {
 
         // Add click handlers
         container.querySelectorAll('.scenario-tree-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', async () => {
                 const key = item.dataset.key;
-                const scenarioData = this.loadScenarioFromRegistry(key);
+                const scenarioData = await this.loadScenarioFromRegistry(key);
 
                 if (scenarioData) {
                     // Load the scenario data
@@ -7155,7 +8150,7 @@ class MacroBuilderApp {
         return backToListBtn && backToListBtn.style.display === 'none';
     }
 
-    renderScenarioListInPanel(skipUnsavedCheck = false) {
+    async renderScenarioListInPanel(skipUnsavedCheck = false) {
         // Check for unsaved changes before navigating away (skip if called after delete/save operations)
         if (!skipUnsavedCheck && !this.checkUnsavedChanges()) {
             console.log('[renderScenarioListInPanel] User cancelled due to unsaved changes');
@@ -7168,66 +8163,43 @@ class MacroBuilderApp {
         // Clear screen markers when returning to scenario list
         this.clearScreenMarkers();
 
-        // Get scenario index, results, and scenario data
-        let index = JSON.parse(localStorage.getItem('scenario_index') || '{}');
+        // Get execution results from localStorage (these are transient)
         const results = JSON.parse(localStorage.getItem('scenario_execution_results') || '{}');
-        const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
 
-        // Clean up orphaned index entries (scenarios that no longer exist in data)
-        let indexChanged = false;
-        Object.entries(index).forEach(([scenarioId, indexEntry]) => {
-            const { filePath } = indexEntry;
-            if (!scenarioData[filePath]) {
-                console.log('[renderScenarioListInPanel] Removing orphaned index entry:', scenarioId);
-                delete index[scenarioId];
-                indexChanged = true;
+        // Load scenarios from file system
+        let scenarios = [];
+        try {
+            const listResult = await api.scenario.list();
+            if (listResult.success && listResult.scenarios) {
+                scenarios = listResult.scenarios.map(scenario => {
+                    // Get execution results for this scenario (using filename as key)
+                    const executionResult = results[scenario.filename] || results[scenario.id] || results[scenario.name];
+
+                    // Count actions (exclude structural markers)
+                    const actions = scenario.actions || [];
+                    const validActions = actions.filter(action =>
+                        action.type !== 'else' && action.type !== 'endif'
+                    );
+
+                    return {
+                        key: scenario.id || scenario.name,
+                        name: scenario.name,
+                        filename: scenario.filename,
+                        savedAt: scenario.savedAt || scenario.lastModified,
+                        actionsCount: validActions.length,
+                        status: executionResult ? executionResult.status : 'never_run',
+                        message: executionResult ? executionResult.message : '미실행',
+                        timestamp: executionResult ? executionResult.timestamp : (scenario.lastModified || scenario.savedAt),
+                        createdAt: scenario.createdAt || scenario.savedAt
+                    };
+                });
             }
-        });
-        if (indexChanged) {
-            localStorage.setItem('scenario_index', JSON.stringify(index));
+        } catch (error) {
+            console.error('[renderScenarioListInPanel] Failed to load scenarios:', error);
         }
 
-        // Merge and sort scenarios from index (which has scenario IDs)
-        const scenarios = Object.entries(index).map(([scenarioId, indexEntry]) => {
-            const { filePath } = indexEntry;
-            const fileData = scenarioData[filePath];
-
-            if (!fileData) {
-                console.warn('[renderScenarioListInPanel] File not found for scenario:', scenarioId, filePath);
-                return null;
-            }
-
-            // Find the scenario within the file
-            const scenario = fileData.scenarios?.find(s => s.id === scenarioId);
-            if (!scenario) {
-                console.warn('[renderScenarioListInPanel] Scenario not found in file:', scenarioId);
-                return null;
-            }
-
-            // Get execution results for this scenario
-            const executionResult = results[scenarioId];
-
-            // Count actions (exclude structural markers)
-            const actions = scenario.actions || [];
-            const validActions = actions.filter(action =>
-                action.type !== 'else' && action.type !== 'endif'
-            );
-
-            return {
-                key: scenarioId,  // Use scenario ID as key
-                name: scenario.name,
-                filename: filePath,
-                savedAt: scenario.lastModified || fileData.lastModified,
-                actionsCount: validActions.length,
-                status: executionResult ? executionResult.status : 'never_run',
-                message: executionResult ? executionResult.message : '미실행',
-                timestamp: executionResult ? executionResult.timestamp : (scenario.lastModified || fileData.lastModified),
-                createdAt: scenario.createdAt || fileData.createdAt || scenario.lastModified || fileData.lastModified
-            };
-        }).filter(s => s !== null);  // Remove null entries
-
-        // Sort by creation time (oldest first)
-        scenarios.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        // Sort scenarios based on current sort option
+        this.sortScenarios(scenarios);
 
         // Render in the main panel
         if (scenarios.length === 0) {
@@ -7250,9 +8222,11 @@ class MacroBuilderApp {
                 const statusText = this.getStatusText(scenario.status);
                 const timestamp = new Date(scenario.timestamp).toLocaleString('ko-KR');
 
-                // Check if this scenario is currently running
-                const runningState = this.runningScenarios.get(scenario.key);
+                // Check if this scenario is currently running, pending, or waiting to start (use filename as key)
+                const runningState = this.runningScenarios.get(scenario.filename);
                 const isRunning = runningState && runningState.status === 'running';
+                const isPending = this.pendingScenarios.has(scenario.filename);
+                const isWaitingToStart = this.waitingToStartScenarios.has(scenario.filename);
 
                 // Progress bar and info for running scenarios
                 let progressHTML = '';
@@ -7318,6 +8292,7 @@ class MacroBuilderApp {
                 // Card classes
                 const cardClasses = ['scenario-card-v2', 'scenario-card'];
                 if (isRunning) cardClasses.push('running');
+                if (isPending) cardClasses.push('pending');
 
                 return `
                     <div class="${cardClasses.join(' ')}" data-key="${scenario.key}">
@@ -7333,16 +8308,17 @@ class MacroBuilderApp {
 
                         <!-- Card main content -->
                         <div class="scenario-card-main">
-                            <input type="checkbox" class="scenario-checkbox scenario-checkbox-v2" data-key="${scenario.key}" data-filename="${scenario.filename}" ${isRunning ? 'disabled' : ''}>
+                            <input type="checkbox" class="scenario-checkbox scenario-checkbox-v2" data-key="${scenario.key}" data-filename="${scenario.filename}" ${isRunning || isPending ? 'disabled' : ''}>
 
                             <div class="scenario-card-info">
-                                <div class="scenario-card-title scenario-name-clickable" data-key="${scenario.key}">
+                                <div class="scenario-card-title scenario-name-clickable" data-key="${scenario.filename}">
                                     ${scenario.filename}
                                 </div>
                                 <div class="scenario-card-meta">
-                                    <span class="scenario-status-badge ${statusBadgeClass}">
-                                        ${statusText}
-                                    </span>
+                                    ${isRunning ? `<span class="scenario-status-badge status-running">실행 중</span>` :
+                                      isWaitingToStart ? `<span class="scenario-status-badge status-waiting">3초 대기</span>` :
+                                      isPending ? `<span class="scenario-status-badge status-pending">대기 중</span>` :
+                                      `<span class="scenario-status-badge ${statusBadgeClass}">${statusText}</span>`}
                                     <span class="scenario-meta-divider"></span>
                                     <span class="scenario-meta-item">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7362,14 +8338,14 @@ class MacroBuilderApp {
 
                             <div class="scenario-card-actions">
                                 ${isRunning ? `
-                                    <button class="scenario-action-btn btn-stop" onclick="window.macroApp.cancelScenario('${scenario.key}')" title="중단">
+                                    <button class="scenario-action-btn btn-stop" onclick="window.macroApp.cancelScenario('${scenario.filename}')" title="중단">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
                                         </svg>
                                     </button>
                                 ` : `
-                                    <button class="scenario-action-btn btn-run" onclick="window.macroApp.runSingleScenario('${scenario.key}')" ${disabledAttr} title="실행">
+                                    <button class="scenario-action-btn btn-run" onclick="window.macroApp.runSingleScenario('${scenario.filename}')" ${disabledAttr} title="실행">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                                         </svg>
@@ -7381,11 +8357,61 @@ class MacroBuilderApp {
                 `;
             }).join('');
 
+            // Sort dropdown options
+            const sortOptions = [
+                { value: 'oldest', label: '오래된 순' },
+                { value: 'newest', label: '최신순' },
+                { value: 'name', label: '이름순' },
+                { value: 'status', label: '상태순' }
+            ];
+
+            const sortOptionsHTML = sortOptions.map(opt =>
+                `<option value="${opt.value}" ${this.scenarioSortBy === opt.value ? 'selected' : ''}>${opt.label}</option>`
+            ).join('');
+
             actionList.innerHTML = `
                 <div class="px-6 py-4">
+                    <!-- Sort Controls -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="select-all-checkbox" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 13px; color: #64748b;">모두 선택</span>
+                            <span style="font-size: 12px; color: #94a3b8;">(${scenarios.length}개)</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 12px; color: #64748b;">정렬:</label>
+                            <select id="scenario-sort-select" style="padding: 4px 8px; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 4px; background: white; color: #334155; cursor: pointer;">
+                                ${sortOptionsHTML}
+                            </select>
+                        </div>
+                    </div>
                     ${scenarioHTML}
                 </div>
             `;
+
+            // Add sort select listener
+            const sortSelect = document.getElementById('scenario-sort-select');
+            if (sortSelect) {
+                sortSelect.addEventListener('change', (e) => {
+                    this.scenarioSortBy = e.target.value;
+                    localStorage.setItem('scenarioSortBy', this.scenarioSortBy);
+                    this.renderScenarioListInPanel(true);
+                });
+            }
+
+            // Add select all checkbox listener
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', (e) => {
+                    const isChecked = e.target.checked;
+                    actionList.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
+                        if (!checkbox.disabled) {
+                            checkbox.checked = isChecked;
+                        }
+                    });
+                    this.updateSelectedCount();
+                });
+            }
 
             // Add change listeners to checkboxes
             actionList.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
@@ -7426,7 +8452,6 @@ class MacroBuilderApp {
 
         // Show/hide UI elements for scenario list view
         const btnBackToList = document.getElementById('btn-back-to-list');
-        const btnSelectAll = document.getElementById('btn-select-all');
         const btnRunSelected = document.getElementById('btn-run-selected');
         const actionPanel = document.getElementById('action-panel');
         const scenarioListHeader = document.getElementById('scenario-list-header');
@@ -7459,6 +8484,15 @@ class MacroBuilderApp {
         if (btnSaveMacro) {
             btnSaveMacro.style.display = 'none';
         }
+        // Hide edit view buttons in scenario list view
+        const btnRunSelectedActions = document.getElementById('btn-run-selected-actions');
+        if (btnRunSelectedActions) {
+            btnRunSelectedActions.style.display = 'none';
+        }
+        const btnInfiniteLoop = document.getElementById('btn-infinite-loop');
+        if (btnInfiniteLoop) {
+            btnInfiniteLoop.style.display = 'none';
+        }
 
         // Hide "back to list" button, show "new scenario" button in scenario list view
         if (btnBackToList) {
@@ -7471,11 +8505,7 @@ class MacroBuilderApp {
             btnNewScenario.style.visibility = 'visible';
         }
 
-        // Show scenario list buttons (select-all, run-selected, delete-selected)
-        if (btnSelectAll) {
-            btnSelectAll.style.display = '';
-            btnSelectAll.style.visibility = 'visible';
-        }
+        // Show scenario list buttons (run-selected, delete-selected)
         if (btnRunSelected) {
             btnRunSelected.style.display = '';
             btnRunSelected.style.visibility = 'visible';
@@ -7507,31 +8537,166 @@ class MacroBuilderApp {
         this.updateSelectedCount();
     }
 
+    /**
+     * Run only the selected (checked) actions in the current scenario
+     */
+    async runSelectedActions() {
+        // Get selected action IDs from checkboxes
+        const checkboxes = document.querySelectorAll('.action-checkbox:checked');
+        const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.actionId);
+
+        if (selectedIds.length === 0) {
+            this.addLog('warning', '실행할 액션을 선택해주세요');
+            return;
+        }
+
+        // Find selected actions in order
+        const selectedActions = [];
+        for (const action of this.actions) {
+            if (selectedIds.includes(action.id)) {
+                selectedActions.push(action);
+            }
+        }
+
+        if (selectedActions.length === 0) {
+            this.addLog('warning', '선택된 액션을 찾을 수 없습니다');
+            return;
+        }
+
+        this.addLog('info', `선택된 ${selectedActions.length}개 액션 실행 시작`);
+
+        // Temporarily replace actions for execution
+        const originalActions = this.actions;
+        this.actions = selectedActions;
+
+        try {
+            await this.executeActionsRange(0, selectedActions.length);
+        } finally {
+            // Restore original actions
+            this.actions = originalActions;
+        }
+
+        this.addLog('info', '선택된 액션 실행 완료');
+    }
+
+    /**
+     * Toggle infinite loop execution mode
+     */
+    async toggleInfiniteLoop() {
+        const btn = document.getElementById('btn-infinite-loop');
+
+        if (this.infiniteLoopRunning) {
+            // Stop infinite loop
+            this.infiniteLoopRunning = false;
+            this.shouldStop = true;
+            if (btn) {
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-outline');
+                btn.innerHTML = `
+                    <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    무한 반복
+                `;
+            }
+            this.addLog('info', '무한 반복 중지 요청');
+            return;
+        }
+
+        if (this.actions.length === 0) {
+            this.addLog('warning', '실행할 액션이 없습니다');
+            return;
+        }
+
+        // Start infinite loop
+        this.infiniteLoopRunning = true;
+        this.shouldStop = false;
+
+        if (btn) {
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-danger');
+            btn.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                </svg>
+                중지
+            `;
+        }
+
+        this.addLog('info', '무한 반복 실행 시작');
+
+        let iteration = 1;
+        while (this.infiniteLoopRunning && !this.shouldStop) {
+            this.addLog('info', `무한 반복 ${iteration}회차 시작`);
+
+            try {
+                await this.executeActionsRange(0, this.actions.length);
+            } catch (error) {
+                this.addLog('error', `무한 반복 중 오류: ${error.message}`);
+                break;
+            }
+
+            if (this.shouldStop) {
+                break;
+            }
+
+            iteration++;
+
+            // Small delay between iterations
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        this.infiniteLoopRunning = false;
+        this.shouldStop = false;
+
+        if (btn) {
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-outline');
+            btn.innerHTML = `
+                <svg class="icon-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                무한 반복
+            `;
+        }
+
+        this.addLog('info', `무한 반복 종료 (${iteration - 1}회 완료)`);
+    }
+
     async runSelectedScenarios() {
         const checkboxes = document.querySelectorAll('.scenario-checkbox:checked');
-        const selectedKeys = Array.from(checkboxes).map(cb => cb.dataset.key);
+        // Use data-filename for file-based scenario loading
+        const selectedFilenames = Array.from(checkboxes).map(cb => cb.dataset.filename);
 
-        if (selectedKeys.length === 0) {
+        if (selectedFilenames.length === 0) {
             alert('실행할 시나리오를 선택해주세요');
             return;
         }
 
         // Keep the scenario list visible - do not close modal or switch views
 
-        this.addLog('info', `일괄 실행 시작: ${selectedKeys.length}개 시나리오`);
+        this.addLog('info', `일괄 실행 시작: ${selectedFilenames.length}개 시나리오`);
+
+        // Set all selected scenarios as pending
+        selectedFilenames.forEach(fn => this.pendingScenarios.add(fn));
+        this.renderScenarioListInPanel(true);
 
         // Run scenarios sequentially
-        for (let i = 0; i < selectedKeys.length; i++) {
-            const key = selectedKeys[i];
+        for (let i = 0; i < selectedFilenames.length; i++) {
+            const filename = selectedFilenames[i];
 
-            // Load scenario data from new storage system
-            const scenarioData = this.loadScenarioFromRegistry(key);
+            // Remove from pending as we're about to process it
+            this.pendingScenarios.delete(filename);
+
+            // Load scenario data from file system
+            const scenarioData = await this.loadScenarioFromRegistry(filename);
             if (!scenarioData) {
-                this.addLog('warning', `시나리오를 찾을 수 없음: ${key}`);
+                this.addLog('warning', `시나리오를 찾을 수 없음: ${filename}`);
                 continue;
             }
 
-            this.addLog('info', `[${i + 1}/${selectedKeys.length}] ${scenarioData.name} 실행 중...`);
+            this.addLog('info', `[${i + 1}/${selectedFilenames.length}] ${scenarioData.name} 실행 중...`);
 
             // Load the scenario data internally for execution
             this.actions = scenarioData.actions || [];
@@ -7540,19 +8705,61 @@ class MacroBuilderApp {
             // Mark as saved to prevent "unsaved changes" dialog
             this.markAsSaved();
 
-            // Run the scenario with key for progress tracking (scenario list stays visible)
-            await this.runMacro(key);
+            // Check device connection before each scenario
+            // Retry every 10 seconds, max 1 minute (6 attempts)
+            let connectionResult;
+            try {
+                connectionResult = await this.ensureDeviceConnection();
+            } catch (connError) {
+                console.error('[runSelectedScenarios] Connection error:', connError);
+                this.addLog('warning', `시나리오 SKIP: ${this.macroName} - 연결 오류: ${connError.message}`);
+                await this.saveExecutionResult('skip', `연결 오류: ${connError.message}`, filename);
+                this.renderScenarioListInPanel(true);
+                continue;
+            }
+
+            if (!connectionResult.connected) {
+                this.addLog('warning', `시나리오 SKIP: ${this.macroName} - 장치 연결 실패`);
+                await this.saveExecutionResult('skip', connectionResult.error || '장치 연결 실패', filename);
+                this.renderScenarioListInPanel(true);
+                continue;
+            }
+
+            // If device was reconnected, wait 30 seconds for device to fully load
+            if (connectionResult.wasReconnected) {
+                this.addLog('info', '재연결 완료. 안정적인 장치 로딩을 기다리는 중...');
+                // Update overlay status during wait
+                this.updateDisconnectStatus('안정적인 장치 로딩을 기다리는 중...');
+                await this.waitWithProgress(30, '장치 로딩 대기');
+                // Streaming is already working behind overlay, just hide overlay
+                this.hideDisconnectOverlay();
+            }
+
+            // Wait 3 seconds before starting scenario (show waiting status in UI)
+            this.waitingToStartScenarios.add(filename);
+            this.renderScenarioListInPanel(true);
+            this.addLog('info', '3초 후 시나리오를 시작합니다...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            this.waitingToStartScenarios.delete(filename);
+
+            // Run the scenario with filename for progress tracking (scenario list stays visible)
+            await this.runMacro(filename);
 
             // Small delay between scenarios
-            if (i < selectedKeys.length - 1) {
+            if (i < selectedFilenames.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
-        this.addLog('success', `일괄 실행 완료: ${selectedKeys.length}개 시나리오`);
+        this.addLog('success', `일괄 실행 완료: ${selectedFilenames.length}개 시나리오`);
+
+        // Clear pending queue
+        this.pendingScenarios.clear();
 
         // Refresh scenario list to show all updated execution results
         this.renderScenarioListInPanel(true);
+
+        // Note: No need to restart streaming - it's already running during scenario execution
     }
 
     deleteSelectedScenarios() {
@@ -7722,11 +8929,203 @@ class MacroBuilderApp {
         console.log('All scenario blocks execution finished');
     }
 
+    /**
+     * Check device connection status via ADB
+     * @returns {Promise<boolean>} true if device is connected
+     */
+    async checkDeviceConnection() {
+        try {
+            // Try to take a screenshot to verify device is responsive
+            const result = await window.api.adb.screenshot();
+            return result && result.success;
+        } catch (error) {
+            console.error('[checkDeviceConnection] Error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Attempt to reconnect to the device
+     * @returns {Promise<boolean>} true if reconnection successful
+     */
+    async attemptDeviceReconnect() {
+        try {
+            this.addLog('info', '장치 재연결 시도 중...');
+
+            // Get available devices
+            const result = await window.api.device.list();
+            const devices = result?.devices || result;
+            if (!devices || !Array.isArray(devices) || devices.length === 0) {
+                this.addLog('warning', '연결된 장치를 찾을 수 없습니다');
+                return false;
+            }
+
+            // Use the first available device
+            const device = devices[0];
+            const deviceId = device.id || device.serial || device;
+            this.addLog('info', `장치 발견: ${deviceId}`);
+
+            // Reconnect protocol
+            await window.api.protocol.connect(deviceId, 'adb');
+
+            // Start screen stream
+            await window.api.screen.startStream({
+                deviceId: deviceId,
+                fps: this.fps || 30
+            });
+
+            // Verify connection with screenshot
+            const verified = await this.checkDeviceConnection();
+            if (verified) {
+                this.addLog('success', '장치 재연결 성공');
+                this.isDeviceConnected = true;
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('[attemptDeviceReconnect] Error:', error);
+            this.addLog('error', `재연결 실패: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Restart screen streaming after reconnection
+     * Simplified version of reconnectScreen without UI button handling
+     * @param {boolean} silent - If true, suppress success log messages
+     */
+    async restartStreaming(silent = false) {
+        try {
+            // First stop existing stream if any
+            try {
+                await window.api.screen.stopStream();
+            } catch (e) {
+                // Ignore stop errors
+            }
+
+            // Start fresh stream - main process handles ccNC reconnection and device auto-select
+            const result = await window.api.screen.startStream({ maxFps: 30 });
+
+            if (result.success) {
+                // Stream started successfully - mark device as connected
+                this.isDeviceConnected = true;
+
+                // Fetch device info to update device name in renderer
+                try {
+                    const deviceResult = await window.api.device.getInfo();
+                    if (deviceResult && deviceResult.success && deviceResult.info) {
+                        const info = deviceResult.info;
+                        this.deviceName = info.model ? `${info.model} (${info.id})` : info.id;
+                        this.deviceType = 'adb';
+                    }
+                } catch (e) {
+                    // Ignore device info errors - stream is still working
+                }
+
+                // Check for ADB resolution first
+                if (result.width && result.height) {
+                    const width = result.width;
+                    const height = result.height;
+
+                    if (width > 100 && height > 100) {
+                        if (!silent) {
+                            this.addLog('success', `스트리밍 재시작 성공 (${width} x ${height})`);
+                        }
+                        this.screenWidth = width;
+                        this.screenHeight = height;
+                        this.coordinateSystem.init(width, height, 0);
+                        this.renderScreenPreview();
+                        this.renderDeviceStatus();
+                        return true;
+                    }
+                }
+                // ccNC mode - no resolution returned, use existing or default
+                // ccNC uses fixed 1920x720 resolution
+                if (!silent) {
+                    this.addLog('success', '스트리밍 재시작 성공 (ccNC)');
+                }
+                this.renderScreenPreview();
+                this.renderDeviceStatus();
+                return true;
+            } else {
+                this.addLog('warning', `스트리밍 재시작 실패: ${result.error}`);
+                return false;
+            }
+        } catch (error) {
+            this.addLog('error', `스트리밍 재시작 오류: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Wait for a specified number of seconds with progress logging
+     * @param {number} seconds Total seconds to wait
+     * @param {string} message Description of what we're waiting for
+     */
+    async waitWithProgress(seconds, message) {
+        const intervalSec = 5; // Log every 5 seconds
+        let elapsed = 0;
+
+        while (elapsed < seconds) {
+            const remaining = seconds - elapsed;
+            if (remaining > intervalSec) {
+                this.addLog('info', `${message}: ${remaining}초 남음...`);
+                await new Promise(resolve => setTimeout(resolve, intervalSec * 1000));
+                elapsed += intervalSec;
+            } else {
+                await new Promise(resolve => setTimeout(resolve, remaining * 1000));
+                elapsed = seconds;
+            }
+        }
+    }
+
+    /**
+     * Ensure device is connected before scenario execution
+     * Attempts to reconnect if disconnected
+     * @param {number} maxRetries Maximum number of reconnection attempts (default: 6 = 1 minute with 10s interval)
+     * @param {number} retryDelay Delay between retries in ms (default: 10000 = 10 seconds)
+     * @returns {Promise<{connected: boolean, wasReconnected?: boolean, error?: string}>}
+     */
+    async ensureDeviceConnection(maxRetries = 6, retryDelay = 10000) {
+        // First check if already connected
+        const isConnected = await this.checkDeviceConnection();
+        if (isConnected) {
+            return { connected: true, wasReconnected: false };
+        }
+
+        this.addLog('warning', '장치 연결이 끊어졌습니다. 재연결 시도 중... (10초 간격, 최대 1분)');
+
+        // Show disconnect overlay
+        this.showDisconnectOverlay();
+
+        // Attempt reconnection with retries
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            this.addLog('info', `재연결 시도 ${attempt}/${maxRetries}...`);
+            this.updateDisconnectStatus(`재연결 시도 ${attempt}/${maxRetries}... (${(maxRetries - attempt) * 10}초 남음)`);
+
+            const reconnected = await this.attemptDeviceReconnect();
+            if (reconnected) {
+                return { connected: true, wasReconnected: true };
+            }
+
+            // Wait before next retry (except on last attempt)
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
+
+        // All retries failed
+        const errorMsg = `장치 재연결 실패 (${maxRetries}회 시도, 총 1분)`;
+        this.addLog('error', errorMsg);
+        return { connected: false, error: errorMsg };
+    }
+
     async runSingleScenario(key) {
         console.log('Running single scenario:', key);
 
         // Load scenario data from localStorage
-        const scenarioData = this.loadScenarioFromRegistry(key);
+        const scenarioData = await this.loadScenarioFromRegistry(key);
         if (!scenarioData) {
             alert('시나리오를 찾을 수 없습니다.');
             return;
@@ -7739,6 +9138,33 @@ class MacroBuilderApp {
 
         // Mark as saved to prevent "unsaved changes" dialog
         this.markAsSaved();
+
+        // Check device connection before starting scenario
+        // Retry every 10 seconds, max 1 minute (6 attempts)
+        const connectionResult = await this.ensureDeviceConnection();
+        if (!connectionResult.connected) {
+            this.addLog('warning', `시나리오 SKIP: ${this.macroName} - 장치 연결 실패`);
+
+            // Save as SKIP result
+            await this.saveExecutionResult('skip', connectionResult.error || '장치 연결 실패', key);
+
+            // Update scenario list UI
+            if (this.isScenarioListVisible()) {
+                this.renderScenarioListInPanel();
+            }
+
+            return { skipped: true, reason: connectionResult.error };
+        }
+
+        // If device was reconnected, wait 30 seconds for device to fully load
+        if (connectionResult.wasReconnected) {
+            this.addLog('info', '재연결 완료. 안정적인 장치 로딩을 기다리는 중...');
+            // Update overlay status during wait
+            this.updateDisconnectStatus('안정적인 장치 로딩을 기다리는 중...');
+            await this.waitWithProgress(30, '장치 로딩 대기');
+            // Streaming is already working behind overlay, just hide overlay
+            this.hideDisconnectOverlay();
+        }
 
         this.addLog('info', `시나리오 실행 시작: ${this.macroName} (${this.actions.length}개 액션)`);
 
@@ -8322,62 +9748,47 @@ class MacroBuilderApp {
      * Updates the scenario within its file
      * @param {string} scenarioId - The unique scenario ID
      */
-    saveToRegistry(scenarioId) {
+    async saveToRegistry(scenarioId) {
         console.log('[saveToRegistry] Saving scenario:', scenarioId);
 
-        if (!scenarioId || !this.currentFilePath) {
-            console.error('[saveToRegistry] Missing scenarioId or filePath');
+        if (!scenarioId) {
+            console.error('[saveToRegistry] Missing scenarioId');
             return false;
         }
 
         try {
-            // Load current file data
-            const scenarioData = JSON.parse(localStorage.getItem('scenario_data') || '{}');
-            const fileData = scenarioData[this.currentFilePath];
-
-            if (!fileData) {
-                console.error('[saveToRegistry] File not found:', this.currentFilePath);
-                return false;
-            }
-
-            // Find and update the scenario
-            const scenarioIndex = fileData.scenarios.findIndex(s => s.id === scenarioId);
-
-            if (scenarioIndex === -1) {
-                console.error('[saveToRegistry] Scenario not found in file:', scenarioId);
-                return false;
-            }
-
-            // Update scenario data
-            fileData.scenarios[scenarioIndex] = {
+            // Prepare scenario data
+            // Note: Save settings are now global (stored in localStorage), not saved per-scenario
+            const scenarioData = {
                 id: scenarioId,
                 name: this.macroName || 'Untitled',
+                description: this.macroDescription || '',
                 actions: this.actions,
-                description: this.macroDescription || ''
+                createdAt: this.scenarioCreatedAt || new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                version: '1.0'
             };
 
-            // Save back to localStorage
-            localStorage.setItem('scenario_data', JSON.stringify(scenarioData));
+            // Save to file system using IPC
+            const result = await api.scenario.save(scenarioData);
 
-            // Update registry timestamp, filename, and action count
-            const registry = JSON.parse(localStorage.getItem('scenario_registry') || '{}');
-            if (registry[this.currentFilePath]) {
-                registry[this.currentFilePath].timestamp = Date.now();
-                registry[this.currentFilePath].filename = this.currentFilePath; // Ensure filename is set
-                // Count only meaningful actions (exclude structural markers like else, endif)
-                const meaningfulActionsCount = this.actions.filter(action =>
-                    action.type !== 'else' && action.type !== 'endif'
-                ).length;
-                registry[this.currentFilePath].actionsCount = meaningfulActionsCount;
-                localStorage.setItem('scenario_registry', JSON.stringify(registry));
+            if (!result.success) {
+                console.error('[saveToRegistry] Failed to save to file:', result.error);
+                this.addLog('error', `저장 실패: ${result.error}`);
+                return false;
             }
 
-            console.log('[saveToRegistry] Scenario saved successfully');
+            // Update current file path reference
+            this.currentFilePath = result.filename;
+
+            console.log('[saveToRegistry] Scenario saved to file:', result.path);
             this.markAsSaved();
+            this.addLog('success', `저장 완료: ${result.filename}`);
             return true;
 
         } catch (error) {
             console.error('[saveToRegistry] Failed to save scenario:', error);
+            this.addLog('error', `저장 실패: ${error.message}`);
             return false;
         }
     }
@@ -8509,6 +9920,260 @@ class MacroBuilderApp {
         } catch (error) {
             console.error('[addFilenameToRegistry] Failed to update registry:', error);
         }
+    }
+
+    // ==================== AI Analysis Methods ====================
+
+    /**
+     * Initialize AI analysis modal event listeners
+     * Called from initializeApp()
+     */
+    initAIAnalysisHandlers() {
+        const closeBtn = document.getElementById('btn-close-ai-analysis');
+        const closeModalBtn = document.getElementById('btn-close-ai-modal');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideAIAnalysisModal());
+        }
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => this.hideAIAnalysisModal());
+        }
+
+        // Close on overlay click
+        const modal = document.getElementById('ai-analysis-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideAIAnalysisModal();
+                }
+            });
+        }
+    }
+
+    /**
+     * Show the AI analysis modal
+     */
+    showAIAnalysisModal() {
+        const modal = document.getElementById('ai-analysis-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            // Reset to loading state
+            this.showAIAnalysisLoading();
+        }
+    }
+
+    /**
+     * Hide the AI analysis modal
+     */
+    hideAIAnalysisModal() {
+        const modal = document.getElementById('ai-analysis-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Show loading state in modal
+     */
+    showAIAnalysisLoading() {
+        const loadingEl = document.getElementById('ai-analysis-loading');
+        const errorEl = document.getElementById('ai-analysis-error');
+        const resultEl = document.getElementById('ai-analysis-result');
+
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (errorEl) errorEl.style.display = 'none';
+        if (resultEl) resultEl.style.display = 'none';
+    }
+
+    /**
+     * Show error state in modal
+     * @param {string} message Error message to display
+     */
+    showAIAnalysisError(message) {
+        const loadingEl = document.getElementById('ai-analysis-loading');
+        const errorEl = document.getElementById('ai-analysis-error');
+        const resultEl = document.getElementById('ai-analysis-result');
+        const errorMsgEl = document.getElementById('ai-error-message');
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'block';
+        if (resultEl) resultEl.style.display = 'none';
+        if (errorMsgEl) errorMsgEl.textContent = message;
+    }
+
+    /**
+     * Display analysis result in modal
+     * @param {Object} analysis Analysis result from AI service
+     */
+    displayAIAnalysisResult(analysis) {
+        const loadingEl = document.getElementById('ai-analysis-loading');
+        const errorEl = document.getElementById('ai-analysis-error');
+        const resultEl = document.getElementById('ai-analysis-result');
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        if (resultEl) resultEl.style.display = 'block';
+
+        // Display summary
+        const summaryEl = document.getElementById('ai-summary-text');
+        if (summaryEl) {
+            summaryEl.textContent = analysis.summary || 'No summary available';
+        }
+
+        // Display root cause
+        const rootCauseEl = document.getElementById('ai-root-cause-text');
+        const confidenceEl = document.getElementById('ai-confidence');
+        if (rootCauseEl && analysis.rootCause) {
+            rootCauseEl.textContent = analysis.rootCause.description || 'Unknown';
+        }
+        if (confidenceEl && analysis.rootCause) {
+            const confidence = Math.round((analysis.rootCause.confidence || 0) * 100);
+            confidenceEl.textContent = `${confidence}%`;
+        }
+
+        // Display recommendations
+        const recListEl = document.getElementById('ai-recommendations-list');
+        if (recListEl && analysis.recommendations) {
+            recListEl.innerHTML = '';
+            analysis.recommendations.forEach(rec => {
+                const li = document.createElement('li');
+                li.className = `recommendation-item priority-${rec.priority || 'medium'}`;
+                li.innerHTML = `
+                    <span class="priority-badge">${rec.priority || 'medium'}</span>
+                    <span class="recommendation-text">${rec.description}</span>
+                `;
+                recListEl.appendChild(li);
+            });
+        }
+
+        // Display additional insights
+        const insightsEl = document.getElementById('ai-insights-text');
+        if (insightsEl && analysis.additionalInsights) {
+            if (analysis.additionalInsights.length > 0) {
+                insightsEl.innerHTML = analysis.additionalInsights
+                    .map(insight => `<li>${insight}</li>`)
+                    .join('');
+            } else {
+                insightsEl.innerHTML = '<li>No additional insights</li>';
+            }
+        }
+    }
+
+    /**
+     * Request AI analysis for the last failed session
+     * @param {string} sessionId Report session ID
+     */
+    async requestAIAnalysis(sessionId) {
+        this.showAIAnalysisModal();
+
+        try {
+            // Check AI status first
+            const statusResult = await window.api.ai.getStatus();
+            if (!statusResult.success || !statusResult.enabled) {
+                this.showAIAnalysisError(
+                    'AI Analysis is not enabled. Please configure your API key in settings.'
+                );
+                return;
+            }
+
+            // Get session data
+            const sessionResult = await window.api.report.getSessionData(sessionId);
+            if (!sessionResult.success) {
+                this.showAIAnalysisError(`Failed to get session data: ${sessionResult.error}`);
+                return;
+            }
+
+            // Get current scenario info
+            const scenario = {
+                name: this.macroName || 'Unknown',
+                description: ''
+            };
+
+            // Request analysis
+            const analysisResult = await window.api.ai.analyze(sessionResult.data, scenario);
+
+            if (!analysisResult.success) {
+                this.showAIAnalysisError(analysisResult.error || 'Analysis failed');
+                return;
+            }
+
+            // Display the result
+            this.displayAIAnalysisResult(analysisResult.analysis);
+
+            // Store analysis result in session
+            if (sessionId) {
+                await window.api.report.storeAIAnalysis(sessionId, analysisResult.analysis);
+            }
+
+        } catch (error) {
+            console.error('[AIAnalysis] Error:', error);
+            this.showAIAnalysisError(`Analysis error: ${error.message}`);
+        }
+    }
+
+    /**
+     * Show AI analysis button after scenario failure
+     * Called when scenario execution fails
+     */
+    showAIAnalysisButton() {
+        // Remove existing button if any
+        const existingBtn = document.getElementById('btn-ai-analysis-container');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
+
+        // Only show if we have a session ID
+        if (!this.lastFailedSessionId) {
+            console.log('[AIAnalysis] No failed session ID available');
+            return;
+        }
+
+        // Create floating button container at bottom-right of screen area
+        const screenArea = document.querySelector('#macroBuilder');
+        if (!screenArea) {
+            console.log('[AIAnalysis] Screen area not found');
+            return;
+        }
+
+        const btnContainer = document.createElement('div');
+        btnContainer.id = 'btn-ai-analysis-container';
+        btnContainer.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 1000;
+        `;
+        btnContainer.innerHTML = `
+            <button id="btn-ai-analysis" class="btn btn-primary" style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 10px 16px;
+                font-weight: 600;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                animation: slideUp 0.3s ease-out;
+            ">
+                <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                AI 실패 분석
+            </button>
+        `;
+
+        document.body.appendChild(btnContainer);
+
+        // Add click handler
+        const btn = document.getElementById('btn-ai-analysis');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                // Hide button after clicking
+                btnContainer.style.display = 'none';
+                this.requestAIAnalysis(this.lastFailedSessionId);
+            });
+        }
+
+        // Add log message about AI analysis availability
+        this.addLog('info', 'AI 실패 분석을 사용할 수 있습니다. 오른쪽 하단 버튼을 클릭하세요.');
     }
 }
 

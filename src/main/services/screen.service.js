@@ -175,6 +175,62 @@ class ScreenService extends EventEmitter {
   }
 
   /**
+   * Check if screen resolution is valid (device is ready)
+   */
+  _isValidResolution(screenInfo) {
+    // Invalid if dimensions are missing, zero, or suspiciously small
+    if (!screenInfo || !screenInfo.width || !screenInfo.height) {
+      return false;
+    }
+    // Minimum reasonable screen size is 100x100
+    if (screenInfo.width < 100 || screenInfo.height < 100) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Get resolution by capturing actual screenshot (most reliable method)
+   * PNG header contains width/height at bytes 16-23
+   */
+  async _getResolutionFromScreenshot() {
+    const tempPath = `/sdcard/resolution_check.png`;
+    const localPath = path.join(this.tempDir, `resolution_check_${Date.now()}.png`);
+
+    try {
+      // Capture screenshot
+      await this._execAdb(`shell screencap -p ${tempPath}`);
+
+      // Pull to local
+      await this._execAdb(`pull ${tempPath} "${localPath}"`);
+
+      // Read PNG header to get dimensions (bytes 16-23 contain width and height)
+      const buffer = await fs.readFile(localPath);
+
+      // PNG signature check
+      if (buffer[0] !== 0x89 || buffer[1] !== 0x50 || buffer[2] !== 0x4E || buffer[3] !== 0x47) {
+        throw new Error('Invalid PNG file');
+      }
+
+      // Width is at bytes 16-19 (big-endian)
+      const width = buffer.readUInt32BE(16);
+      // Height is at bytes 20-23 (big-endian)
+      const height = buffer.readUInt32BE(20);
+
+      // Cleanup
+      await fs.unlink(localPath).catch(() => {});
+      await this._execAdb(`shell rm ${tempPath}`).catch(() => {});
+
+      return { width, height };
+    } catch (error) {
+      // Cleanup on error
+      await fs.unlink(localPath).catch(() => {});
+      await this._execAdb(`shell rm ${tempPath}`).catch(() => {});
+      throw error;
+    }
+  }
+
+  /**
    * 스트리밍 시작
    */
   async startStream(options = {}) {
@@ -200,10 +256,57 @@ class ScreenService extends EventEmitter {
         options: { quality, maxFps, maxSize, bitrate }
       };
 
-      // 화면 정보 가져오기
-      const screenInfo = await this.getScreenInfo();
+      // Get screen resolution by capturing actual screenshot (most reliable method)
+      // This ensures device is truly ready - if screenshot works, device is ready
+      let screenInfo = { width: 0, height: 0 };
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryDelay = 500; // 500ms between retries
+
+      // Give device a moment to stabilize before first screenshot attempt
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      while (retryCount < maxRetries) {
+        try {
+          // Try to capture a screenshot and get dimensions from the actual image
+          const resolution = await this._getResolutionFromScreenshot();
+
+          // Validate resolution is within reasonable bounds (not garbage data)
+          if (resolution &&
+              resolution.width > 100 && resolution.width < 10000 &&
+              resolution.height > 100 && resolution.height < 20000) {
+            screenInfo = resolution;
+            console.log(`[ScreenService] Resolution from screenshot: ${screenInfo.width}x${screenInfo.height}`);
+            break;
+          } else {
+            console.warn(`[ScreenService] Invalid resolution detected: ${resolution?.width}x${resolution?.height}`);
+          }
+        } catch (error) {
+          console.warn(`[ScreenService] Screenshot resolution check failed: ${error.message}`);
+        }
+
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.warn(`[ScreenService] Waiting for device... retry ${retryCount}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+
+      // If still invalid after retries, emit warning and return status
+      const isValidResolution = this._isValidResolution(screenInfo);
+      if (!isValidResolution) {
+        console.error('[ScreenService] Could not get valid resolution after retries');
+        this.emit('stream-warning', {
+          type: 'invalid-resolution',
+          message: 'Device may not be fully ready. Use reconnect button if screen appears incorrect.',
+          resolution: screenInfo
+        });
+      }
+
       this.currentStream.width = screenInfo.width;
       this.currentStream.height = screenInfo.height;
+      this.currentStream.isValidResolution = isValidResolution;
+      this.currentStream.retryCount = retryCount;
 
       // 프레임 캡처 루프 시작 (실시간 스트리밍 대신 폴링 방식)
       this._startFrameCapture(maxFps);
@@ -211,10 +314,16 @@ class ScreenService extends EventEmitter {
       this.emit('stream-started', {
         id: streamId,
         width: screenInfo.width,
-        height: screenInfo.height
+        height: screenInfo.height,
+        isValidResolution,
+        retryCount
       });
 
-      return this.currentStream;
+      return {
+        ...this.currentStream,
+        isValidResolution,
+        retryCount
+      };
     } catch (error) {
       console.error('Failed to start stream:', error);
       this.currentStream = null;
@@ -256,6 +365,20 @@ class ScreenService extends EventEmitter {
 
         // 파일 읽기
         const buffer = await fs.readFile(localPath);
+
+        // Validate frame - skip if too small (corrupted or incomplete)
+        // A valid PNG screenshot should be at least 1KB
+        const MIN_VALID_FRAME_SIZE = 1024;
+        if (buffer.length < MIN_VALID_FRAME_SIZE) {
+          console.warn(`Frame too small (${buffer.length} bytes), skipping`);
+          await fs.unlink(localPath).catch(() => {});
+          await this._execAdb(`shell rm ${tempPath}`).catch(() => {});
+          // Schedule next frame without sending this one
+          if (this.currentStream) {
+            setTimeout(captureFrame, interval);
+          }
+          return;
+        }
 
         // Base64로 인코딩하여 렌더러로 전송
         const base64Image = buffer.toString('base64');
@@ -304,6 +427,14 @@ class ScreenService extends EventEmitter {
           error.message.includes('killed')
         );
 
+        // Detect filesystem errors (e.g., /sdcard/ not mounted yet after reboot)
+        const isFileSystemError = error.message && (
+          error.message.includes('Error opening file') ||
+          error.message.includes('No such file or directory') ||
+          error.message.includes('Permission denied') ||
+          error.message.includes('ENOENT')
+        );
+
         const isWindowError = error.message && error.message.includes('destroyed');
 
         // Stop stream on device disconnection or window destruction
@@ -317,6 +448,12 @@ class ScreenService extends EventEmitter {
           }
 
           return; // Exit immediately
+        }
+
+        // For filesystem errors, skip this frame and continue (don't send broken frame)
+        if (isFileSystemError) {
+          console.log('Filesystem error (device may be rebooting), skipping frame');
+          // Don't send anything to renderer - just schedule next attempt
         }
       }
 

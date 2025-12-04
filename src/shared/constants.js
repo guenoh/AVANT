@@ -130,6 +130,14 @@ const UI = {
   MAX_LOG_ENTRIES: 1000
 };
 
+// Screen Resolutions
+const SCREEN = {
+  CCNC_WIDTH: 1920,
+  CCNC_HEIGHT: 720,
+  DEFAULT_ADB_WIDTH: 1080,
+  DEFAULT_ADB_HEIGHT: 2400
+};
+
 // Export all constants
 module.exports = {
   IPC,
@@ -140,5 +148,6 @@ module.exports = {
   SETTINGS,
   PATHS,
   TIMING,
-  UI
+  UI,
+  SCREEN
 };

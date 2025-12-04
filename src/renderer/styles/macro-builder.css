@@ -1180,6 +1180,131 @@ svg {
     background: #000;
 }
 
+/* Disconnect Overlay - shown when device connection is lost */
+.disconnect-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: var(--radius);
+}
+
+.disconnect-overlay.hidden {
+    display: none;
+}
+
+/* Screen Alert Container - Container for the alert overlay */
+#screen-alert-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 100;
+}
+
+#screen-alert-container .screen-alert-overlay {
+    pointer-events: auto;
+}
+
+/* Screen Alert Overlay - Unified overlay component for device states */
+.screen-alert-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: var(--radius);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.screen-alert-overlay.visible {
+    opacity: 1;
+}
+
+.screen-alert-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.screen-alert-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    max-width: 280px;
+}
+
+.screen-alert-icon-wrapper {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.screen-alert-icon {
+    width: 48px;
+    height: 48px;
+    transition: color 0.3s ease;
+}
+
+.screen-alert-icon.with-spinner {
+    width: 40px;
+    height: 40px;
+}
+
+.screen-alert-spinner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 64px;
+    height: 64px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: screen-alert-spin 1s linear infinite;
+}
+
+@keyframes screen-alert-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.screen-alert-title {
+    color: #f8fafc;
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.4;
+}
+
+.screen-alert-status {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
 .screen-preview-content {
     position: absolute;
     inset: 0;
@@ -2097,16 +2222,16 @@ svg {
     background: var(--slate-50);
     border-radius: var(--radius);
     border: 1px solid var(--slate-200);
-    min-width: 240px;
-    width: 240px;
+    min-width: 400px;
+    width: fit-content;
+    flex-shrink: 0;
 }
 
 .device-status-indicator {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    min-width: 0;
-    flex: 1;
+    flex-shrink: 0;
 }
 
 .device-status-indicator:last-of-type {
@@ -2144,9 +2269,6 @@ svg {
     font-weight: 600;
     margin-left: 0.25rem;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
 }
 
 .device-status-divider {
@@ -3481,6 +3603,40 @@ input[type="number"] {
     color: var(--slate-600);
 }
 
+.scenario-status-badge.status-running {
+    background: #dbeafe;
+    color: #2563eb;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.scenario-status-badge.status-pending {
+    background: #4b5563;
+    color: #ffffff;
+}
+
+.scenario-status-badge.status-waiting {
+    background: #fef3c7;
+    color: #d97706;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Pending scenario card style */
+.scenario-card-v2.pending {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+/* Running scenario card style */
+.scenario-card-v2.running {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
 /* Card actions */
 .scenario-card-actions {
     display: flex;
@@ -3493,8 +3649,8 @@ input[type="number"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.5rem;
+    height: 2.5rem;
     padding: 0;
     background: transparent;
     border: 1px solid transparent;
@@ -3516,8 +3672,13 @@ input[type="number"] {
 }
 
 .scenario-action-btn svg {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.scenario-action-btn.btn-run svg {
+    width: 1.75rem;
+    height: 1.75rem;
 }
 
 .scenario-action-btn.btn-run {

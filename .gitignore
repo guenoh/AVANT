@@ -28,6 +28,10 @@ Thumbs.db
 # User data
 ~/Documents/VisionAuto/
 
+# Runtime output directories
+results/
+scenarios/
+
 # Temporary files
 temp/
 tmp/

@@ -579,6 +579,45 @@ class ActionConfigProvider {
                 ],
                 defaultParams: { message: '' },
                 executionTime: 0
+            },
+
+            // ADB Reboot action
+            'adb-reboot': {
+                id: 'adb-reboot',
+                name: 'ADB 재부팅',
+                category: 'system',
+                description: 'ADB를 통해 디바이스 재부팅',
+                icon: '🔄',
+                color: '#ef4444',
+                requiresCoordinates: false,
+                protocols: ['adb'],
+                fields: [
+                    {
+                        name: 'waitForDevice',
+                        type: 'select',
+                        label: 'Wait for Device',
+                        required: true,
+                        options: [
+                            { value: 'true', label: 'Yes - Wait for reboot completion' },
+                            { value: 'false', label: 'No - Continue immediately' }
+                        ],
+                        default: 'true'
+                    },
+                    {
+                        name: 'timeout',
+                        type: 'number',
+                        label: 'Timeout (ms)',
+                        required: false,
+                        min: 30000,
+                        max: 300000,
+                        default: 120000
+                    }
+                ],
+                defaultParams: {
+                    waitForDevice: 'true',
+                    timeout: 120000
+                },
+                executionTime: null // Variable based on device
             }
         };
     }
@@ -1047,7 +1086,8 @@ class ActionConfigProvider {
             'sound-check': 'mic',
             'get-volume': 'volume',
             'set-variable': 'package',
-            'calc-variable': 'calculator'
+            'calc-variable': 'calculator',
+            'adb-reboot': 'refresh-cw'
         };
 
         // Korean labels for action types
@@ -1080,7 +1120,8 @@ class ActionConfigProvider {
             'sound-check': '소리 감지',
             'get-volume': '볼륨 확인',
             'set-variable': '변수 설정',
-            'calc-variable': '변수 연산'
+            'calc-variable': '변수 연산',
+            'adb-reboot': 'ADB 재부팅'
         };
 
         // Explicit Tailwind color mapping for each action type
@@ -1130,7 +1171,10 @@ class ActionConfigProvider {
             'home': { color: 'bg-slate-400', borderClass: 'border-slate-400', bgClass: 'bg-slate-50' },
             'back': { color: 'bg-slate-400', borderClass: 'border-slate-400', bgClass: 'bg-slate-50' },
             'screenshot': { color: 'bg-slate-400', borderClass: 'border-slate-400', bgClass: 'bg-slate-50' },
-            'test': { color: 'bg-zinc-500', borderClass: 'border-zinc-500', bgClass: 'bg-zinc-50' }
+            'test': { color: 'bg-zinc-500', borderClass: 'border-zinc-500', bgClass: 'bg-zinc-50' },
+
+            // System actions (ADB only)
+            'adb-reboot': { color: 'bg-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-50' }
         };
 
         const actionType = this.actionTypes[typeId];
@@ -1222,7 +1266,9 @@ class ActionConfigProvider {
             // Exit - 매크로 실행을 종료하는 액션들
             'success': '매크로를 성공으로 표시하고 종료합니다',
             'skip': '현재 액션을 건너뛰고 다음으로 진행합니다',
-            'fail': '매크로를 실패로 표시하고 즉시 중단합니다'
+            'fail': '매크로를 실패로 표시하고 즉시 중단합니다',
+            // System - ADB 시스템 액션들
+            'adb-reboot': 'ADB를 통해 디바이스를 재부팅합니다'
         };
 
         // New 4-category palette structure
@@ -1230,7 +1276,7 @@ class ActionConfigProvider {
         const paletteCategories = {
             actions: ['click', 'long-press', 'drag', 'input', 'tap-matched-image'],
             conditions: ['image-match', 'sound-check', 'get-volume'],
-            flow: ['wait', 'loop', 'log', 'set-variable', 'calc-variable'],
+            flow: ['wait', 'loop', 'log', 'set-variable', 'calc-variable', 'adb-reboot'],
             exit: ['success', 'skip', 'fail']
         };
 
